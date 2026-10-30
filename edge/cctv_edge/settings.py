@@ -1,0 +1,78 @@
+from functools import lru_cache
+from pathlib import Path
+
+from pydantic import Field, SecretStr, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class EdgeSettings(BaseSettings):
+    """Device-local settings. Everything per-branch (cameras, zones, features) comes from
+    the cloud config instead; see `cctv_contracts.v1.EdgeConfig`."""
+
+    model_config = SettingsConfigDict(env_prefix="CCTV_EDGE_", env_file=".env", extra="ignore")
+
+    cloud_url: str = "http://localhost:8000"
+    device_token: SecretStr = SecretStr("")
+    http_timeout_seconds: float = 10
+
+    data_dir: Path = Path("/var/lib/cctv-edge")
+    # JSON file {credentials_ref: {"username": ..., "password": ...}}, readable by the service only.
+    credentials_file: Path = Path("/etc/cctv-edge/credentials.json")
+    ffmpeg: str = "ffmpeg"
+
+    # Analysis stream: decoded at a low fps and resolution for detection.
+    analysis_fps: float = Field(default=5, gt=0, le=30)
+    analysis_width: int = 640
+    analysis_height: int = 360
+    # A camera is offline after this long without frames.
+    stale_after_seconds: float = 10
+
+    # Ring buffer of the main stream that clips are cut from. It must cover the longest
+    # event plus pre/post-roll (up to 30 s + 60 s) and the time to cut the clip.
+    segment_seconds: int = Field(default=2, ge=1, le=10)
+    ring_seconds: int = Field(default=240, ge=60, le=1800)
+    # Events longer than this are closed and a new one starts, so clips stay small.
+    max_event_seconds: int = Field(default=120, ge=10, le=600)
+
+    # Local media (snapshots, clips) waiting for or already uploaded to the cloud.
+    disk_quota_bytes: int = 20 * 1024**3
+    keep_sent_media_hours: float = 24
+
+    sync_interval_seconds: float = 2
+    config_poll_seconds: float = 60
+    heartbeat_seconds: float = 30
+
+    # Detectors to load: "motion" works without model weights. Person detection is added
+    # with the model in Phase 5.
+    detectors: list[str] = Field(default_factory=lambda: ["motion"])
+
+    @model_validator(mode="after")
+    def _check_ring(self) -> "EdgeSettings":
+        if self.ring_seconds < self.max_event_seconds + 100:
+            raise ValueError("ring_seconds must be at least max_event_seconds + 100")
+        return self
+
+    @property
+    def media_dir(self) -> Path:
+        return self.data_dir / "media"
+
+    @property
+    def ring_dir(self) -> Path:
+        return self.data_dir / "ring"
+
+    @property
+    def outbox_path(self) -> Path:
+        return self.data_dir / "outbox.sqlite3"
+
+    @property
+    def config_path(self) -> Path:
+        return self.data_dir / "config.json"
+
+    @property
+    def alive_path(self) -> Path:
+        return self.data_dir / "alive"
+
+
+@lru_cache
+def get_settings() -> EdgeSettings:
+    return EdgeSettings()

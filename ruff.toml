@@ -11,4 +11,4 @@ select = ["E", "F", "W", "I", "B", "UP", "S", "N", "SIM", "RUF"]
 "cloud/migrations/**" = ["E501", "S608"]
 
 [lint.isort]
-known-first-party = ["cctv_contracts", "cctv_cloud"]
+known-first-party = ["cctv_contracts", "cctv_cloud", "cctv_edge"]

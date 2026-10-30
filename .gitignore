@@ -61,3 +61,6 @@ Thumbs.db
 .idea/
 .vscode/
 *.log
+
+# Local edge service data
+.edge-data/

@@ -1,0 +1,29 @@
+# Edge box (Jetson) stack. Installed to /opt/cctv-edge by provision.sh and started at boot.
+#   docker compose -f /opt/cctv-edge/docker-compose.yml up -d
+# Settings come from /etc/cctv-edge/edge.env (device token, cloud URL); camera passwords
+# from /etc/cctv-edge/credentials.json. Neither file is in git. Both are owned by uid 10001,
+# the service user inside the image. The service exits if one of its loops stalls, and
+# `restart: unless-stopped` brings it back.
+name: cctv-edge
+
+services:
+  edge:
+    image: ${CCTV_EDGE_IMAGE:-ghcr.io/easyoffice2026/cctv-edge:latest}
+    restart: unless-stopped
+    # Host networking: cameras and the NVR are on the branch LAN.
+    network_mode: host
+    env_file: /etc/cctv-edge/edge.env
+    volumes:
+      - /var/lib/cctv-edge:/data
+    secrets:
+      - camera-credentials
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: "5"
+
+secrets:
+  camera-credentials:
+    file: /etc/cctv-edge/credentials.json

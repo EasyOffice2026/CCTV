@@ -1,0 +1,307 @@
+"""Rules engine: turns per-frame observations into open/closed events.
+
+Each rule watches some labels (person, motion) anywhere in the frame or inside zones of
+given types, optionally only after/within working hours. An event opens once the
+condition has held for `min_duration_s`, stays open (one event, no repeats) while it
+keeps holding, and closes after `max_gap_s` without a match. `cooldown_s` then suppresses
+a new event for the same rule and zone, so one intruder pacing in and out of view does not
+produce a stream of alerts.
+"""
+
+import logging
+import uuid
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass, field, replace
+from datetime import datetime, timezone
+from enum import Enum
+from uuid import UUID
+
+from cctv_contracts.enums import EVENT_FEATURE, EventType, FeatureKey, Severity, ZoneType
+from cctv_contracts.v1 import FeatureConfig, ZoneConfig
+from cctv_edge.detection import MOTION, PERSON
+from cctv_edge.geometry import Box
+from cctv_edge.schedule import BranchSchedule
+
+log = logging.getLogger(__name__)
+
+
+class When(str, Enum):
+    ALWAYS = "always"
+    AFTER_HOURS = "after_hours"
+    OPEN_HOURS = "open_hours"
+
+
+class GroupBy(str, Enum):
+    TRACK = "track"  # one event per tracked object (and zone)
+    ZONE = "zone"  # one event per zone, however many objects are in it
+
+
+@dataclass(frozen=True)
+class RuleSpec:
+    event_type: EventType
+    labels: frozenset[str]
+    zone_types: frozenset[ZoneType] | None = None  # None: anywhere outside ignore zones
+    when: When = When.ALWAYS
+    group_by: GroupBy = GroupBy.TRACK
+    min_duration_s: float = 2.0
+    max_gap_s: float = 3.0
+    cooldown_s: float = 300.0
+    severity: Severity = Severity.WARNING
+
+    @property
+    def feature(self) -> FeatureKey:
+        return EVENT_FEATURE[self.event_type]
+
+
+# Rules each feature runs on the edge. Features missing here are implemented in Phase 5.
+DEFAULT_RULES: dict[FeatureKey, tuple[RuleSpec, ...]] = {
+    FeatureKey.SECURITY: (
+        RuleSpec(
+            EventType.AFTER_HOURS_PERSON,
+            frozenset({PERSON}),
+            when=When.AFTER_HOURS,
+            group_by=GroupBy.ZONE,
+            min_duration_s=3,
+            cooldown_s=300,
+            severity=Severity.CRITICAL,
+        ),
+        RuleSpec(
+            EventType.AFTER_HOURS_MOTION,
+            frozenset({MOTION}),
+            when=When.AFTER_HOURS,
+            group_by=GroupBy.ZONE,
+            min_duration_s=2,
+            cooldown_s=600,
+        ),
+        RuleSpec(
+            EventType.RESTRICTED_AREA_ENTRY,
+            frozenset({PERSON}),
+            zone_types=frozenset({ZoneType.RESTRICTED}),
+            min_duration_s=2,
+            cooldown_s=120,
+            severity=Severity.CRITICAL,
+        ),
+    ),
+}
+
+_TUNABLE = ("min_duration_s", "max_gap_s", "cooldown_s")
+
+
+def rules_for_features(features: Sequence[FeatureConfig]) -> list[RuleSpec]:
+    """Rules for the enabled features, with per-rule overrides from `params`:
+    `{"after_hours_motion": {"enabled": false}, "after_hours_person": {"min_duration_s": 5}}`.
+    """
+    rules: list[RuleSpec] = []
+    for feature in features:
+        defaults = DEFAULT_RULES.get(feature.key)
+        if defaults is None:
+            log.warning("feature %s has no edge rules yet; skipping", feature.key.value)
+            continue
+        for rule in defaults:
+            overrides = feature.params.get(rule.event_type.value)
+            if overrides is None:
+                rules.append(rule)
+                continue
+            try:
+                updated = _apply_overrides(rule, overrides)
+            except (TypeError, ValueError) as exc:
+                log.warning("ignoring params for %s: %s", rule.event_type.value, exc)
+                updated = rule
+            if updated is not None:
+                rules.append(updated)
+    return rules
+
+
+def _apply_overrides(rule: RuleSpec, overrides: object) -> RuleSpec | None:
+    if not isinstance(overrides, Mapping):
+        raise TypeError("expected an object")
+    if overrides.get("enabled", True) is False:
+        return None
+    changes: dict[str, object] = {}
+    for name in _TUNABLE:
+        if name in overrides:
+            value = overrides[name]
+            if isinstance(value, bool) or not isinstance(value, int | float) or value < 0:
+                raise ValueError(f"{name} must be a non-negative number")
+            changes[name] = float(value)
+    if "severity" in overrides:
+        changes["severity"] = Severity(overrides["severity"])
+    return replace(rule, **changes)
+
+
+@dataclass(frozen=True)
+class Observation:
+    label: str
+    box: Box
+    confidence: float
+    track_id: int | None
+    zone_ids: frozenset[UUID]  # zones containing the object's foot point
+
+
+@dataclass(frozen=True)
+class EventOpened:
+    event_id: UUID
+    rule: RuleSpec
+    started_at: float
+    confidence: float
+    zone_id: UUID | None
+    track_id: int | None
+    boxes: tuple[Box, ...]
+    continues: UUID | None = None  # previous event when a long event is split
+
+
+@dataclass(frozen=True)
+class EventClosed:
+    event_id: UUID
+    rule: RuleSpec
+    started_at: float
+    ended_at: float
+    confidence: float
+
+
+RuleOutput = EventOpened | EventClosed
+
+
+@dataclass
+class _State:
+    first_seen: float
+    last_seen: float
+    confidence: float = 0.0
+    boxes: tuple[Box, ...] = ()
+    event_id: UUID | None = None
+    started_at: float = 0.0
+
+
+_Key = tuple[int | None, UUID | None]
+
+
+@dataclass
+class _RuleState:
+    rule: RuleSpec
+    states: dict[_Key, _State] = field(default_factory=dict)
+    cooldown_until: dict[UUID | None, float] = field(default_factory=dict)
+
+
+class RuleEngine:
+    def __init__(
+        self,
+        rules: Iterable[RuleSpec],
+        zones: Sequence[ZoneConfig],
+        schedule: BranchSchedule,
+        max_event_seconds: float = 120,
+    ) -> None:
+        self._rules = [_RuleState(r) for r in rules]
+        self._zone_types = {z.id: z.type for z in zones}
+        self.schedule = schedule
+        self.max_event_seconds = max_event_seconds
+
+    @property
+    def labels(self) -> frozenset[str]:
+        """Labels the rules need, so only those detectors run."""
+        return frozenset().union(*(rs.rule.labels for rs in self._rules))
+
+    def open_events(self) -> list[UUID]:
+        return [
+            s.event_id for rs in self._rules for s in rs.states.values() if s.event_id is not None
+        ]
+
+    def update(self, ts: float, observations: Sequence[Observation]) -> list[RuleOutput]:
+        outputs: list[RuleOutput] = []
+        is_open = self.schedule.is_open(datetime.fromtimestamp(ts, timezone.utc))
+        for rs in self._rules:
+            rule = rs.rule
+            active = (
+                rule.when is When.ALWAYS
+                or (rule.when is When.AFTER_HOURS and not is_open)
+                or (rule.when is When.OPEN_HOURS and is_open)
+            )
+            if not active:
+                outputs.extend(self._close_all(rs))
+                continue
+            seen = self._group(rule, observations)
+            for key, (confidence, boxes) in seen.items():
+                state = rs.states.get(key)
+                if state is None:
+                    state = rs.states[key] = _State(first_seen=ts, last_seen=ts)
+                state.last_seen = ts
+                state.confidence = max(state.confidence, confidence)
+                state.boxes = boxes
+                outputs.extend(self._advance(rs, key, state, ts))
+            for key, state in list(rs.states.items()):
+                if key not in seen and ts - state.last_seen > rule.max_gap_s:
+                    del rs.states[key]
+                    if state.event_id is not None:
+                        outputs.append(self._closed(rs, key, state, state.last_seen))
+        return outputs
+
+    def close_all(self) -> list[RuleOutput]:
+        """Close every open event (ended when last seen), e.g. on config change or shutdown."""
+        outputs: list[RuleOutput] = []
+        for rs in self._rules:
+            outputs.extend(self._close_all(rs))
+        return outputs
+
+    def _group(
+        self, rule: RuleSpec, observations: Sequence[Observation]
+    ) -> dict[_Key, tuple[float, tuple[Box, ...]]]:
+        seen: dict[_Key, tuple[float, tuple[Box, ...]]] = {}
+        for obs in observations:
+            if obs.label not in rule.labels:
+                continue
+            if rule.zone_types is None:
+                zone_ids: Iterable[UUID | None] = [None]
+            else:
+                zone_ids = [z for z in obs.zone_ids if self._zone_types.get(z) in rule.zone_types]
+            track = obs.track_id if rule.group_by is GroupBy.TRACK else None
+            for zone_id in zone_ids:
+                confidence, boxes = seen.get((track, zone_id), (0.0, ()))
+                seen[(track, zone_id)] = (max(confidence, obs.confidence), (*boxes, obs.box))
+        return seen
+
+    def _advance(self, rs: _RuleState, key: _Key, state: _State, ts: float) -> list[RuleOutput]:
+        rule = rs.rule
+        if state.event_id is None:
+            held = ts - state.first_seen >= rule.min_duration_s
+            if held and ts >= rs.cooldown_until.get(key[1], float("-inf")):
+                return [self._open(rule, key, state, state.first_seen)]
+            return []
+        if ts - state.started_at < self.max_event_seconds:
+            return []
+        # Split long events so each clip stays short; the next one continues immediately.
+        closed = EventClosed(state.event_id, rule, state.started_at, ts, state.confidence)
+        return [closed, self._open(rule, key, state, ts, continues=state.event_id)]
+
+    def _open(
+        self,
+        rule: RuleSpec,
+        key: _Key,
+        state: _State,
+        started_at: float,
+        continues: UUID | None = None,
+    ) -> EventOpened:
+        state.event_id = uuid.uuid4()
+        state.started_at = started_at
+        return EventOpened(
+            state.event_id,
+            rule,
+            started_at,
+            state.confidence,
+            zone_id=key[1],
+            track_id=key[0],
+            boxes=state.boxes,
+            continues=continues,
+        )
+
+    def _closed(self, rs: _RuleState, key: _Key, state: _State, ended_at: float) -> EventClosed:
+        assert state.event_id is not None  # noqa: S101
+        rs.cooldown_until[key[1]] = ended_at + rs.rule.cooldown_s
+        return EventClosed(state.event_id, rs.rule, state.started_at, ended_at, state.confidence)
+
+    def _close_all(self, rs: _RuleState) -> list[RuleOutput]:
+        outputs: list[RuleOutput] = [
+            self._closed(rs, key, state, state.last_seen)
+            for key, state in rs.states.items()
+            if state.event_id is not None
+        ]
+        rs.states.clear()
+        return outputs

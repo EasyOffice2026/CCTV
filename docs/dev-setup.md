@@ -11,7 +11,7 @@
 ```bash
 python -m venv .venv
 # Windows: .venv\Scripts\activate    macOS/Linux: source .venv/bin/activate
-pip install -e "contracts[test]" -e "cloud[test]" pre-commit
+pip install -e "contracts[test]" -e "cloud[test]" -e "edge[test]" pre-commit
 pre-commit install
 ```
 
@@ -52,6 +52,7 @@ in development and on site.
 
 ```bash
 pytest contracts
+cd edge && pytest && cd ..   # edge service; uses a fake cloud and ffmpeg (see edge/README.md)
 
 # Cloud tests need Postgres (the docker stack above). The test database's schema is wiped.
 export CCTV_TEST_MIGRATION_DATABASE_URL=postgresql+psycopg://cctv_owner:cctv_owner@localhost:5432/cctv_test

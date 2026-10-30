@@ -90,9 +90,8 @@ What this means for the project:
 ```
 CCTV/
 ├── contracts/        # shared edge↔cloud API models (v1) + JSON Schemas
-├── edge/             # Jetson service: ingest, pipelines, rules, clipper, sync agent
-│   ├── pipelines/    # one module per feature (attendance, kitchen, cashier, ...)
-│   └── models/       # model configs (weights stored outside git)
+├── edge/
+│   └── cctv_edge/    # Jetson service: ingest, ring buffer, detection, rules, clips, outbox, sync
 ├── cloud/
 │   ├── cctv_cloud/   # FastAPI app (api/), DB models (db/), later workers/
 │   └── migrations/   # Alembic
@@ -173,18 +172,19 @@ Assumes about **2 developers** (1 backend/frontend, 1 CV/edge). One developer al
 
 ### Phase 2 — Edge core (Week 3–6)
 
-- [ ] 2.1 Jetson provisioning script: JetPack, Docker, NVMe, VPN agent, auto-start, watchdog.
-- [ ] 2.2 **Stream ingest:** go2rtc pulls each camera once; AI reads the sub-stream (or main stream at reduced fps for PPE); reconnect logic; per-camera health status.
-- [ ] 2.3 **Ring buffer:** keep the last ~30 s per camera as video segments, so a clip can include **pre-event** footage (e.g. 10 s before + 10 s after).
-- [ ] 2.4 **Base pipeline:** decode → person detection → tracking (track IDs) → zone tests (point-in-polygon on foot point) → line crossing.
-- [ ] 2.5 **Rules engine:** turns detections into events using config — zone, schedule (working hours / after-hours), min duration, cooldown. **Deduplication:** one ongoing event per track/zone, with an "ended" update instead of repeats.
-- [ ] 2.6 **Clipper:** event → MP4 clip (H.264 so browsers can play it) + JPEG snapshot with the bounding box drawn.
-- [ ] 2.7 **Outbox & sync:** events stored in SQLite first, sent to the cloud with retry/backoff, so **nothing is lost when the internet is down**. Local disk quota with oldest-first cleanup.
-- [ ] 2.8 **Config sync:** pull the resolved feature settings, zones and schedules; apply without restart; only run pipelines for enabled features.
-- [ ] 2.9 Heartbeat + metrics (FPS per camera, GPU/CPU temp, disk, queue length).
-- [ ] 2.10 OTA updates: pull a signed Docker image tag set from the cloud; roll back if health fails.
+- [x] 2.1 Jetson provisioning script: JetPack, Docker, NVMe, VPN agent, auto-start, watchdog (`infra/edge/provision.sh`). *Not yet run on real Jetson hardware. VPN uses Tailscale; switch if WireGuard is chosen.*
+- [x] 2.2 **Stream ingest:** each stream is pulled once (main → ring buffer, sub → AI; main at reduced fps if there is no sub-stream); reconnect with backoff; per-camera health (online/degraded/offline, fps). *Decoding uses ffmpeg on the CPU for now; Jetson hardware decode comes with the model in Phase 5. go2rtc is added with live view (Phase 4).*
+- [x] 2.3 **Ring buffer:** the main stream is copied (no re-encode) into 2 s segments named by UTC start time, kept for 4 min, so a clip can include **pre-event** footage (10 s before + 10 s after by default).
+- [ ] 2.4 **Base pipeline:** decode → detection → tracking (track IDs) → zone tests (point-in-polygon on foot point, ignore zones) → line crossing. *Done except the **person detector model**, which needs the model/licence decision (§1 #12) and comes in Phase 5. A motion detector (no weights) works now. The IoU tracker is replaced by ByteTrack along with it.*
+- [x] 2.5 **Rules engine:** turns detections into events using config — zone, schedule (working hours / after-hours), min duration, cooldown. **Deduplication:** one ongoing event per track/zone, with an "ended" update instead of repeats. Events longer than 2 min are split so clips stay small. *Security rules only so far; other features add their rules in Phase 5.*
+- [x] 2.6 **Clipper:** event → MP4 clip (H.264, browser-playable) + JPEG snapshot with the bounding box drawn. Falls back to a clip made from the snapshot when there is no footage.
+- [x] 2.7 **Outbox & sync:** events stored in SQLite first, sent to the cloud with retry/backoff, so **nothing is lost when the internet is down**. Local disk quota with oldest-first cleanup.
+- [x] 2.8 **Config sync:** pull the resolved feature settings, zones and schedules; apply without restart; only run pipelines for enabled features. Last config is kept on disk for offline reboots. *Polls every 60 s and when the heartbeat reports a newer version; MQTT push comes with 3.4.*
+- [x] 2.9 Heartbeat + metrics (FPS per camera, GPU/CPU temp, disk, queue length); clock-drift warning against the cloud.
+- [ ] 2.10 OTA updates: pull a signed Docker image tag set from the cloud; roll back if health fails. *Needs a cloud endpoint (Phase 3) and decisions on the image registry and signing key.*
 
 **Exit:** on the simulated cameras, an "after-hours person" event appears in the cloud DB with clip and snapshot in under 10 s, and is buffered and synced correctly when the network is cut.
+*Status: verified in automated tests against a fake cloud (real ffmpeg ring buffer and clip, scripted person detections, network cut). The real check needs the cloud event API (3.5) and the person model (Phase 5).*
 
 ### Phase 3 — Cloud platform core (Week 4–7)
 

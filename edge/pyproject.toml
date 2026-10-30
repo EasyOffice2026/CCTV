@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cctv-edge"
+version = "0.1.0"
+description = "Edge AI service (Jetson) for the AI CCTV system"
+# JetPack 6 / Ubuntu 22.04 ships Python 3.10.
+requires-python = ">=3.10"
+# cctv-contracts is a local package: install ../contracts first (see docs/dev-setup.md).
+# ffmpeg must be on PATH (or set CCTV_EDGE_FFMPEG).
+dependencies = [
+    "cctv-contracts",
+    "httpx>=0.27",
+    "numpy>=1.26",
+    "pillow>=10.4",
+    "psutil>=6",
+    "pydantic-settings>=2.6",
+]
+
+[project.optional-dependencies]
+# imageio-ffmpeg provides an ffmpeg binary for tests on machines without one.
+test = ["pytest>=8", "imageio-ffmpeg>=0.5"]
+
+[project.scripts]
+cctv-edge = "cctv_edge.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cctv_edge"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -6,17 +6,18 @@ Pilot site: Mudawara. Built as a multi-tenant product for later client rollout.
 - Plan: [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md)
 - Getting started: [docs/dev-setup.md](docs/dev-setup.md)
 - Edge ↔ cloud API: [contracts/README.md](contracts/README.md)
+- Edge service: [edge/README.md](edge/README.md)
 
 ## Repository layout
 
 | Folder | Purpose |
 |---|---|
 | `contracts/` | Shared edge ↔ cloud API models (v1) and JSON Schemas |
-| `edge/` | Edge AI service (Jetson): stream ingest, detection pipelines, rules, clip saving, cloud sync |
+| `edge/` | Edge AI service (`cctv_edge`, Jetson): stream ingest, ring buffer, detection, rules, clips, offline outbox, cloud sync |
 | `cloud/` | Cloud platform: FastAPI API (`cctv_cloud`), database models, Alembic migrations |
 | `web/` | Web dashboard and admin panel (Next.js) |
 | `ml/` | Dataset tools, labelling exports, training and evaluation scripts |
-| `infra/` | docker-compose dev stack, simulated cameras, Postgres init, (later) Terraform |
+| `infra/` | docker-compose dev stack, simulated cameras, Postgres init, Jetson provisioning (`infra/edge/`), (later) Terraform |
 | `docs/` | Plan, setup guide, onboarding checklist, runbooks |
 
 ## Data rules

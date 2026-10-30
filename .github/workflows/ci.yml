@@ -34,6 +34,22 @@ jobs:
       - run: pip install -e "contracts[test]"
       - run: pytest contracts
 
+  edge:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        # 3.10 = Jetson (JetPack 6), 3.12 = newer dev machines
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - run: pip install -e contracts -e "edge[test]"
+      - run: pytest
+        working-directory: edge
+
   cloud:
     runs-on: ubuntu-24.04
     services:
@@ -68,3 +84,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker build -f cloud/Dockerfile -t cctv-api:ci .
+      - run: docker build -f edge/Dockerfile -t cctv-edge:ci .

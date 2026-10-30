@@ -8,6 +8,5 @@ ml/data
 ml/datasets
 docs
 web
-edge
 .env
 .env.*
