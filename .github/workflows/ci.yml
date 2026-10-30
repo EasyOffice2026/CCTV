@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install "ruff==0.17.3"
+      - run: ruff check .
+      - run: ruff format --check .
+
+  contracts:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        # 3.10 = Jetson (JetPack 6), 3.12 = cloud
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e "contracts[test]"
+      - run: pytest contracts
+
+  cloud:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cctv_owner
+          POSTGRES_PASSWORD: cctv_owner
+          POSTGRES_DB: cctv_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U cctv_owner -d cctv_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      CCTV_TEST_MIGRATION_DATABASE_URL: postgresql+psycopg://cctv_owner:cctv_owner@localhost:5432/cctv_test
+      CCTV_TEST_DATABASE_URL: postgresql+psycopg://cctv_app:cctv_app@localhost:5432/cctv_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Create restricted app role
+        run: >-
+          PGPASSWORD=cctv_owner psql -h localhost -U cctv_owner -d cctv_test
+          -c "CREATE ROLE cctv_app LOGIN PASSWORD 'cctv_app' NOSUPERUSER NOBYPASSRLS"
+      - run: pip install -e contracts -e "cloud[test]"
+      - run: pytest
+        working-directory: cloud
+
+  docker:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f cloud/Dockerfile -t cctv-api:ci .

@@ -1,0 +1,41 @@
+{
+  "description": "Pre-signed upload target. The edge PUTs the file, then sends `media_key` in the event.",
+  "properties": {
+    "expires_at": {
+      "format": "date-time",
+      "title": "Expires At",
+      "type": "string"
+    },
+    "headers": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Headers",
+      "type": "object"
+    },
+    "media_key": {
+      "maxLength": 512,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9/_.\\-]+$",
+      "title": "Media Key",
+      "type": "string"
+    },
+    "method": {
+      "const": "PUT",
+      "default": "PUT",
+      "title": "Method",
+      "type": "string"
+    },
+    "upload_url": {
+      "title": "Upload Url",
+      "type": "string"
+    }
+  },
+  "required": [
+    "media_key",
+    "upload_url",
+    "expires_at"
+  ],
+  "title": "UploadUrlResponse",
+  "type": "object"
+}

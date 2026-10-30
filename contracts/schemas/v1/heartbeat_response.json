@@ -1,0 +1,20 @@
+{
+  "properties": {
+    "latest_config_version": {
+      "minimum": 0,
+      "title": "Latest Config Version",
+      "type": "integer"
+    },
+    "server_time": {
+      "format": "date-time",
+      "title": "Server Time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "server_time",
+    "latest_config_version"
+  ],
+  "title": "HeartbeatResponse",
+  "type": "object"
+}

@@ -1,0 +1,159 @@
+{
+  "$defs": {
+    "CameraHealth": {
+      "enum": [
+        "online",
+        "degraded",
+        "offline"
+      ],
+      "title": "CameraHealth",
+      "type": "string"
+    },
+    "CameraStatus": {
+      "properties": {
+        "camera_id": {
+          "format": "uuid",
+          "title": "Camera Id",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "fps": {
+          "minimum": 0,
+          "title": "Fps",
+          "type": "number"
+        },
+        "health": {
+          "$ref": "#/$defs/CameraHealth"
+        },
+        "last_frame_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Frame At"
+        }
+      },
+      "required": [
+        "camera_id",
+        "health",
+        "fps"
+      ],
+      "title": "CameraStatus",
+      "type": "object"
+    },
+    "SystemStats": {
+      "properties": {
+        "cpu_percent": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Cpu Percent",
+          "type": "number"
+        },
+        "disk_free_bytes": {
+          "minimum": 0,
+          "title": "Disk Free Bytes",
+          "type": "integer"
+        },
+        "gpu_percent": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gpu Percent"
+        },
+        "outbox_pending": {
+          "description": "Events/media waiting to be synced",
+          "minimum": 0,
+          "title": "Outbox Pending",
+          "type": "integer"
+        },
+        "temperature_c": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Temperature C"
+        }
+      },
+      "required": [
+        "cpu_percent",
+        "disk_free_bytes",
+        "outbox_pending"
+      ],
+      "title": "SystemStats",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "cameras": {
+      "items": {
+        "$ref": "#/$defs/CameraStatus"
+      },
+      "title": "Cameras",
+      "type": "array"
+    },
+    "config_version_applied": {
+      "minimum": 0,
+      "title": "Config Version Applied",
+      "type": "integer"
+    },
+    "sent_at": {
+      "format": "date-time",
+      "title": "Sent At",
+      "type": "string"
+    },
+    "software_version": {
+      "maxLength": 50,
+      "title": "Software Version",
+      "type": "string"
+    },
+    "system": {
+      "$ref": "#/$defs/SystemStats"
+    },
+    "uptime_seconds": {
+      "minimum": 0,
+      "title": "Uptime Seconds",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "sent_at",
+    "software_version",
+    "config_version_applied",
+    "uptime_seconds",
+    "cameras",
+    "system"
+  ],
+  "title": "Heartbeat",
+  "type": "object"
+}

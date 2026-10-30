@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cctv-cloud"
+version = "0.1.0"
+description = "Multi-tenant cloud platform for the AI CCTV system"
+requires-python = ">=3.12"
+# cctv-contracts is a local package: install ../contracts first (see docs/dev-setup.md).
+dependencies = [
+    "cctv-contracts",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "sqlalchemy>=2.0.36",
+    "alembic>=1.14",
+    "psycopg[binary]>=3.2",
+    "pydantic-settings>=2.6",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8", "httpx>=0.27"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["cctv_cloud"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

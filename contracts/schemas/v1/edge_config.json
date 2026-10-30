@@ -1,0 +1,286 @@
+{
+  "$defs": {
+    "CameraConfig": {
+      "description": "A camera and the features that are *enabled* for it.\n\nFeature on/off is already resolved by the cloud (camera > branch > tenant > default),\nso the edge runs exactly the features listed and nothing else.",
+      "properties": {
+        "credentials_ref": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Credentials Ref"
+        },
+        "features": {
+          "items": {
+            "$ref": "#/$defs/FeatureConfig"
+          },
+          "title": "Features",
+          "type": "array"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 100,
+          "title": "Name",
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/$defs/CameraRole"
+        },
+        "rtsp_main": {
+          "title": "Rtsp Main",
+          "type": "string"
+        },
+        "rtsp_sub": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rtsp Sub"
+        },
+        "zones": {
+          "items": {
+            "$ref": "#/$defs/ZoneConfig"
+          },
+          "title": "Zones",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "role",
+        "rtsp_main"
+      ],
+      "title": "CameraConfig",
+      "type": "object"
+    },
+    "CameraRole": {
+      "enum": [
+        "entrance",
+        "staff_entrance",
+        "kitchen",
+        "counter",
+        "dining",
+        "storage",
+        "outdoor",
+        "other"
+      ],
+      "title": "CameraRole",
+      "type": "string"
+    },
+    "ClipSettings": {
+      "properties": {
+        "post_seconds": {
+          "default": 10,
+          "maximum": 60,
+          "minimum": 1,
+          "title": "Post Seconds",
+          "type": "integer"
+        },
+        "pre_seconds": {
+          "default": 10,
+          "maximum": 30,
+          "minimum": 0,
+          "title": "Pre Seconds",
+          "type": "integer"
+        }
+      },
+      "title": "ClipSettings",
+      "type": "object"
+    },
+    "FeatureConfig": {
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/FeatureKey"
+        },
+        "params": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Params",
+          "type": "object"
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "title": "FeatureConfig",
+      "type": "object"
+    },
+    "FeatureKey": {
+      "enum": [
+        "attendance",
+        "staff_activity",
+        "kitchen_compliance",
+        "cashier",
+        "customer_count",
+        "queue",
+        "security",
+        "heatmap",
+        "object_left_removed"
+      ],
+      "title": "FeatureKey",
+      "type": "string"
+    },
+    "JsonValue": {},
+    "WorkingHours": {
+      "properties": {
+        "closes_at": {
+          "description": "If not after opens_at, the branch closes the next day",
+          "format": "time",
+          "title": "Closes At",
+          "type": "string"
+        },
+        "opens_at": {
+          "format": "time",
+          "title": "Opens At",
+          "type": "string"
+        },
+        "weekday": {
+          "description": "0 = Monday",
+          "maximum": 6,
+          "minimum": 0,
+          "title": "Weekday",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "weekday",
+        "opens_at",
+        "closes_at"
+      ],
+      "title": "WorkingHours",
+      "type": "object"
+    },
+    "ZoneConfig": {
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 100,
+          "title": "Name",
+          "type": "string"
+        },
+        "points": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "maxItems": 64,
+          "minItems": 2,
+          "title": "Points",
+          "type": "array"
+        },
+        "type": {
+          "$ref": "#/$defs/ZoneType"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "type",
+        "points"
+      ],
+      "title": "ZoneConfig",
+      "type": "object"
+    },
+    "ZoneType": {
+      "enum": [
+        "kitchen",
+        "counter",
+        "cash_drawer",
+        "queue",
+        "dining",
+        "staff_area",
+        "restricted",
+        "ignore",
+        "entrance_line"
+      ],
+      "title": "ZoneType",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "branch_id": {
+      "format": "uuid",
+      "title": "Branch Id",
+      "type": "string"
+    },
+    "cameras": {
+      "items": {
+        "$ref": "#/$defs/CameraConfig"
+      },
+      "title": "Cameras",
+      "type": "array"
+    },
+    "clip": {
+      "$ref": "#/$defs/ClipSettings"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "tenant_id": {
+      "format": "uuid",
+      "title": "Tenant Id",
+      "type": "string"
+    },
+    "timezone": {
+      "default": "Asia/Kuwait",
+      "title": "Timezone",
+      "type": "string"
+    },
+    "version": {
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "working_hours": {
+      "items": {
+        "$ref": "#/$defs/WorkingHours"
+      },
+      "title": "Working Hours",
+      "type": "array"
+    }
+  },
+  "required": [
+    "version",
+    "generated_at",
+    "tenant_id",
+    "branch_id"
+  ],
+  "title": "EdgeConfig",
+  "type": "object"
+}

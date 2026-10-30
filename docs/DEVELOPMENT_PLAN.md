@@ -89,13 +89,13 @@ What this means for the project:
 
 ```
 CCTV/
+├── contracts/        # shared edge↔cloud API models (v1) + JSON Schemas
 ├── edge/             # Jetson service: ingest, pipelines, rules, clipper, sync agent
 │   ├── pipelines/    # one module per feature (attendance, kitchen, cashier, ...)
 │   └── models/       # model configs (weights stored outside git)
 ├── cloud/
-│   ├── api/          # FastAPI app
-│   ├── workers/      # alerts, reports, retention, backup
-│   └── migrations/
+│   ├── cctv_cloud/   # FastAPI app (api/), DB models (db/), later workers/
+│   └── migrations/   # Alembic
 ├── web/              # Next.js dashboard + admin panel
 ├── ml/               # dataset tools, labelling exports, training & evaluation scripts
 ├── infra/            # Terraform, docker-compose, edge provisioning
@@ -131,6 +131,8 @@ alerts_sent(id, event_id, user_id, channel, sent_at, status)
 audit_logs(id, tenant_id, user_id, action{view_live|view_clip|export|settings_change}, target, at, ip)
 ```
 
+This sketch is now implemented in [cloud/cctv_cloud/db/models](../cloud/cctv_cloud/db/models). Table and column names there are the source of truth: `counts` became `count_buckets`, `alerts_sent` became `alert_deliveries`, and `dedup_key` was dropped because the edge's `event_id` is the idempotency key.
+
 **Feature on/off resolution:** camera setting → otherwise branch → otherwise tenant → otherwise default. The edge device receives the *resolved* config, so a feature that is off never runs inference.
 
 ---
@@ -160,12 +162,12 @@ Assumes about **2 developers** (1 backend/frontend, 1 CV/edge). One developer al
 
 ### Phase 1 — Foundations (Week 2–3)
 
-- [ ] 1.1 Monorepo, branching rules, CI (lint, type-check, tests, Docker builds), pre-commit.
-- [ ] 1.2 Dev environment: `docker-compose` with Postgres, Redis, MinIO (local S3), MQTT, API, web.
-- [ ] 1.3 **Simulated cameras:** loop the collected footage as RTSP streams (MediaMTX + ffmpeg) so all development works without being on site.
-- [ ] 1.4 Cloud infrastructure (staging) with Terraform: Postgres, object storage, container hosting, secrets manager, TLS.
-- [ ] 1.5 DB schema v1 (§3) + migrations + **RLS policies** + a test that proves tenant A cannot read tenant B.
-- [ ] 1.6 Edge↔cloud contract: event JSON schema, clip upload flow (pre-signed URLs), heartbeat, config pull. Version it (`/v1`).
+- [x] 1.1 Monorepo, CI (lint, tests, Docker build), pre-commit. *Branching rules still to agree; type-checking (mypy) not added yet.*
+- [x] 1.2 Dev environment: `docker-compose` with Postgres, Redis, MinIO (local S3), MQTT, API. *Web is added in Phase 4.*
+- [x] 1.3 **Simulated cameras:** loop the collected footage as RTSP streams (MediaMTX + ffmpeg) so all development works without being on site.
+- [ ] 1.4 Cloud infrastructure (staging) with Terraform: Postgres, object storage, container hosting, secrets manager, TLS. *Blocked on the cloud provider/region decision (§1 #11).*
+- [x] 1.5 DB schema v1 (§3) + migrations + **RLS policies** + a test that proves tenant A cannot read tenant B.
+- [x] 1.6 Edge↔cloud contract: event JSON schema, clip upload flow (pre-signed URLs), heartbeat, config pull. Version it (`/v1`).
 
 **Exit:** `docker compose up` runs the whole stack on a laptop with simulated cameras.
 

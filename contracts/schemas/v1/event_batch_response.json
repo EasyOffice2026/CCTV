@@ -1,0 +1,49 @@
+{
+  "$defs": {
+    "EventResult": {
+      "properties": {
+        "accepted": {
+          "title": "Accepted",
+          "type": "boolean"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "accepted"
+      ],
+      "title": "EventResult",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "results": {
+      "items": {
+        "$ref": "#/$defs/EventResult"
+      },
+      "title": "Results",
+      "type": "array"
+    }
+  },
+  "required": [
+    "results"
+  ],
+  "title": "EventBatchResponse",
+  "type": "object"
+}

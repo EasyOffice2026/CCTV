@@ -1,0 +1,69 @@
+# Local development stack. Usage (from the repo root):
+#   docker compose -f infra/docker-compose.yml up -d
+# See docs/dev-setup.md. Dev-only credentials; never reuse them anywhere else.
+name: cctv
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cctv_owner
+      POSTGRES_PASSWORD: cctv_owner
+      POSTGRES_DB: cctv
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cctv_owner -d cctv"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  # S3-compatible object storage for clips and snapshots.
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: cctv
+      MINIO_ROOT_PASSWORD: cctv-dev-secret
+    ports: ["9000:9000", "9001:9001"]
+    volumes:
+      - miniodata:/data
+
+  # Edge <-> cloud messaging (config-change notifications).
+  mqtt:
+    image: eclipse-mosquitto:2
+    ports: ["1883:1883"]
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  # Simulated cameras: plays recorded footage from ml/data/footage as RTSP streams.
+  sim-cameras:
+    image: bluenviron/mediamtx:latest-ffmpeg
+    ports: ["8554:8554", "8889:8889"]
+    volumes:
+      - ./mediamtx/mediamtx.yml:/mediamtx.yml:ro
+      - ../ml/data/footage:/footage:ro
+
+  api:
+    build:
+      context: ..
+      dockerfile: cloud/Dockerfile
+    environment:
+      CCTV_ENVIRONMENT: dev
+      CCTV_DATABASE_URL: postgresql+psycopg://cctv_app:cctv_app@postgres:5432/cctv
+      CCTV_MIGRATION_DATABASE_URL: postgresql+psycopg://cctv_owner:cctv_owner@postgres:5432/cctv
+    command: ["sh", "-c", "alembic upgrade head && uvicorn cctv_cloud.main:app --host 0.0.0.0 --port 8000"]
+    ports: ["8000:8000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  miniodata:

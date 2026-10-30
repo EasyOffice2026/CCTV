@@ -1,0 +1,209 @@
+{
+  "$defs": {
+    "EventIn": {
+      "description": "One detection sent by the edge.\n\n`event_id` is generated on the edge and is the idempotency key: resending the\nsame id (retry, or an update to an ongoing event) updates the stored event.",
+      "properties": {
+        "attributes": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Attributes",
+          "type": "object"
+        },
+        "camera_id": {
+          "format": "uuid",
+          "title": "Camera Id",
+          "type": "string"
+        },
+        "clip_key": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9/_.\\-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Clip Key"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "ended_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ended At"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "$ref": "#/$defs/EventType"
+        },
+        "feature": {
+          "$ref": "#/$defs/FeatureKey"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning"
+        },
+        "snapshot_key": {
+          "maxLength": 512,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9/_.\\-]+$",
+          "title": "Snapshot Key",
+          "type": "string"
+        },
+        "staff_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Staff Id"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/EventStatus",
+          "default": "open"
+        },
+        "track_id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Track Id"
+        },
+        "zone_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Zone Id"
+        }
+      },
+      "required": [
+        "event_id",
+        "camera_id",
+        "feature",
+        "event_type",
+        "started_at",
+        "confidence",
+        "snapshot_key"
+      ],
+      "title": "EventIn",
+      "type": "object"
+    },
+    "EventStatus": {
+      "enum": [
+        "open",
+        "closed"
+      ],
+      "title": "EventStatus",
+      "type": "string"
+    },
+    "EventType": {
+      "enum": [
+        "staff_check_in",
+        "staff_check_out",
+        "phone_use",
+        "staff_idle",
+        "left_assigned_area",
+        "missing_mask",
+        "missing_gloves",
+        "missing_hair_cap",
+        "hygiene_rule_break",
+        "drawer_open",
+        "counter_unattended",
+        "occupancy_high",
+        "queue_long",
+        "after_hours_person",
+        "after_hours_motion",
+        "restricted_area_entry",
+        "object_left",
+        "object_removed"
+      ],
+      "title": "EventType",
+      "type": "string"
+    },
+    "FeatureKey": {
+      "enum": [
+        "attendance",
+        "staff_activity",
+        "kitchen_compliance",
+        "cashier",
+        "customer_count",
+        "queue",
+        "security",
+        "heatmap",
+        "object_left_removed"
+      ],
+      "title": "FeatureKey",
+      "type": "string"
+    },
+    "JsonValue": {},
+    "Severity": {
+      "enum": [
+        "info",
+        "warning",
+        "critical"
+      ],
+      "title": "Severity",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "events": {
+      "items": {
+        "$ref": "#/$defs/EventIn"
+      },
+      "maxItems": 100,
+      "minItems": 1,
+      "title": "Events",
+      "type": "array"
+    }
+  },
+  "required": [
+    "events"
+  ],
+  "title": "EventBatch",
+  "type": "object"
+}

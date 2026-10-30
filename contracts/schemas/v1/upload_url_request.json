@@ -1,0 +1,50 @@
+{
+  "$defs": {
+    "MediaKind": {
+      "enum": [
+        "snapshot",
+        "clip"
+      ],
+      "title": "MediaKind",
+      "type": "string"
+    }
+  },
+  "description": "Ask the cloud where to upload a snapshot or clip for an event.",
+  "properties": {
+    "content_type": {
+      "enum": [
+        "image/jpeg",
+        "video/mp4"
+      ],
+      "title": "Content Type",
+      "type": "string"
+    },
+    "event_id": {
+      "format": "uuid",
+      "title": "Event Id",
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/MediaKind"
+    },
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Sha256",
+      "type": "string"
+    },
+    "size_bytes": {
+      "exclusiveMinimum": 0,
+      "title": "Size Bytes",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "event_id",
+    "kind",
+    "content_type",
+    "size_bytes",
+    "sha256"
+  ],
+  "title": "UploadUrlRequest",
+  "type": "object"
+}

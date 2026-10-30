@@ -1,0 +1,14 @@
+target-version = "py310"
+line-length = 100
+extend-exclude = ["contracts/schemas"]
+
+[lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "N", "SIM", "RUF"]
+
+[lint.per-file-ignores]
+"**/tests/**" = ["S101", "S105", "S106", "S608"]
+# Generated / literal SQL in migrations.
+"cloud/migrations/**" = ["E501", "S608"]
+
+[lint.isort]
+known-first-party = ["cctv_contracts", "cctv_cloud"]
