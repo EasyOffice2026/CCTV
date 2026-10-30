@@ -1,0 +1,63 @@
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+
+# Footage, images and datasets (never commit client video or faces)
+*.mp4
+*.mkv
+*.avi
+*.h264
+*.h265
+ml/data/
+ml/datasets/
+recordings/
+clips/
+snapshots/
+
+# Model weights
+*.pt
+*.pth
+*.onnx
+*.engine
+*.trt
+*.weights
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
