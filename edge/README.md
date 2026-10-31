@@ -2,13 +2,17 @@
 
 Runs on the Jetson box in each branch. It reads the cameras, detects and tracks people,
 applies the rules for the features that are switched on, saves a snapshot and clip for every
-event, and sends everything to the cloud. When the internet is down, nothing is lost.
+event, recognises enrolled staff for attendance, counts people, and sends everything to the
+cloud. When the internet is down, nothing is lost.
 
 ## How it works
 
 ```
 camera main stream ─► ring buffer (2 s segments, last 4 min, no re-encode) ──────┐
 camera sub-stream ─► decode 5 fps ─► detectors ─► tracker ─► zones ─► rules ─────┤
+                         │                              ├─► PPE / drawer classifiers ┤
+                         │                              └─► counts (5-min buckets) ──┤
+                         └─► faces ─► match enrolled staff ─► sightings ─────────────┤
                                                                                  ▼
                      event opened ─► snapshot.jpg ─► outbox (SQLite) ─► sync ─► cloud
                      event ended  ─► wait post-roll ─► clip.mp4 from ring buffer ─► outbox
@@ -18,33 +22,153 @@ camera sub-stream ─► decode 5 fps ─► detectors ─► tracker ─► zon
 |---|---|
 | `streams.py` | ffmpeg decode of the analysis stream, reconnect with backoff, health (online / degraded / offline) |
 | `ringbuffer.py` | Keeps recent main-stream footage so clips include the 10 s **before** an event |
-| `detection.py` | Detector interface, motion detector, IoU tracker |
-| `pipeline.py` | Per camera: detect → ignore zones → track → zone tests → line counting → rules |
-| `rules.py` | Open/close events: schedule, min duration, max gap, cooldown, one event per track/zone |
+| `detection.py` | Detector interface, motion detector |
+| `models/` | Model manifests, ONNX detectors (YOLOX, RT-DETR/D-FINE) and crop classifiers, registry |
+| `tracking.py` | ByteTrack-style tracker (two-stage matching, velocity prediction) |
+| `pipeline.py` | Per camera: detect → ignore zones → track → zone tests → PPE / drawer / counts → rules; faces |
+| `rules.py` | Open/close events: schedule, min duration, max gap, cooldown, presence or absence, per-feature rules and params |
+| `ppe.py` | Kitchen compliance: quality gate, mask / gloves / hair cap verdicts per person |
+| `counts.py` | Entrance-line in/out and zone occupancy per 5-minute bucket |
+| `face.py`, `attendance.py` | Face analyzer, enrolment embeddings, in-memory staff templates, sightings |
 | `media.py` | JPEG snapshot with boxes; H.264 MP4 clip (browser-playable) |
 | `outbox.py` | Every event and file is stored locally first; disk quota with oldest-first cleanup |
 | `sync.py`, `cloud.py` | Upload media to pre-signed URLs, send events in batches, retry with backoff |
 | `service.py` | Applies cloud config without restart; clip, sync, config, heartbeat, remote loops |
-| `remote.py`, `go2rtc.py`, `nvr.py` | Requests from the cloud: live view, NVR playback and recordings, frames |
+| `remote.py`, `go2rtc.py`, `nvr.py` | Requests from the cloud: live view, NVR playback and recordings, frames, face enrolment |
+| `replay.py` | Offline evaluation: the pipeline over a video file |
 
 Only features enabled in the cloud config run. A camera with no enabled feature is not
 streamed or analysed at all.
 
-## Event rules (security feature)
+## Models
+
+No model weights are in git: they are licensed separately (plan §1 #12) and copied onto
+the box at install time (`MODELS_SOURCE=... provision.sh`, into `/opt/cctv-edge/models`,
+mounted read-only). Without models the box runs motion detection only; features whose
+model is missing are logged at startup and simply don't fire.
+
+Each model is a folder with its weights and a `model.json`:
+
+```json
+{
+  "name": "person-yolox-s",
+  "version": "2024-05",
+  "task": "detector",
+  "file": "model.onnx",
+  "sha256": "<sha256 of model.onnx>",
+  "licence": "Apache-2.0",
+  "source": "https://github.com/Megvii-BaseDetection/YOLOX (yolox_s, COCO)",
+  "input": {"width": 640, "height": 640, "scale": 1.0, "channel_order": "bgr", "letterbox": true},
+  "output_format": "yolox",
+  "classes": ["person", "bicycle", "car", "...", "cell phone", "..."],
+  "label_map": {"person": "person", "cell phone": "phone"},
+  "score_threshold": 0.4,
+  "nms_iou": 0.5,
+  "options": {"strides": [8, 16, 32], "decoded": false}
+}
+```
+
+- `licence` is required and `sha256` is checked before loading: a model with an unknown
+  licence or changed weights is refused.
+- `task`: `detector`, `drawer_classifier` (classes `closed`, `open`, `softmax`),
+  `ppe_classifier` (classes `mask`, `gloves`, `hair_cap` = probability worn, `sigmoid`),
+  `face_detector` and `face_embedder` (`"runtime": "opencv"`).
+- Detector `output_format`: `yolox` (raw, or `"decoded": true` if the export includes the
+  decode) or `rtdetr` (RT-DETR / D-FINE exports: either labels/boxes/scores with an
+  `orig_target_sizes` input, or boxes + logits). Use `"letterbox": false` for these.
+- `input` sets resizing and normalisation: pixel × `scale`, then `(x - mean) / std`.
+- Detectors and classifiers run on ONNX Runtime (`pip install cctv-edge[models]`; on the
+  Jetson NVIDIA's `onnxruntime-gpu` for JetPack). `CCTV_EDGE_MODEL_PROVIDERS` lists the
+  providers in order (TensorRT, CUDA, CPU by default); missing ones are skipped.
+- Each model is loaded once and shared by all cameras; applying a new config does not
+  reload it.
+
+Licence-safe candidates (to confirm with the client): YOLOX, RT-DETR and D-FINE
+(Apache-2.0) for people; YuNet (MIT) and SFace (Apache-2.0) from the OpenCV model zoo for
+faces. The drawer and PPE classifiers are trained on Mudawara footage (see `ml/`).
+
+## Features and their rules
+
+Only enabled features run, and only their models. Every rule can be tuned per tenant,
+branch or camera in the feature's `params` with the event type as key, e.g.
+`{"after_hours_person": {"min_duration_s": 5, "cooldown_s": 600}, "after_hours_motion": {"enabled": false}}`.
+Rule keys: `enabled`, `min_duration_s`, `max_gap_s`, `cooldown_s`, `min_confidence`,
+`severity`. Feature-wide settings sit next to them (below). Unknown keys are logged and
+ignored.
+
+### Security (after hours, restricted areas)
 
 | Event | Fires when | Defaults |
 |---|---|---|
-| `after_hours_person` | a person is visible outside working hours | 3 s min, 5 min cooldown, critical |
+| `after_hours_person` | a person is visible outside working hours | 3 s min, 5 min cooldown per zone, critical |
 | `after_hours_motion` | motion outside working hours | 2 s min, 10 min cooldown |
 | `restricted_area_entry` | a person stands in a `restricted` zone | 2 s min, 2 min cooldown, critical |
 
-Tune per branch or camera in the feature's `params`, e.g.
-`{"after_hours_person": {"min_duration_s": 5, "cooldown_s": 600}, "after_hours_motion": {"enabled": false}}`.
-With no working hours configured the branch counts as always open, so after-hours rules
-stay silent.
+Needs a person detector (motion works without). With no working hours configured the
+branch counts as always open, so after-hours rules stay silent. Draw `ignore` zones over
+TV screens, reflections and the street seen through windows.
 
-**Person detection** needs a model and comes in Phase 5 (licence decision pending, see
-the plan §1 #12). Until then only the motion rule fires on real footage.
+### Cashier
+
+| Event | Fires when | Defaults |
+|---|---|---|
+| `counter_unattended` | nobody stands in a `counter` zone during working hours | 60 s min, ends when someone is back for 2 s, 5 min cooldown |
+| `drawer_open` | the drawer classifier says `open` for a `cash_drawer` zone | 1 s min, 5 s cooldown (every opening is logged), info |
+
+Settings: `drawer_open_threshold` (0.6). The drawer zone should be drawn tightly around the
+drawer, seen from above. Counter occupancy (most people at once, seconds staffed) is sent
+as 5-minute count buckets for reports. Known limits: matching drawer openings with POS
+sales needs the POS integration (later phase).
+
+### Kitchen compliance (mask, gloves, hair cap)
+
+People standing in a `kitchen` zone are cropped and checked by the PPE classifier, at most
+once per `classify_interval_s`. An item is **missing** only when the classifier's
+probability is at or below `missing_threshold`, **worn** at or above `worn_threshold`, and
+**unknown** in between or when the crop is too small or blurred. Unknown never becomes a
+violation.
+
+| Event | Defaults |
+|---|---|
+| `missing_mask`, `missing_gloves`, `missing_hair_cap` | missing for 5 s, then one event per person per 15 min (cooldown per person, not per zone) |
+
+Settings and defaults: `min_crop_height_px` 96, `min_sharpness` 20 (variance of the
+Laplacian), `worn_threshold` 0.6, `missing_threshold` 0.3, `classify_interval_s` 1.
+Which items are required is set by switching rules off, e.g. `{"missing_mask": {"enabled":
+false}}`; events carry `missing` and `checked_items` in their attributes. Kitchen cameras
+are analysed at 1280×720 (`CCTV_EDGE_DETAIL_WIDTH/HEIGHT`), so their sub-stream should be
+at least 720p (or have none, so the main stream is used). Known limits: gloves seen from a
+ceiling fisheye are hard (plan §9); a person who leaves view and returns gets a new track
+and can be reported again.
+
+### Attendance (face recognition)
+
+On cameras with the attendance feature (the staff entrance), faces are detected, checked
+for quality, embedded and compared with the enrolled staff templates of the branch:
+
+- A match at or above `match_threshold` (cosine similarity) becomes a **sighting** (staff,
+  camera, time), at most one per staff member and camera per `sighting_interval_s`. The
+  cloud makes the first sighting of a work day the check-in and the last the check-out.
+- **A face that matches nobody is dropped immediately**: not stored, not logged, not sent.
+- Templates come from `GET /v1/edge/face-templates` (ETag), are held **in memory only**,
+  and are refetched every 5 minutes and whenever the config version changes (the cloud
+  bumps it on enrolment, deletion and consent changes). Only templates made with the
+  box's own face model version are used. No templates: faces aren't even looked at.
+- Enrolment photos from the dashboard are embedded in memory (never written to disk):
+  each photo must show one clear face (the largest face is used only if clearly the
+  largest), and the photos must look like the same person.
+
+Settings and defaults: `match_threshold` 0.40 (SFace's published threshold is 0.363; a bit
+stricter means fewer wrong matches, check on site), `min_face_px` 60, `min_sharpness` 30,
+`min_detector_score` 0.85, `sighting_interval_s` 60. Needs the `face` extra (OpenCV) and a
+`face_detector` + `face_embedder` model. Option A of the plan, a Hikvision face terminal
+reporting through ISAPI, is a later add-on that would feed the same sightings.
+
+### Customer count
+
+With the feature on, people crossing `entrance_line` zones are counted in and out per
+5-minute bucket (`POST /v1/edge/counts`). Occupancy of `queue` zones is counted when the
+queue feature is on. Staff are not excluded yet (plan 10.2).
 
 ## Live view, playback and other requests from the cloud
 
@@ -57,7 +181,7 @@ long-polls `GET /v1/edge/remote` (`remote.py`) and answers each request once:
 | `playback` | Same, from the NVR recording (`/Streaming/tracks/<ch>01?starttime=…`) as `pb-<request id>`; removed after 3 h |
 | `recordings` | Lists recorded spans from the NVR (Hikvision ISAPI `ContentMgmt/search`, digest auth) |
 | `frame` | One JPEG from the sub-stream (ffmpeg), e.g. for drawing zones |
-| `face_embedding` | Refused until the face model arrives (Phase 5) |
+| `face_embedding` | Embeds 1–5 enrolment photos in memory with the face model; refused when none is installed |
 
 Video goes from go2rtc straight to the browser; the cloud only passes the SDP offer and
 answer. go2rtc (`infra/edge/go2rtc.yaml`) keeps its API on `127.0.0.1:1984`. Browsers
@@ -82,7 +206,11 @@ clock and time zone must be right (NTP, Asia/Kuwait).
 | `CCTV_EDGE_FFMPEG` | `ffmpeg` | |
 | `CCTV_EDGE_ANALYSIS_FPS` | `5` | |
 | `CCTV_EDGE_DISK_QUOTA_BYTES` | 20 GiB | Local media limit |
-| `CCTV_EDGE_DETECTORS` | `["motion"]` | |
+| `CCTV_EDGE_DETECTORS` | `["motion"]` | Built-in detectors |
+| `CCTV_EDGE_MODELS_DIR` | `<data dir>/models` | `/models` in the container |
+| `CCTV_EDGE_MODEL_PROVIDERS` | TensorRT, CUDA, CPU | ONNX Runtime providers in order |
+| `CCTV_EDGE_DETAIL_WIDTH` / `_HEIGHT` | 1280 / 720 | Analysis size for kitchen and attendance cameras |
+| `CCTV_EDGE_FACE_TEMPLATES_SECONDS` | `300` | Face template refresh |
 | `CCTV_EDGE_GO2RTC_URL` | `http://127.0.0.1:1984` | Local go2rtc API |
 | `CCTV_EDGE_STUN_URL` | Google public STUN | Used by go2rtc (compose) |
 
@@ -107,15 +235,35 @@ This installs Docker and NTP, mounts the NVMe drive, sets up the hardware watchd
 and the boot service, then starts the container from `infra/edge/docker-compose.yml`. The
 service exits if one of its loops hangs, and Docker restarts it.
 
+## Offline evaluation (replay)
+
+Runs a camera's real pipeline over recorded footage, for the per-feature evaluation on
+the held-out test set (plan 5.5):
+
+```bash
+python -m cctv_edge.replay kitchen-2026-11-02.mp4 --camera camera.json \
+    --start 2026-11-02T21:00:00+03:00 --hours hours.json --models-dir models/ \
+    --out events.jsonl --coverage coverage.csv
+```
+
+`camera.json` is a `CameraConfig` (features, params, zones), `hours.json` a list of
+`WorkingHours`, `--start` the time of the first frame. Each closed event is appended to
+`events.jsonl` as one line with `event_id`, `camera_id`, `feature`, `event_type`,
+`zone_id`, `track_id`, `started_at`, `ended_at` (ISO-8601 UTC), `confidence` and
+`attributes`. `--coverage` appends `camera_id,started_at,ended_at` for the replayed span.
+The scoring tools in `ml/` read both. Attendance isn't replayed.
+
 ## Development
 
 ```bash
-pip install -e contracts -e "edge[test]"
+pip install -e contracts -e "edge[test,models,face]"
 cd edge && pytest
 ```
 
-The tests use a fake cloud. Tests that need ffmpeg use the one on `PATH`, or the binary
-from `imageio-ffmpeg` (installed with the `test` extra).
+The tests use a fake cloud, scripted detections and fake classifiers / face analyzers, so
+they need no weights. Tests that need ffmpeg use the one on `PATH`, or the binary from
+`imageio-ffmpeg` (installed with the `test` extra). The one test that runs a real (tiny)
+ONNX model is skipped without onnxruntime.
 
-Running the service against the local stack needs the cloud's `/v1/edge` endpoints, which
-are built in Phase 3. Live view also needs go2rtc (see `infra/edge/docker-compose.yml`).
+Running the service against the local stack needs the cloud API (`/v1/edge`). Live view
+also needs go2rtc (see `infra/edge/docker-compose.yml`).

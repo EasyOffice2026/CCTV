@@ -1,8 +1,9 @@
-"""Background jobs (plan 3.8): retention and offline devices.
+"""Background jobs: retention and offline devices (plan 3.8), absences (plan 5.4).
 
     python -m cctv_cloud.worker retention   # once
     python -m cctv_cloud.worker devices     # once
-    python -m cctv_cloud.worker run         # both, every few minutes, until stopped
+    python -m cctv_cloud.worker attendance  # once
+    python -m cctv_cloud.worker run         # all, every few minutes, until stopped
 
 Runs as the restricted app role, one tenant at a time. Object-storage lifecycle rules
 (expire objects after the longest retention a tenant can choose) are a backstop in case
@@ -20,8 +21,16 @@ from sqlalchemy import delete, or_, select, text, update
 
 from cctv_cloud.config import get_settings
 from cctv_cloud.db.enums import DeviceStatus
-from cctv_cloud.db.models import Camera, CountBucket, EdgeDevice, Event, Tenant
+from cctv_cloud.db.models import (
+    AttendanceRecord,
+    Camera,
+    CountBucket,
+    EdgeDevice,
+    Event,
+    Tenant,
+)
 from cctv_cloud.db.session import tenant_session
+from cctv_cloud.services.attendance import mark_absences
 from cctv_cloud.services.storage import ObjectStorage, get_storage
 
 log = logging.getLogger("cctv_cloud.worker")
@@ -46,8 +55,9 @@ def apply_retention(
     storage: ObjectStorage, now: datetime | None = None, tenants: list[uuid.UUID] | None = None
 ) -> RetentionReport:
     """Delete media older than each tenant's media retention, then event records older
-    than its event retention (plan §6). Objects are deleted before their keys are cleared,
-    so a failure leaves the keys in place and the next run retries."""
+    than its event retention (plan §6), with counts and attendance days. Objects are
+    deleted before their keys are cleared, so a failure leaves the keys in place and the
+    next run retries."""
     now = now or datetime.now(timezone.utc)
     report = RetentionReport()
     for tenant_id in tenants if tenants is not None else tenant_ids():
@@ -92,6 +102,7 @@ def _retain_tenant(
     with tenant_session(tenant_id) as db:
         result = db.execute(delete(Event).where(Event.started_at < event_cutoff))
         db.execute(delete(CountBucket).where(CountBucket.bucket_start < event_cutoff))
+        db.execute(delete(AttendanceRecord).where(AttendanceRecord.work_date < event_cutoff.date()))
         report.events_deleted += result.rowcount
 
 
@@ -122,9 +133,21 @@ def mark_offline_devices(now: datetime | None = None) -> int:
     return count
 
 
+def mark_absent_staff(now: datetime | None = None) -> int:
+    """'absent' records for finished shifts without a sighting, in every tenant."""
+    count = 0
+    for tenant_id in tenant_ids():
+        try:
+            with tenant_session(tenant_id) as db:
+                count += mark_absences(db, now)
+        except Exception:
+            log.exception("marking absences failed for tenant %s", tenant_id)
+    return count
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="cctv_cloud.worker")
-    parser.add_argument("job", choices=["retention", "devices", "run"])
+    parser.add_argument("job", choices=["retention", "devices", "attendance", "run"])
     parser.add_argument("--interval", type=int, default=300, help="seconds between runs (run)")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -133,10 +156,13 @@ def main(argv: list[str] | None = None) -> int:
         log.info("retention: %s", apply_retention(get_storage()))
     elif args.job == "devices":
         log.info("devices marked offline: %d", mark_offline_devices())
+    elif args.job == "attendance":
+        log.info("absences recorded: %d", mark_absent_staff())
     else:
         last_retention = 0.0
         while True:
             mark_offline_devices()
+            mark_absent_staff()
             if time.monotonic() - last_retention > 3600:
                 log.info("retention: %s", apply_retention(get_storage()))
                 last_retention = time.monotonic()

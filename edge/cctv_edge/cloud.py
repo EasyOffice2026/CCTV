@@ -11,14 +11,18 @@ from pydantic import ValidationError
 
 from cctv_contracts.v1 import (
     API_PREFIX,
+    BatchResult,
     ContractModel,
+    CountBatch,
     EdgeConfig,
     EventBatch,
     EventBatchResponse,
+    FaceTemplateList,
     Heartbeat,
     HeartbeatResponse,
     RemoteReply,
     RemoteRequest,
+    SightingBatch,
     UploadUrlRequest,
     UploadUrlResponse,
 )
@@ -95,6 +99,21 @@ class CloudClient:
 
     def send_events(self, batch: EventBatch) -> EventBatchResponse:
         return self._post("/events", batch, EventBatchResponse)
+
+    def send_sightings(self, batch: SightingBatch) -> BatchResult:
+        return self._post("/attendance", batch, BatchResult)
+
+    def send_counts(self, batch: CountBatch) -> BatchResult:
+        return self._post("/counts", batch, BatchResult)
+
+    def fetch_face_templates(self, etag: str | None) -> tuple[FaceTemplateList, str | None] | None:
+        """The branch's face templates and their ETag, or None when `etag` is current.
+        Callers must keep them in memory only."""
+        headers = {"If-None-Match": etag} if etag else {}
+        response = self._call(self._api, "GET", "/face-templates", headers=headers)
+        if response.status_code == 304:
+            return None
+        return _parse(FaceTemplateList, response), response.headers.get("ETag")
 
     def upload_url(self, request: UploadUrlRequest) -> UploadUrlResponse:
         return self._post("/media/upload-urls", request, UploadUrlResponse)

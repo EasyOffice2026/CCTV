@@ -49,9 +49,24 @@ class EdgeSettings(BaseSettings):
     remote_wait_seconds: int = Field(default=25, ge=1, le=55)
     remote_workers: int = Field(default=4, ge=1, le=16)
 
-    # Detectors to load: "motion" works without model weights. Person detection is added
-    # with the model in Phase 5.
+    # Built-in detectors to load ("motion" needs no weights). Model-based detectors and
+    # classifiers are found in models_dir (one folder per model with a model.json).
     detectors: list[str] = Field(default_factory=lambda: ["motion"])
+    models_dir: Path | None = None  # default: <data_dir>/models
+    # ONNX Runtime providers in order of preference; unavailable ones are skipped.
+    model_providers: list[str] = Field(
+        default_factory=lambda: [
+            "TensorrtExecutionProvider",
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider",
+        ]
+    )
+    # Cameras running kitchen compliance or attendance are analysed at this larger size,
+    # so gloves and faces have enough pixels. Their sub-stream should be at least 720p.
+    detail_width: int = 1280
+    detail_height: int = 720
+    # Face templates are refetched this often (and whenever the config version changes).
+    face_templates_seconds: float = Field(default=300, ge=30)
 
     @model_validator(mode="after")
     def _check_ring(self) -> "EdgeSettings":
@@ -66,6 +81,10 @@ class EdgeSettings(BaseSettings):
     @property
     def ring_dir(self) -> Path:
         return self.data_dir / "ring"
+
+    @property
+    def models_path(self) -> Path:
+        return self.models_dir or self.data_dir / "models"
 
     @property
     def outbox_path(self) -> Path:

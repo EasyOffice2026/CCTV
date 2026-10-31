@@ -2,8 +2,10 @@
 #   docker compose -f /opt/cctv-edge/docker-compose.yml up -d
 # Settings come from /etc/cctv-edge/edge.env (device token, cloud URL); camera passwords
 # from /etc/cctv-edge/credentials.json. Neither file is in git. Both are owned by uid 10001,
-# the service user inside the image. The service exits if one of its loops stalls, and
-# `restart: unless-stopped` brings it back.
+# the service user inside the image. AI models (licensed weights, never in git) are in
+# /opt/cctv-edge/models, mounted read-only; without them the box runs motion detection
+# only. The service exits if one of its loops stalls, and `restart: unless-stopped` brings
+# it back.
 name: cctv-edge
 
 services:
@@ -13,8 +15,11 @@ services:
     # Host networking: cameras and the NVR are on the branch LAN.
     network_mode: host
     env_file: /etc/cctv-edge/edge.env
+    environment:
+      CCTV_EDGE_MODELS_DIR: /models
     volumes:
       - /var/lib/cctv-edge:/data
+      - /opt/cctv-edge/models:/models:ro
     secrets:
       - camera-credentials
     stop_grace_period: 30s

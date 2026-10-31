@@ -1,0 +1,98 @@
+{
+  "$defs": {
+    "CountBucketIn": {
+      "properties": {
+        "bucket_seconds": {
+          "default": 300,
+          "maximum": 3600,
+          "minimum": 60,
+          "title": "Bucket Seconds",
+          "type": "integer"
+        },
+        "bucket_start": {
+          "format": "date-time",
+          "title": "Bucket Start",
+          "type": "string"
+        },
+        "camera_id": {
+          "format": "uuid",
+          "title": "Camera Id",
+          "type": "string"
+        },
+        "in_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "In Count",
+          "type": "integer"
+        },
+        "max_occupancy": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Occupancy"
+        },
+        "occupied_seconds": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Occupied Seconds"
+        },
+        "out_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Out Count",
+          "type": "integer"
+        },
+        "zone_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Zone Id"
+        }
+      },
+      "required": [
+        "camera_id",
+        "bucket_start"
+      ],
+      "title": "CountBucketIn",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "buckets": {
+      "items": {
+        "$ref": "#/$defs/CountBucketIn"
+      },
+      "maxItems": 500,
+      "minItems": 1,
+      "title": "Buckets",
+      "type": "array"
+    }
+  },
+  "required": [
+    "buckets"
+  ],
+  "title": "CountBatch",
+  "type": "object"
+}

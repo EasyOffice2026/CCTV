@@ -1,0 +1,13 @@
+<!--
+  Cashier: crop of the cash_drawer zone (task data: {"image": "<crop url>"}).
+  Guide: ../guides/cashier.md
+-->
+<View>
+  <Header value="Is the cash drawer open?"/>
+  <Image name="image" value="$image" zoom="true"/>
+  <Choices name="drawer" toName="image" choice="single" showInline="true" required="true">
+    <Choice value="open" hotkey="1"/>
+    <Choice value="closed" hotkey="2"/>
+    <Choice value="not_visible" hotkey="3"/>
+  </Choices>
+</View>

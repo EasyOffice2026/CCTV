@@ -4,6 +4,9 @@ Face enrolment only works after consent is recorded (also enforced by a database
 The photos are sent to the branch's edge box, which turns them into an embedding with its
 face model; only the encrypted embedding is stored, never the photos. Withdrawing consent
 or marking someone as left deletes their face data (database trigger).
+
+Every change to who can be recognised bumps the branch's config version, so its edge box
+reloads the face templates (`GET /v1/edge/face-templates`) within a heartbeat.
 """
 
 import base64
@@ -26,6 +29,7 @@ from cctv_cloud.db.session import tenant_session
 from cctv_cloud.rbac import Permission, Principal
 from cctv_cloud.security import FACE_KEY_ID, encrypt_face_embedding
 from cctv_cloud.services.audit import AuditAction, record
+from cctv_cloud.services.edge_config import bump_config_version
 from cctv_cloud.services.relay import EdgeRelay, get_relay
 from cctv_contracts.v1 import FaceEmbeddingRequest
 
@@ -247,9 +251,16 @@ def update_staff(
     )
     if "status" in changes:
         changes["status"] = changes["status"].value
+    affected = {staff.branch_id, changes.get("branch_id", staff.branch_id)}
+    recognition_changed = any(
+        name in changes and changes[name] != getattr(staff, name)
+        for name in ("branch_id", "status")
+    )
     for name, value in changes.items():
         setattr(staff, name, value)
     ctx.db.flush()
+    if recognition_changed:
+        bump_config_version(ctx.db, affected)
     record(
         ctx.db,
         ctx.principal,
@@ -292,6 +303,7 @@ def withdraw_consent(staff_id: uuid.UUID, ctx: StaffAdmin, request: Request) -> 
     staff = _staff(ctx, staff_id)
     staff.consent_signed_at = None
     ctx.db.flush()
+    bump_config_version(ctx.db, [staff.branch_id])
     record(
         ctx.db,
         ctx.principal,
@@ -340,6 +352,7 @@ def _store_template(
                 model_version=model_version,
             )
         )
+        bump_config_version(db, [staff.branch_id])
         record(
             db,
             principal,
@@ -396,5 +409,6 @@ async def enrol_face(
 def delete_face(staff_id: uuid.UUID, ctx: StaffAdmin, request: Request) -> StaffOut:
     staff = _staff(ctx, staff_id)
     ctx.db.execute(delete(FaceTemplate).where(FaceTemplate.staff_id == staff.id))
+    bump_config_version(ctx.db, [staff.branch_id])
     record(ctx.db, ctx.principal, AuditAction.FACE_DELETE, "staff", staff.id, request)
     return _staff_out(ctx, staff)

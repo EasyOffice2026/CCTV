@@ -1,47 +1,65 @@
-"""Per-camera analysis: detect -> track -> zone tests / line crossing -> rules."""
+"""Per-camera analysis.
+
+    frame ─► detectors ─► ignore zones ─► tracker ─► zone tests ─┬─► rules ─► events
+                                             │                    ├─► PPE (kitchen zones)
+                                             └─► counts           └─► drawer (cash_drawer zones)
+    frame ─► faces ─► match staff ─► sightings              (attendance cameras only)
+
+Only the stages the enabled features need are built, and only their models run.
+"""
 
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from uuid import UUID
 
 import numpy as np
 
 from cctv_contracts.enums import LINE_ZONE_TYPES, FeatureKey, ZoneType
-from cctv_contracts.v1 import CameraConfig
-from cctv_edge.detection import PERSON, DetectorFactory, IoUTracker, Track
-from cctv_edge.geometry import Box, Point, line_crossing, point_in_polygon
-from cctv_edge.rules import Observation, RuleEngine, RuleOutput, rules_for_features
+from cctv_contracts.v1 import CameraConfig, CountBucketIn, FeatureConfig, StaffSighting
+from cctv_edge.attendance import AttendanceSettings, AttendanceWatcher
+from cctv_edge.counts import CountAggregator
+from cctv_edge.detection import DRAWER_OPEN, PERSON, DetectorFactory
+from cctv_edge.face import FaceAnalyzer, FaceGallery
+from cctv_edge.geometry import Box, point_in_polygon
+from cctv_edge.imaging import crop
+from cctv_edge.models.classifier import Classifier, ClassifierFactory
+from cctv_edge.models.manifest import ModelTask
+from cctv_edge.ppe import ITEM_LABELS, PpeChecker, PpeSettings, Verdict
+from cctv_edge.rules import (
+    Observation,
+    RuleEngine,
+    RuleOutput,
+    feature_settings,
+    rules_for_features,
+)
 from cctv_edge.schedule import BranchSchedule
+from cctv_edge.tracking import ByteTracker, Track
 
 log = logging.getLogger(__name__)
 
 # Labels followed across frames. Others (motion) are used per frame as they are.
 TRACKED_LABELS = frozenset({PERSON})
-
-
-@dataclass
-class LineCounter:
-    """In/out counts per entrance line. Sent as aggregates once the count endpoint exists."""
-
-    lines: dict[UUID, tuple[Point, Point]]
-    counts: dict[UUID, list[int]] = field(default_factory=dict)
-
-    def update(self, tracks: list[Track]) -> None:
-        for track in tracks:
-            if track.previous_box is None:
-                continue
-            for zone_id, (a, b) in self.lines.items():
-                direction = line_crossing(track.previous_box.foot, track.box.foot, a, b)
-                if direction:
-                    pair = self.counts.setdefault(zone_id, [0, 0])
-                    pair[0 if direction > 0 else 1] += 1
+# Features that need a sharper picture than the default analysis size (faces, gloves).
+DETAIL_FEATURES = frozenset({FeatureKey.KITCHEN_COMPLIANCE, FeatureKey.ATTENDANCE})
+# Area zones whose occupancy is counted, and the feature that turns it on.
+OCCUPANCY_ZONES = {FeatureKey.CASHIER: ZoneType.COUNTER, FeatureKey.QUEUE: ZoneType.QUEUE}
 
 
 @dataclass
 class FrameResult:
     outputs: list[RuleOutput]
     observations: list[Observation]
+    counts: list[CountBucketIn] = field(default_factory=list)
+    sightings: list[StaffSighting] = field(default_factory=list)
+
+
+def _bounds(points) -> Box:
+    return Box(
+        min(p[0] for p in points),
+        min(p[1] for p in points),
+        max(p[0] for p in points),
+        max(p[1] for p in points),
+    )
 
 
 class CameraPipeline:
@@ -51,8 +69,15 @@ class CameraPipeline:
         schedule: BranchSchedule,
         detector_factories: Mapping[str, DetectorFactory],
         max_event_seconds: float = 120,
+        *,
+        classifiers: Mapping[ModelTask, ClassifierFactory] | None = None,
+        face_analyzer: FaceAnalyzer | None = None,
+        gallery: FaceGallery | None = None,
     ) -> None:
+        """`classifiers` maps a model task to a factory returning a `Classifier`."""
         self.camera_id = camera.id
+        features: dict[FeatureKey, FeatureConfig] = {f.key: f for f in camera.features}
+        classifiers = classifiers or {}
         self.engine = RuleEngine(
             rules_for_features(camera.features), camera.zones, schedule, max_event_seconds
         )
@@ -62,33 +87,95 @@ class CameraPipeline:
             if z.type not in LINE_ZONE_TYPES and z.type is not ZoneType.IGNORE
         ]
         self._ignore = [z.points for z in camera.zones if z.type is ZoneType.IGNORE]
-        counting = any(f.key is FeatureKey.CUSTOMER_COUNT for f in camera.features)
-        self.line_counter = LineCounter(
-            {z.id: (z.points[0], z.points[1]) for z in camera.zones if z.type in LINE_ZONE_TYPES}
-            if counting
-            else {}
-        )
+        self.needs_detail = bool(DETAIL_FEATURES & features.keys())
+
+        # Counts: entrance lines (customer count) and occupancy of counter/queue zones.
+        lines = {}
+        if FeatureKey.CUSTOMER_COUNT in features:
+            lines = {
+                z.id: (z.points[0], z.points[1]) for z in camera.zones if z.type in LINE_ZONE_TYPES
+            }
+        area_types = {t for f, t in OCCUPANCY_ZONES.items() if f in features}
+        areas = {z.id: z.points for z in camera.zones if z.type in area_types}
+        self.counts = CountAggregator(camera.id, lines, areas)
 
         needed = set(self.engine.labels)
-        if self.line_counter.lines:
-            needed.add(PERSON)
-        # Only the detectors the enabled features need are created, so a feature that is
-        # switched off costs no inference.
-        self.detectors = [
-            detector_factories[label]() for label in sorted(needed) if label in detector_factories
+        missing: set[str] = set()
+        # Drawer open/closed comes from a classifier on each cash drawer zone.
+        self.drawer: Classifier | None = None
+        self._drawers = [
+            (z.id, _bounds(z.points)) for z in camera.zones if z.type is ZoneType.CASH_DRAWER
         ]
-        self.missing_labels = needed - {d.label for d in self.detectors}
+        self._drawer_threshold = 0.6
+        if DRAWER_OPEN in needed:
+            needed.discard(DRAWER_OPEN)
+            factory = classifiers.get(ModelTask.DRAWER_CLASSIFIER)
+            if factory is None:
+                missing.add(DRAWER_OPEN)
+            elif self._drawers:
+                self.drawer = factory()
+                self._drawer_threshold = feature_settings(features[FeatureKey.CASHIER])[
+                    "drawer_open_threshold"
+                ]
+        # PPE: a classifier on people standing in kitchen zones.
+        self.ppe: PpeChecker | None = None
+        self._kitchens = [z.id for z in camera.zones if z.type is ZoneType.KITCHEN]
+        ppe_labels = needed & set(ITEM_LABELS.values())
+        if ppe_labels:
+            needed -= ppe_labels
+            factory = classifiers.get(ModelTask.PPE_CLASSIFIER)
+            if factory is None:
+                missing |= ppe_labels
+            elif self._kitchens:
+                items = [i for i, label in ITEM_LABELS.items() if label in ppe_labels]
+                settings = PpeSettings.from_params(
+                    feature_settings(features[FeatureKey.KITCHEN_COMPLIANCE])
+                )
+                self.ppe = PpeChecker(factory(), items, settings)
+                needed.add(PERSON)
+        if self.counts.active:
+            needed.add(PERSON)
+
+        # Only the detectors the enabled features need are created, so a feature that is
+        # switched off costs no inference. A model reporting several labels runs once.
+        self.detectors = []
+        created: dict[int, object] = {}
+        for label in sorted(needed):
+            factory = detector_factories.get(label)
+            if factory is None:
+                continue
+            if id(factory) not in created:
+                created[id(factory)] = detector = factory()
+                self.detectors.append(detector)
+        covered = set().union(*(d.labels for d in self.detectors))
+        self.missing_labels = (needed - covered) | missing
+
+        # Attendance: faces matched against the enrolled staff of the branch.
+        self.attendance: AttendanceWatcher | None = None
+        if FeatureKey.ATTENDANCE in features:
+            if face_analyzer is None or gallery is None:
+                self.missing_labels.add("face")
+            else:
+                self.attendance = AttendanceWatcher(
+                    camera.id,
+                    face_analyzer,
+                    gallery,
+                    AttendanceSettings.from_params(
+                        feature_settings(features[FeatureKey.ATTENDANCE])
+                    ),
+                )
+
         if self.missing_labels:
             log.warning(
-                "camera %s: no detector for %s; those rules will not fire",
+                "camera %s: no model for %s; those features will not fire",
                 camera.id,
                 sorted(self.missing_labels),
             )
-        self.tracker = IoUTracker()
+        self.tracker = ByteTracker()
 
     @property
     def active(self) -> bool:
-        return bool(self.detectors)
+        return bool(self.detectors or self.drawer or self.attendance)
 
     def process(self, frame: np.ndarray, ts: float) -> FrameResult:
         detections = [
@@ -100,12 +187,53 @@ class CameraPipeline:
         tracked = [d for d in detections if d.label in TRACKED_LABELS]
         untracked = [d for d in detections if d.label not in TRACKED_LABELS]
         tracks = self.tracker.update(tracked, ts)
-        self.line_counter.update(tracks)
+        counts = self.counts.update(tracks, ts)
 
         observations = [self._observe(t.label, t.box, t.confidence, t.id) for t in tracks] + [
             self._observe(d.label, d.box, d.confidence, None) for d in untracked
         ]
-        return FrameResult(self.engine.update(ts, observations), observations)
+        if self.ppe is not None:
+            observations += self._check_ppe(frame, tracks, observations, ts)
+        if self.drawer is not None:
+            observations += self._check_drawers(frame)
+        sightings = self.attendance.process(frame, ts) if self.attendance else []
+        return FrameResult(self.engine.update(ts, observations), observations, counts, sightings)
+
+    def _check_ppe(
+        self, frame: np.ndarray, tracks: list[Track], observations: list[Observation], ts: float
+    ) -> list[Observation]:
+        assert self.ppe is not None  # noqa: S101
+        zones_of = {o.track_id: o.zone_ids for o in observations if o.track_id is not None}
+        in_kitchen = [
+            t
+            for t in tracks
+            if t.label == PERSON and zones_of.get(t.id, frozenset()) & set(self._kitchens)
+        ]
+        found = []
+        results = self.ppe.check(frame, in_kitchen, ts)
+        for track in in_kitchen:
+            verdicts, confidence = results[track.id]
+            for item, verdict in verdicts.items():
+                if verdict is Verdict.MISSING:
+                    found.append(
+                        Observation(
+                            ITEM_LABELS[item], track.box, confidence, track.id, zones_of[track.id]
+                        )
+                    )
+        return found
+
+    def _check_drawers(self, frame: np.ndarray) -> list[Observation]:
+        assert self.drawer is not None  # noqa: S101
+        found = []
+        for zone_id, box in self._drawers:
+            p = self.drawer.classify(crop(frame, box)).get("open", 0.0)
+            if p >= self._drawer_threshold:
+                found.append(Observation(DRAWER_OPEN, box, p, None, frozenset({zone_id})))
+        return found
+
+    def flush_counts(self) -> list[CountBucketIn]:
+        """The partial count bucket, when the camera stops or its config changes."""
+        return self.counts.flush()
 
     def _observe(
         self, label: str, box: Box, confidence: float, track_id: int | None

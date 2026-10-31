@@ -20,8 +20,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# imageio-ffmpeg provides an ffmpeg binary for tests on machines without one.
-test = ["pytest>=8", "imageio-ffmpeg>=0.5"]
+# Detectors and classifiers (ONNX). On the Jetson install NVIDIA's onnxruntime-gpu wheel
+# for JetPack instead, which provides the TensorRT and CUDA providers.
+models = ["onnxruntime>=1.18"]
+# Face recognition for attendance (OpenCV's YuNet + SFace face API).
+face = ["opencv-python-headless>=4.8"]
+# imageio-ffmpeg provides an ffmpeg binary for tests on machines without one; onnx builds
+# a tiny test model (the test is skipped without onnxruntime).
+test = ["pytest>=8", "imageio-ffmpeg>=0.5", "onnx>=1.16"]
 
 [project.scripts]
 cctv-edge = "cctv_edge.__main__:main"

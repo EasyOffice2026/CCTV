@@ -220,29 +220,36 @@ Assumes about **2 developers** (1 backend/frontend, 1 CV/edge). One developer al
 For **each** feature follow the same loop: **label → train/configure → offline evaluation on held-out footage → shadow mode on site → tune → enable alerts.**
 
 - [ ] **5.0 Labelling setup:** CVAT or Label Studio; labelling guide per feature; split footage into train/val/**test** (the test set is never trained on and is used for the 90% check).
+  *Tooling ready (`ml/`): Label Studio configs for person boxes, PPE attributes, cash drawer and event intervals; labelling guides with privacy rules; a split tool that keeps each camera-day in one split (and keeps test as test when footage is added). Waiting on: footage (0.4) and annotators.*
 
 - [ ] **5.1 After-hours security** *(easiest — build first)*
   - Person detection + tracking in "restricted" zones or anywhere outside working hours.
   - Ignore zones (TV screens, glass reflections, the street seen through windows).
   - Minimum dwell time (e.g. 3 s) to stop flicker false alarms; severity = critical → WhatsApp.
+  - *Software ready: ONNX person detector (YOLOX or RT-DETR/D-FINE exports, loaded from `/opt/cctv-edge/models` with a `model.json` manifest that must state the licence), ByteTrack-style tracker, ignore zones, dwell/cooldown per rule. Waiting on: the model choice (§1 #12) and evaluation on Mudawara footage. WhatsApp comes with Phase 6.*
 - [ ] **5.2 Cashier area**
   - Counter zone: "unattended counter" = no staff in the counter zone for more than N seconds during working hours.
   - Drawer-open: small classifier on the drawer ROI (open/closed) from top-down footage. Log each opening as an event; later match it against POS transactions ("drawer open without sale").
   - Counter activity: occupancy timeline for reports.
+  - *Software ready: "counter unattended" absence rule (60 s, open hours), drawer open/closed classifier on each `cash_drawer` zone (every opening is an event), counter occupancy in 5-minute buckets (`occupied_seconds`, `max_occupancy`) sent to the cloud (`/v1/edge/counts`, `GET /v1/counts`). Waiting on: a drawer classifier trained on top-down counter footage; POS matching is a later phase.*
 - [ ] **5.3 Kitchen compliance (mask / gloves / hair cap)**
   - Person detection → crop → **PPE classifier/detector trained on Mudawara footage** (central kitchen + branch kitchen).
   - Only judge people inside the kitchen zone, and only when the crop is large and sharp enough (otherwise "unknown", not a violation).
   - Violation must persist across several frames/seconds before it becomes an event; one event per person per period.
   - Set the hygiene rules with the client (which items are required in which zone).
+  - *Software ready: person crop → PPE attribute classifier (mask/gloves/hair cap), quality gate (crop height, sharpness) that answers "unknown" instead of guessing, 5 s persistence, one event per person per 15 min; required items = the rules switched on per branch/camera. Waiting on: a PPE model trained on Mudawara kitchen footage, and the client's hygiene rules.*
 - [ ] **5.4 Staff attendance (face recognition)**
   - Option A (recommended for the pilot): **Hikvision face-recognition terminal** at the staff entrance; pull its check-in events via ISAPI.
   - Option B: dedicated 4 MP camera + edge face pipeline (detect → quality check → embed → match against enrolled templates with a threshold).
   - Enrolment: 3–5 images per staff member under the site lighting; store **encrypted embeddings only**, no photos.
   - Rules: first seen = check-in, last seen = check-out; compare with shift → late/absent; manual correction screen for managers.
   - Non-matching faces are thrown away right away (privacy rule).
+  - *Software ready (option B): face analyzer on the edge (OpenCV YuNet + SFace, MIT/Apache-2.0, behind the same manifest), enrolment from photos through the box, templates pulled into memory only (`/v1/edge/face-templates`), sightings (`/v1/edge/attendance`) turned into work-day records in the cloud: check-in/out, on time/late against the shift, overnight shifts, absences after the shift (worker), and a manager correction screen (Attendance page, audited, undoable). Option A (Hikvision terminal via ISAPI) can feed the same records once the hardware is chosen (0.6). Waiting on: the face camera/terminal, tuning the match threshold on site.*
 - [ ] 5.5 Per-feature evaluation report: precision, recall, false alarms per day on the test set, plus a confusion review of failures.
+  *Tooling ready: `python -m cctv_edge.replay` runs the real edge pipeline over recorded footage; `python -m cctv_ml.evaluate` compares its events with labelled intervals (precision, recall, F1, false alarms per camera-day, start delay, threshold sweep, 90% pass/fail, list of failures); `cctv_ml.classify_eval` does the same for crop classifiers. Waiting on: labelled test footage and trained models.*
 
 **Exit:** each wave-1 feature hits its offline target (or has an agreed adjusted target) before shadow mode.
+*Status: all wave-1 software is in place and tested (edge rules, model runtime, tracker, attendance, counts, replay and evaluation tools, cloud attendance and counts, dashboard attendance page). No model weights are in the repo; the exit check needs labelled Mudawara footage and models chosen under §1 #12. Per-feature thresholds are editable in Settings › Features (defaults shown there).*
 
 ### Phase 6 — Alerts & reports (Week 9–12)
 

@@ -17,7 +17,7 @@ def render() -> str:
 
 
 def main() -> None:
-    OPENAPI_PATH.write_text(render(), encoding="utf-8")
+    OPENAPI_PATH.write_text(render(), encoding="utf-8", newline="\n")
     print(f"wrote {OPENAPI_PATH}")
 
 

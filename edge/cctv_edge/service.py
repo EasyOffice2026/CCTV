@@ -1,4 +1,5 @@
-"""The edge service: one worker per camera, plus clip, sync, config and heartbeat loops."""
+"""The edge service: one worker per camera, plus clip, sync, config, heartbeat, remote and
+face-template loops."""
 
 import logging
 import threading
@@ -10,15 +11,27 @@ from uuid import UUID
 import numpy as np
 
 from cctv_contracts.enums import EventStatus
-from cctv_contracts.v1 import CameraConfig, CameraStatus, ClipSettings, EdgeConfig, Heartbeat
+from cctv_contracts.v1 import (
+    CameraConfig,
+    CameraStatus,
+    ClipSettings,
+    CountBucketIn,
+    EdgeConfig,
+    Heartbeat,
+    StaffSighting,
+)
 from cctv_edge import __version__, system
 from cctv_edge.cloud import CloudClient, CloudError
 from cctv_edge.config_store import ConfigStore
 from cctv_edge.credentials import Credential, redact, with_credentials
 from cctv_edge.detection import BUILTIN_DETECTORS, DetectorFactory
+from cctv_edge.face import FaceAnalyzer, FaceGallery
 from cctv_edge.ffmpeg import FfmpegError
 from cctv_edge.go2rtc import Go2rtc
 from cctv_edge.media import build_clip, save_snapshot, still_clip
+from cctv_edge.models.classifier import ClassifierFactory
+from cctv_edge.models.manifest import ModelTask
+from cctv_edge.models.registry import ModelRegistry
 from cctv_edge.outbox import Outbox
 from cctv_edge.pipeline import CameraPipeline
 from cctv_edge.remote import RemoteWorker
@@ -60,6 +73,8 @@ class CameraWorker:
         self._thread: threading.Thread | None = None
         self._reader: FrameReader | None = None
         self.recorder: SegmentRecorder | None = None
+        # Fixed for the worker's life: a change restarts the worker (see apply_config).
+        self.detail = pipeline.needs_detail
 
     def start(self) -> None:
         settings = self.service.settings
@@ -82,14 +97,11 @@ class CameraWorker:
 
     def _run(self, url: str) -> None:
         settings = self.service.settings
+        width, height = self.service.analysis_size(self.detail)
         backoff = 1.0
         while not self._stop.is_set():
             reader = self._reader = FrameReader(
-                settings.ffmpeg,
-                url,
-                settings.analysis_fps,
-                settings.analysis_width,
-                settings.analysis_height,
+                settings.ffmpeg, url, settings.analysis_fps, width, height
             )
             started = time.monotonic()
             try:
@@ -112,14 +124,17 @@ class CameraWorker:
         with self.lock:
             result = self.pipeline.process(frame, ts)
         self.service.handle_outputs(self.camera, result.outputs, frame)
+        self.service.store_aggregates(result.counts, result.sightings)
 
     def replace_pipeline(self, camera: CameraConfig, pipeline: CameraPipeline) -> None:
         """Apply new zones/features without restarting the stream. Open events are closed
         first, because the new rules start with no state."""
         with self.lock:
             outputs = self.pipeline.engine.close_all()
+            counts = self.pipeline.flush_counts()
             self.camera, self.pipeline = camera, pipeline
         self.service.handle_outputs(camera, outputs, None)
+        self.service.store_aggregates(counts, [])
 
     def stop(self) -> None:
         self._stop.set()
@@ -131,7 +146,9 @@ class CameraWorker:
             self.recorder.stop()
         with self.lock:
             outputs = self.pipeline.engine.close_all()
+            counts = self.pipeline.flush_counts()
         self.service.handle_outputs(self.camera, outputs, None)
+        self.service.store_aggregates(counts, [])
 
     def status(self, now: float) -> CameraStatus:
         report = self.health.report(now)
@@ -156,6 +173,9 @@ class EdgeService:
         detector_factories: Mapping[str, DetectorFactory] | None = None,
         start_streams: bool = True,
         go2rtc: Go2rtc | None = None,
+        models: ModelRegistry | None = None,
+        classifier_factories: Mapping[ModelTask, ClassifierFactory] | None = None,
+        face_analyzer: FaceAnalyzer | None = None,
     ) -> None:
         self.settings = settings
         self.client = client
@@ -163,13 +183,27 @@ class EdgeService:
         self.syncer = Syncer(outbox, client)
         self.store = ConfigStore(settings.config_path)
         self.credentials = dict(credentials or {})
+        # Models are loaded once here; pipelines rebuilt on each config only wrap them.
+        self.models = models or ModelRegistry(settings.models_path, settings.model_providers)
         if detector_factories is None:
             detector_factories = {
-                name: BUILTIN_DETECTORS[name]
-                for name in settings.detectors
-                if name in BUILTIN_DETECTORS
+                **{
+                    name: BUILTIN_DETECTORS[name]
+                    for name in settings.detectors
+                    if name in BUILTIN_DETECTORS
+                },
+                **self.models.detector_factories(),
             }
         self.detector_factories = dict(detector_factories)
+        self.classifier_factories = dict(
+            self.models.classifier_factories()
+            if classifier_factories is None
+            else classifier_factories
+        )
+        self.face_analyzer = face_analyzer or self.models.face_analyzer()
+        # Enrolled staff faces of the branch: in memory only, refetched from the cloud.
+        self.gallery = FaceGallery()
+        self._templates_etag: str | None = None
         # False in tests: workers are created but no ffmpeg processes are started.
         self.start_streams = start_streams
 
@@ -180,6 +214,7 @@ class EdgeService:
         self._stop = threading.Event()
         self._sync_wanted = threading.Event()
         self._config_wanted = threading.Event()
+        self._templates_wanted = threading.Event()
         self._threads: list[threading.Thread] = []
         self._ticks: dict[str, tuple[float, float]] = {}  # loop -> (last step done, interval)
         self._started = time.monotonic()
@@ -190,6 +225,7 @@ class EdgeService:
             self.credentials,
             settings.ffmpeg,
             settings.remote_workers,
+            face_analyzer=self.face_analyzer,
         )
         self._remote_backoff = 0.0
 
@@ -202,6 +238,12 @@ class EdgeService:
             if credential is None:
                 log.warning("no local credentials named %r", camera.credentials_ref)
         return with_credentials(url, credential)
+
+    def analysis_size(self, detail: bool) -> tuple[int, int]:
+        s = self.settings
+        return (
+            (s.detail_width, s.detail_height) if detail else (s.analysis_width, s.analysis_height)
+        )
 
     def apply_config(self, config: EdgeConfig) -> None:
         """Start, update or stop camera workers to match `config`, without a restart.
@@ -219,14 +261,24 @@ class EdgeService:
             wanted: dict[UUID, tuple[CameraConfig, CameraPipeline]] = {}
             for camera in config.cameras:
                 pipeline = CameraPipeline(
-                    camera, self.schedule, self.detector_factories, self.settings.max_event_seconds
+                    camera,
+                    self.schedule,
+                    self.detector_factories,
+                    self.settings.max_event_seconds,
+                    classifiers=self.classifier_factories,
+                    face_analyzer=self.face_analyzer,
+                    gallery=self.gallery,
                 )
                 if pipeline.active:
                     wanted[camera.id] = (camera, pipeline)
 
             for camera_id, worker in list(self.workers.items()):
                 target = wanted.get(camera_id)
-                if target is None or _stream_key(target[0]) != _stream_key(worker.camera):
+                if (
+                    target is None
+                    or _stream_key(target[0]) != _stream_key(worker.camera)
+                    or target[1].needs_detail != worker.detail  # analysis size changed
+                ):
                     worker.stop()
                     del self.workers[camera_id]
             for camera_id, (camera, pipeline) in wanted.items():
@@ -250,6 +302,20 @@ class EdgeService:
         if config is not None and config.version != current:
             self.store.save(config)
             self.apply_config(config)
+
+    def refresh_face_templates(self, now: float) -> None:
+        """Fetch the enrolled staff templates (only with a face model on the box)."""
+        if self.face_analyzer is None:
+            return
+        result = self.client.fetch_face_templates(self._templates_etag)
+        if result is None:
+            return  # unchanged
+        templates, etag = result
+        count = self.gallery.replace(templates.templates, self.face_analyzer.model_version)
+        self._templates_etag = etag
+        log.info(
+            "face templates: %d staff enrolled for %s", count, self.face_analyzer.model_version
+        )
 
     # --- events -----------------------------------------------------------------------
 
@@ -279,12 +345,27 @@ class EdgeService:
             except Exception:
                 log.exception("camera %s: could not record event %s", camera.name, output.event_id)
 
+    def store_aggregates(
+        self, counts: Sequence[CountBucketIn], sightings: Sequence[StaffSighting]
+    ) -> None:
+        now = time.time()
+        try:
+            if counts:
+                self.outbox.add_counts(counts)
+            if sightings:
+                self.outbox.add_sightings(sightings, now)
+                self._sync_wanted.set()
+        except Exception:
+            log.exception("could not store %d counts / %d sightings", len(counts), len(sightings))
+
     def _open_event(
         self, camera: CameraConfig, event: EventOpened, frame: np.ndarray, now: float
     ) -> None:
         snapshot = self.settings.media_dir / str(event.event_id) / "snapshot.jpg"
         save_snapshot(frame, event.boxes, snapshot)
-        attributes = {"continues": str(event.continues)} if event.continues else {}
+        attributes = dict(event.rule.attributes)
+        if event.continues:
+            attributes["continues"] = str(event.continues)
         payload = {
             "event_id": str(event.event_id),
             "camera_id": str(camera.id),
@@ -336,7 +417,11 @@ class EdgeService:
         return closed
 
     def sync_once(self, now: float) -> int:
-        return self.syncer.sync_once(now)
+        """Send events, then sightings and counts. Returns how many events were accepted."""
+        accepted = self.syncer.sync_once(now)
+        self.syncer.sync_sightings(now)
+        self.syncer.sync_counts(now)
+        return accepted
 
     # --- health -----------------------------------------------------------------------
 
@@ -356,6 +441,8 @@ class EdgeService:
             log.warning("clock differs from the cloud by %.1fs; check NTP", drift)
         if response.latest_config_version > applied:
             self._config_wanted.set()
+            # The cloud also bumps the version when enrolled faces change.
+            self._templates_wanted.set()
 
     def remote_once(self, now: float) -> None:
         """Wait for one request from the cloud and hand it to a worker thread."""
@@ -378,6 +465,7 @@ class EdgeService:
     def housekeeping(self, now: float) -> None:
         sent_before = now - self.settings.keep_sent_media_hours * 3600
         self.outbox.cleanup(self.settings.disk_quota_bytes, sent_before)
+        self.outbox.cleanup_aggregates(now)
         self.settings.alive_path.touch()
 
     # --- lifecycle --------------------------------------------------------------------
@@ -403,6 +491,13 @@ class EdgeService:
         self._loop("housekeeping", 10, self.housekeeping)
         # The long poll itself is the wait; a step lasts at most remote_wait_seconds + 15 s.
         self._loop("remote", 0, self.remote_once)
+        if self.face_analyzer is not None:
+            self._loop(
+                "face-templates",
+                s.face_templates_seconds,
+                self.refresh_face_templates,
+                self._templates_wanted,
+            )
 
     def _loop(
         self,
@@ -450,6 +545,7 @@ class EdgeService:
         self._stop.set()
         self._sync_wanted.set()
         self._config_wanted.set()
+        self._templates_wanted.set()
         for thread in self._threads:
             thread.join(timeout=15)
         self.remote.close()

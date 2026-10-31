@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from cctv_cloud import __version__
 from cctv_cloud.api import (
     admin,
+    attendance,
     auth,
     devices,
     edge,
@@ -61,6 +62,7 @@ def create_app() -> FastAPI:
         events,
         remote,
         staff,
+        attendance,
         integrations,
         realtime,
         edge,

@@ -12,7 +12,7 @@
 ```bash
 python -m venv .venv
 # Windows: .venv\Scripts\activate    macOS/Linux: source .venv/bin/activate
-pip install -e "contracts[test]" -e "cloud[test]" -e "edge[test]" pre-commit
+pip install -e "contracts[test]" -e "cloud[test]" -e "edge[test]" -e "ml[test]" pre-commit
 pre-commit install
 ```
 
@@ -26,7 +26,7 @@ docker compose -f infra/docker-compose.yml up -d
 |---|---|---|
 | Dashboard | http://localhost:3000 | Web app; proxies `/v1` to the API ([web/README.md](../web/README.md)) |
 | API | http://localhost:8000/docs | Runs migrations on start ([cloud/README.md](../cloud/README.md)) |
-| Worker | — | Retention and offline-device jobs |
+| Worker | — | Retention, offline-device and absence jobs |
 | Postgres | localhost:5432 | `cctv` (app) and `cctv_test` (tests) databases |
 | MinIO | http://localhost:9001 | user `cctv`, password `cctv-dev-secret` |
 | MQTT | localhost:1883 | anonymous (dev only) |
@@ -65,6 +65,7 @@ in development and on site.
 ```bash
 pytest contracts
 cd edge && pytest && cd ..   # edge service; uses a fake cloud and ffmpeg (see edge/README.md)
+cd ml && pytest && cd ..     # dataset split and evaluation tools (see ml/README.md)
 
 # Cloud tests need Postgres (the docker stack above). The test database's schema is wiped.
 export CCTV_TEST_MIGRATION_DATABASE_URL=postgresql+psycopg://cctv_owner:cctv_owner@localhost:5432/cctv_test
@@ -93,6 +94,9 @@ Without those variables the database tests are skipped. What the cloud tests che
   frame / face enrolment through a simulated edge box (only the addressed box can answer),
   the relay on Redis (fakeredis) and in-process, staff consent rules, CSV export, the
   refresh cookie
+- attendance from face sightings (work day, late/on time, overnight shifts, absences,
+  corrections that survive sightings), face templates for the box (only consenting active
+  staff of its branch), count buckets (upsert, branch scoping)
 
 ## 5. Database changes
 

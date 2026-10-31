@@ -1,0 +1,30 @@
+<!--
+  Detector training: boxes on single frames (task data: {"image": "<frame url>"}).
+  Guide: ../guides/person_boxes.md
+-->
+<View>
+  <Header value="Box every person and every phone in use. Cover TVs, mirrors, glass and posters showing people with an ignore polygon."/>
+  <Image name="image" value="$image" zoom="true" zoomControl="true" rotateControl="false"/>
+  <RectangleLabels name="objects" toName="image" strokeWidth="2">
+    <Label value="person" background="#2563eb" hotkey="p"/>
+    <Label value="phone" background="#dc2626" hotkey="f"/>
+  </RectangleLabels>
+  <PolygonLabels name="ignore" toName="image" strokeWidth="2" opacity="0.3">
+    <Label value="ignore" background="#6b7280" hotkey="i"/>
+  </PolygonLabels>
+  <!-- Optional per box: helps later for customer counting (staff excluded). -->
+  <View visibleWhen="region-selected" whenTagName="objects" whenLabelValue="person">
+    <Header value="Who is this?" size="6"/>
+    <Choices name="role" toName="image" perRegion="true" choice="single" showInline="true">
+      <Choice value="staff"/>
+      <Choice value="customer"/>
+      <Choice value="unsure"/>
+    </Choices>
+  </View>
+  <Choices name="frame_quality" toName="image" choice="single" showInline="true" required="true">
+    <Choice value="ok"/>
+    <Choice value="blurred"/>
+    <Choice value="night_ir"/>
+    <Choice value="glare"/>
+  </Choices>
+</View>

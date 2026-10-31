@@ -29,30 +29,42 @@ from sqlalchemy.orm import Session
 
 from cctv_cloud.api.deps import PublisherDep, unauthorized
 from cctv_cloud.config import get_settings
-from cctv_cloud.db.enums import DeviceStatus
-from cctv_cloud.db.models import Branch, Camera, EdgeDevice, Event, Staff, Zone
+from cctv_cloud.db.enums import DeviceStatus, StaffStatus
+from cctv_cloud.db.models import Branch, Camera, EdgeDevice, Event, FaceTemplate, Staff, Zone
 from cctv_cloud.db.session import tenant_session
-from cctv_cloud.security import new_secret, normalise_pairing_code, sha256_hex
+from cctv_cloud.security import (
+    decrypt_face_embedding,
+    new_secret,
+    normalise_pairing_code,
+    sha256_hex,
+)
+from cctv_cloud.services.attendance import apply_sightings
+from cctv_cloud.services.counts import apply_counts
 from cctv_cloud.services.edge_config import build_edge_config
 from cctv_cloud.services.relay import EdgeRelay, get_relay
 from cctv_cloud.services.storage import ObjectStorage, get_storage, key_belongs_to, media_key
 from cctv_contracts.enums import EventStatus, MediaKind
 from cctv_contracts.v1 import (
     API_PREFIX,
+    BatchResult,
+    CountBatch,
     EdgeConfig,
     EventBatch,
     EventBatchResponse,
     EventIn,
     EventResult,
+    FaceTemplateList,
     Heartbeat,
     HeartbeatResponse,
     PairRequest,
     PairResponse,
     RemoteReply,
     RemoteRequest,
+    SightingBatch,
     UploadUrlRequest,
     UploadUrlResponse,
 )
+from cctv_contracts.v1 import FaceTemplate as EdgeFaceTemplate
 
 log = logging.getLogger(__name__)
 
@@ -318,3 +330,70 @@ async def reply_remote(
     """Answer a request; only the box it was sent to can, and only once."""
     if not await relay.reply(device, request_id, body):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "unknown or expired request")
+
+
+@router.get(
+    "/face-templates",
+    response_model=FaceTemplateList,
+    responses={304: {"description": "Unchanged"}},
+)
+def face_templates(
+    ctx: Device,
+    response: Response,
+    if_none_match: Annotated[str | None, Header()] = None,
+) -> FaceTemplateList | Response:
+    """Templates of the branch's active staff with recorded consent, for recognition on
+    the box. The box keeps them in memory only."""
+    rows = ctx.db.execute(
+        select(FaceTemplate.id, FaceTemplate.staff_id, FaceTemplate.model_version)
+        .join(Staff, Staff.id == FaceTemplate.staff_id)
+        .where(
+            Staff.branch_id == ctx.device.branch_id,
+            Staff.status == StaffStatus.ACTIVE.value,
+            Staff.consent_signed_at.is_not(None),
+        )
+        .order_by(FaceTemplate.id)
+    ).all()
+    # Re-enrolment creates a new template id, so the ids identify the content.
+    etag = '"' + sha256_hex(",".join(str(r.id) for r in rows))[:32] + '"'
+    if if_none_match == etag:
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers={"ETag": etag})
+    response.headers["ETag"] = etag
+    response.headers["Cache-Control"] = "no-store"
+    encrypted = dict(
+        ctx.db.execute(
+            select(FaceTemplate.id, FaceTemplate.embedding_encrypted).where(
+                FaceTemplate.id.in_([r.id for r in rows])
+            )
+        ).all()
+    )
+    return FaceTemplateList(
+        templates=[
+            EdgeFaceTemplate(
+                staff_id=r.staff_id,
+                model_version=r.model_version,
+                embedding=decrypt_face_embedding(encrypted[r.id]),
+            )
+            for r in rows
+        ]
+    )
+
+
+@router.post("/attendance", response_model=BatchResult)
+def report_sightings(body: SightingBatch, ctx: Device) -> BatchResult:
+    """Staff recognised by the box; each item is accepted or rejected on its own."""
+    result = apply_sightings(ctx.db, ctx.device.tenant_id, ctx.device.branch_id, body.sightings)
+    if result.rejected:
+        log.warning(
+            "device %s: %d sightings rejected (first: %s)",
+            ctx.device.id,
+            len(result.rejected),
+            result.rejected[0].error,
+        )
+    return result
+
+
+@router.post("/counts", response_model=BatchResult)
+def report_counts(body: CountBatch, ctx: Device) -> BatchResult:
+    """Finished count buckets; a bucket sent again replaces the stored one."""
+    return apply_counts(ctx.db, ctx.device.tenant_id, ctx.device.branch_id, body.buckets)

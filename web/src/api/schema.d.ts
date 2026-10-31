@@ -79,6 +79,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/attendance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Attendance
+         * @description Work days from `date_from` to `date_to` (inclusive, branch-local dates).
+         */
+        get: operations["list_attendance_v1_attendance_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/attendance/{staff_id}/{work_date}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Correct Attendance
+         * @description Set a day by hand. Sightings keep updating the detected times but no longer change
+         *     the corrected ones.
+         */
+        put: operations["correct_attendance_v1_attendance__staff_id___work_date__put"];
+        post?: never;
+        /**
+         * Remove Correction
+         * @description Go back to what face recognition detected for the day. Returns null when nothing
+         *     was detected that day: the record is removed.
+         */
+        delete: operations["remove_correction_v1_attendance__staff_id___work_date__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/audit-logs": {
         parameters: {
             query?: never;
@@ -483,6 +529,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Counts
+         * @description People counts (entrance lines) and zone occupancy, per 5-minute bucket.
+         */
+        get: operations["list_counts_v1_counts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/edge-devices": {
         parameters: {
             query?: never;
@@ -542,6 +608,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/edge/attendance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report Sightings
+         * @description Staff recognised by the box; each item is accepted or rejected on its own.
+         */
+        post: operations["report_sightings_v1_edge_attendance_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/edge/config": {
         parameters: {
             query?: never;
@@ -553,6 +639,26 @@ export interface paths {
         get: operations["get_config_v1_edge_config_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/edge/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report Counts
+         * @description Finished count buckets; a bucket sent again replaces the stored one.
+         */
+        post: operations["report_counts_v1_edge_counts_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -573,6 +679,27 @@ export interface paths {
          * @description Idempotent by event_id; each event is accepted or rejected on its own.
          */
         post: operations["ingest_events_v1_edge_events_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/edge/face-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Face Templates
+         * @description Templates of the branch's active staff with recorded consent, for recognition on
+         *     the box. The box keeps them in memory only.
+         */
+        get: operations["face_templates_v1_edge_face_templates_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1153,6 +1280,75 @@ export interface components {
             /** Scopes */
             scopes: string[];
         };
+        /** AttendanceCorrection */
+        AttendanceCorrection: {
+            /** Check In At */
+            check_in_at?: string | null;
+            /** Check Out At */
+            check_out_at?: string | null;
+            /** Note */
+            note?: string | null;
+            status: components["schemas"]["AttendanceStatus"];
+        };
+        /** AttendanceOut */
+        AttendanceOut: {
+            /**
+             * Branch Id
+             * Format: uuid
+             */
+            branch_id: string;
+            /** Check In At */
+            check_in_at: string | null;
+            /** Check Out At */
+            check_out_at: string | null;
+            /** Corrected At */
+            corrected_at: string | null;
+            /**
+             * Corrected By
+             * @description Name of the manager who corrected the day
+             */
+            corrected_by: string | null;
+            /** Employee Code */
+            employee_code: string;
+            /**
+             * First Seen At
+             * @description Detected by face recognition
+             */
+            first_seen_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Seen At */
+            last_seen_at: string | null;
+            /** Note */
+            note: string | null;
+            source: components["schemas"]["AttendanceSource"];
+            /**
+             * Staff Id
+             * Format: uuid
+             */
+            staff_id: string;
+            /** Staff Name */
+            staff_name: string;
+            status: components["schemas"]["AttendanceStatus"];
+            /**
+             * Work Date
+             * Format: date
+             */
+            work_date: string;
+        };
+        /**
+         * AttendanceSource
+         * @enum {string}
+         */
+        AttendanceSource: "face" | "manual";
+        /**
+         * AttendanceStatus
+         * @enum {string}
+         */
+        AttendanceStatus: "on_time" | "late" | "absent" | "day_off";
         /** AuditLogOut */
         AuditLogOut: {
             /** Action */
@@ -1178,6 +1374,17 @@ export interface components {
             user_agent: string | null;
             /** User Id */
             user_id: string | null;
+        };
+        /**
+         * BatchResult
+         * @description Items are accepted or rejected one by one. A rejected item (unknown staff member or
+         *     camera) will be rejected again, so the box must not resend it.
+         */
+        BatchResult: {
+            /** Accepted */
+            accepted: number;
+            /** Rejected */
+            rejected?: components["schemas"]["RejectedItem"][];
         };
         /** Body_enrol_face_v1_staff__staff_id__face_post */
         Body_enrol_face_v1_staff__staff_id__face_post: {
@@ -1390,6 +1597,70 @@ export interface components {
              * @description When the staff member signed the consent form
              */
             signed_at: string;
+        };
+        /** CountBatch */
+        CountBatch: {
+            /** Buckets */
+            buckets: components["schemas"]["CountBucketIn"][];
+        };
+        /** CountBucketIn */
+        CountBucketIn: {
+            /**
+             * Bucket Seconds
+             * @default 300
+             */
+            bucket_seconds: number;
+            /**
+             * Bucket Start
+             * Format: date-time
+             */
+            bucket_start: string;
+            /**
+             * Camera Id
+             * Format: uuid
+             */
+            camera_id: string;
+            /**
+             * In Count
+             * @default 0
+             */
+            in_count: number;
+            /** Max Occupancy */
+            max_occupancy?: number | null;
+            /** Occupied Seconds */
+            occupied_seconds?: number | null;
+            /**
+             * Out Count
+             * @default 0
+             */
+            out_count: number;
+            /** Zone Id */
+            zone_id?: string | null;
+        };
+        /** CountOut */
+        CountOut: {
+            /** Bucket Seconds */
+            bucket_seconds: number;
+            /**
+             * Bucket Start
+             * Format: date-time
+             */
+            bucket_start: string;
+            /**
+             * Camera Id
+             * Format: uuid
+             */
+            camera_id: string;
+            /** In Count */
+            in_count: number;
+            /** Max Occupancy */
+            max_occupancy: number | null;
+            /** Occupied Seconds */
+            occupied_seconds: number | null;
+            /** Out Count */
+            out_count: number;
+            /** Zone Id */
+            zone_id: string | null;
         };
         /**
          * DeviceStatus
@@ -1629,6 +1900,28 @@ export interface components {
              * Format: uuid
              */
             staff_id: string;
+        };
+        /** FaceTemplate */
+        FaceTemplate: {
+            /** Embedding */
+            embedding: number[];
+            /** Model Version */
+            model_version: string;
+            /**
+             * Staff Id
+             * Format: uuid
+             */
+            staff_id: string;
+        };
+        /**
+         * FaceTemplateList
+         * @description Templates of the branch's active staff with recorded consent. Sent decrypted over
+         *     TLS; the box keeps them in memory only, never on disk, and only uses templates made
+         *     with its own face model version.
+         */
+        FaceTemplateList: {
+            /** Templates */
+            templates?: components["schemas"]["FaceTemplate"][];
         };
         /** FeatureConfig */
         FeatureConfig: {
@@ -2088,6 +2381,16 @@ export interface components {
              */
             start: string;
         };
+        /** RejectedItem */
+        RejectedItem: {
+            /** Error */
+            error: string;
+            /**
+             * Index
+             * @description Position in the batch
+             */
+            index: number;
+        };
         /**
          * RemoteReply
          * @description `ok=False` with `error` when the box can't do it (camera offline, NVR unreachable,
@@ -2236,6 +2539,11 @@ export interface components {
             /** Starts At */
             starts_at?: string | null;
         };
+        /** SightingBatch */
+        SightingBatch: {
+            /** Sightings */
+            sightings: components["schemas"]["StaffSighting"][];
+        };
         /** StaffIn */
         StaffIn: {
             /**
@@ -2280,6 +2588,29 @@ export interface components {
             /** Shift Id */
             shift_id: string | null;
             status: components["schemas"]["StaffStatus"];
+        };
+        /** StaffSighting */
+        StaffSighting: {
+            /**
+             * Camera Id
+             * Format: uuid
+             */
+            camera_id: string;
+            /**
+             * Seen At
+             * Format: date-time
+             */
+            seen_at: string;
+            /**
+             * Similarity
+             * @description Match score against the template
+             */
+            similarity: number;
+            /**
+             * Staff Id
+             * Format: uuid
+             */
+            staff_id: string;
         };
         /**
          * StaffStatus
@@ -2763,6 +3094,117 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_attendance_v1_attendance_get: {
+        parameters: {
+            query: {
+                date_from: string;
+                date_to: string;
+                branch_id?: string | null;
+                staff_id?: string | null;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendanceOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    correct_attendance_v1_attendance__staff_id___work_date__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path: {
+                staff_id: string;
+                work_date: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttendanceCorrection"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendanceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_correction_v1_attendance__staff_id___work_date__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path: {
+                staff_id: string;
+                work_date: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendanceOut"] | null;
+                };
             };
             /** @description Validation Error */
             422: {
@@ -3812,6 +4254,44 @@ export interface operations {
             };
         };
     };
+    list_counts_v1_counts_get: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                branch_id?: string | null;
+                camera_id?: string | null;
+                zone_id?: string | null;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_devices_v1_edge_devices_get: {
         parameters: {
             query?: {
@@ -3948,6 +4428,39 @@ export interface operations {
             };
         };
     };
+    report_sightings_v1_edge_attendance_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SightingBatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_config_v1_edge_config_get: {
         parameters: {
             query?: never;
@@ -3986,6 +4499,39 @@ export interface operations {
             };
         };
     };
+    report_counts_v1_edge_counts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CountBatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     ingest_events_v1_edge_events_post: {
         parameters: {
             query?: never;
@@ -4007,6 +4553,44 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EventBatchResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    face_templates_v1_edge_face_templates_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-none-match"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FaceTemplateList"];
+                };
+            };
+            /** @description Unchanged */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

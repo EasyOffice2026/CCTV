@@ -1,0 +1,22 @@
+<!--
+  Event-level ground truth: mark when each event happens on a video
+  (task data: {"video": "<video url>"}). Labels are the contract event types
+  (cctv_contracts.enums.EventType); convert the export with
+  `python -m cctv_ml.labelstudio`. Set frameRate to the video's real frame rate and use
+  the same number in the videos CSV.
+  Guides: ../guides/security_events.md, ../guides/cashier.md, ../guides/kitchen_ppe.md
+-->
+<View>
+  <Header value="Mark the whole time each event is happening. One range per event; leave a gap between two separate events."/>
+  <Video name="video" value="$video" frameRate="25" timelineHeight="160"/>
+  <TimelineLabels name="events" toName="video">
+    <Label value="after_hours_person" background="#b91c1c"/>
+    <Label value="after_hours_motion" background="#f97316"/>
+    <Label value="restricted_area_entry" background="#7c3aed"/>
+    <Label value="counter_unattended" background="#0891b2"/>
+    <Label value="drawer_open" background="#ca8a04"/>
+    <Label value="missing_mask" background="#16a34a"/>
+    <Label value="missing_gloves" background="#15803d"/>
+    <Label value="missing_hair_cap" background="#166534"/>
+  </TimelineLabels>
+</View>

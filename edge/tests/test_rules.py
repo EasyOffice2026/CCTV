@@ -12,6 +12,7 @@ from cctv_edge.rules import (
     RuleEngine,
     RuleSpec,
     When,
+    feature_settings,
     rules_for_features,
 )
 from cctv_edge.schedule import BranchSchedule
@@ -187,3 +188,109 @@ def test_event_ids_are_unique():
     out = run(engine, {**present(0, 3), **absent(3.5, 8), **present(8.5, 12)})
     ids = [o.event_id for o in out if isinstance(o, EventOpened)]
     assert len(ids) == 2 and len(set(ids)) == 2 and all(isinstance(i, uuid.UUID) for i in ids)
+
+
+def test_absent_rule_fires_per_empty_zone():
+    counter = zone(ZoneType.COUNTER, [(0, 0), (0.5, 0), (0.5, 1), (0, 1)])
+    other = zone(ZoneType.COUNTER, [(0.5, 0), (1, 0), (1, 1), (0.5, 1)])
+    spec = rule(
+        event_type=EventType.COUNTER_UNATTENDED,
+        zone_types=frozenset({ZoneType.COUNTER}),
+        absent=True,
+        min_duration_s=10,
+        max_gap_s=2,
+    )
+    engine = RuleEngine([spec], [counter, other], ALWAYS_OPEN)
+    staffed = {t / 2: [person(zones={other.id})] for t in range(0, 41)}  # only `other` staffed
+    out = run(engine, staffed)
+    [opened] = [o for o in out if isinstance(o, EventOpened)]
+    assert opened.zone_id == counter.id and opened.started_at == 0
+    assert opened.boxes == (Box(0, 0, 0.5, 1),)  # the zone is drawn on the snapshot
+    # Someone comes back to the counter: the event ends.
+    back = {20 + t / 2: [person(zones={counter.id, other.id})] for t in range(1, 11)}
+    [closed] = run(engine, back)
+    assert isinstance(closed, EventClosed) and closed.event_id == opened.event_id
+
+
+def test_absent_rule_needs_the_absence_to_last():
+    counter = zone(ZoneType.COUNTER, [(0, 0), (1, 0), (1, 1), (0, 1)])
+    spec = rule(
+        zone_types=frozenset({ZoneType.COUNTER}), absent=True, min_duration_s=10, max_gap_s=0.5
+    )
+    engine = RuleEngine([spec], [counter], ALWAYS_OPEN)
+    frames = {t / 2: ([] if t % 12 < 10 else [person(zones={counter.id})]) for t in range(60)}
+    # Back for 1 s every 6 s: longer than max_gap, so the absence starts again each time.
+    assert run(engine, frames) == []
+
+
+def test_cooldown_per_person():
+    kitchen = zone(ZoneType.KITCHEN, [(0, 0), (1, 0), (1, 1), (0, 1)])
+    spec = rule(
+        event_type=EventType.MISSING_GLOVES,
+        zone_types=frozenset({ZoneType.KITCHEN}),
+        group_by=GroupBy.TRACK,
+        cooldown_by=GroupBy.TRACK,
+        cooldown_s=600,
+    )
+    engine = RuleEngine([spec], [kitchen], ALWAYS_OPEN)
+    out = run(engine, {**present(0, 5, track_id=1, zones={kitchen.id}), **absent(5.5, 10)})
+    out += run(
+        engine,
+        {
+            **present(10.5, 15, track_id=1, zones={kitchen.id}),  # same cook again: cooldown
+            **present(15.5, 20, track_id=2, zones={kitchen.id}),  # another cook: alerts
+        },
+    )
+    opened = [o for o in out if isinstance(o, EventOpened)]
+    assert [o.track_id for o in opened] == [1, 2]
+
+
+def test_min_confidence():
+    engine = RuleEngine([rule(min_confidence=0.5)], [], ALWAYS_OPEN)
+    assert run(engine, present(0, 10, confidence=0.4)) == []
+    assert len(run(engine, present(10.5, 20, confidence=0.6))) == 1
+
+
+def test_new_feature_rules_and_settings(caplog):
+    rules = rules_for_features(
+        [
+            FeatureConfig(key=FeatureKey.CASHIER),
+            FeatureConfig(
+                key=FeatureKey.KITCHEN_COMPLIANCE,
+                params={
+                    "missing_mask": {"enabled": False},
+                    "missing_gloves": {"min_confidence": 0.7},
+                    "min_crop_height_px": 120,
+                    "gloves_colour": "blue",  # unknown: warned about
+                },
+            ),
+            FeatureConfig(key=FeatureKey.ATTENDANCE),
+            FeatureConfig(key=FeatureKey.CUSTOMER_COUNT),
+        ]
+    )
+    by_type = {r.event_type: r for r in rules}
+    assert set(by_type) == {
+        EventType.COUNTER_UNATTENDED,
+        EventType.DRAWER_OPEN,
+        EventType.MISSING_GLOVES,
+        EventType.MISSING_HAIR_CAP,
+    }
+    assert by_type[EventType.COUNTER_UNATTENDED].absent
+    assert by_type[EventType.COUNTER_UNATTENDED].when is When.OPEN_HOURS
+    gloves = by_type[EventType.MISSING_GLOVES]
+    assert gloves.min_confidence == 0.7 and gloves.cooldown_by is GroupBy.TRACK
+    assert dict(gloves.attributes) == {"missing": "gloves", "checked_items": ("gloves", "hair_cap")}
+    assert "gloves_colour" in caplog.text
+    assert "has no edge rules" not in caplog.text  # attendance and counts run elsewhere
+
+
+def test_feature_settings():
+    kitchen = FeatureConfig(
+        key=FeatureKey.KITCHEN_COMPLIANCE,
+        params={"min_crop_height_px": 120, "worn_threshold": "high", "min_sharpness": -1},
+    )
+    settings = feature_settings(kitchen)
+    assert settings["min_crop_height_px"] == 120
+    assert settings["worn_threshold"] == 0.6  # invalid values keep the default
+    assert settings["min_sharpness"] == 20.0
+    assert feature_settings(FeatureConfig(key=FeatureKey.SECURITY)) == {}

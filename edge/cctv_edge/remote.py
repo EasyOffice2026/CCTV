@@ -7,6 +7,7 @@ that never contains credentials.
 """
 
 import base64
+import binascii
 import logging
 import tempfile
 import threading
@@ -32,6 +33,7 @@ from cctv_contracts.v1 import (
 from cctv_edge import ffmpeg
 from cctv_edge.cloud import CloudClient, CloudError
 from cctv_edge.credentials import Credential, redact, with_credentials
+from cctv_edge.face import EnrolmentError, FaceAnalyzer, enrolment_embedding
 from cctv_edge.go2rtc import Go2rtc
 from cctv_edge.nvr import playback_url, search_recordings
 
@@ -58,6 +60,7 @@ class RemoteWorker:
         ffmpeg_bin: str,
         workers: int = 4,
         nvr_transport: httpx.BaseTransport | None = None,
+        face_analyzer: FaceAnalyzer | None = None,
     ) -> None:
         self.client = client
         self.go2rtc = go2rtc
@@ -65,6 +68,7 @@ class RemoteWorker:
         self.credentials = credentials
         self.ffmpeg_bin = ffmpeg_bin
         self.nvr_transport = nvr_transport
+        self.face_analyzer = face_analyzer
         self._executor = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="remote")
         self._playback_streams: dict[str, float] = {}  # stream name -> created (epoch s)
         self._lock = threading.Lock()
@@ -99,7 +103,7 @@ class RemoteWorker:
     def handle(self, request: RemoteRequest, now: float) -> RemoteReply:
         payload = request.request
         if isinstance(payload, FaceEmbeddingRequest):
-            raise RemoteRefusedError("face model not installed on this box yet (Phase 5)")
+            return self._face_embedding(payload)
         config, camera = self._camera(payload.camera_id)
         if isinstance(payload, LiveRequest):
             return self._live(camera, payload)
@@ -160,6 +164,24 @@ class RemoteWorker:
     def _frame(self, camera: CameraConfig) -> RemoteReply:
         jpeg = self.grab_frame(self._camera_url(camera, camera.rtsp_sub or camera.rtsp_main))
         return RemoteReply(ok=True, jpeg_base64=base64.b64encode(jpeg).decode("ascii"))
+
+    def _face_embedding(self, payload: FaceEmbeddingRequest) -> RemoteReply:
+        """Embed enrolment photos in memory; the photos are never written to disk."""
+        if self.face_analyzer is None:
+            raise RemoteRefusedError("face model not installed on this box")
+        try:
+            photos = [base64.b64decode(b, validate=True) for b in payload.images_base64]
+        except (binascii.Error, ValueError) as exc:
+            raise RemoteRefusedError("photos are not valid base64") from exc
+        try:
+            template = enrolment_embedding(self.face_analyzer, photos)
+        except EnrolmentError as exc:
+            raise RemoteRefusedError(str(exc)) from exc
+        return RemoteReply(
+            ok=True,
+            embedding=[round(float(v), 6) for v in template],
+            model_version=self.face_analyzer.model_version,
+        )
 
     def grab_frame(self, url: str) -> bytes:
         """One JPEG frame from `url` (a camera stream, or a file in tests)."""

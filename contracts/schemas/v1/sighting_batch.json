@@ -1,0 +1,54 @@
+{
+  "$defs": {
+    "StaffSighting": {
+      "properties": {
+        "camera_id": {
+          "format": "uuid",
+          "title": "Camera Id",
+          "type": "string"
+        },
+        "seen_at": {
+          "format": "date-time",
+          "title": "Seen At",
+          "type": "string"
+        },
+        "similarity": {
+          "description": "Match score against the template",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Similarity",
+          "type": "number"
+        },
+        "staff_id": {
+          "format": "uuid",
+          "title": "Staff Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "staff_id",
+        "camera_id",
+        "seen_at",
+        "similarity"
+      ],
+      "title": "StaffSighting",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "sightings": {
+      "items": {
+        "$ref": "#/$defs/StaffSighting"
+      },
+      "maxItems": 500,
+      "minItems": 1,
+      "title": "Sightings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "sightings"
+  ],
+  "title": "SightingBatch",
+  "type": "object"
+}

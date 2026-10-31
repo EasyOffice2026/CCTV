@@ -1,0 +1,47 @@
+{
+  "$defs": {
+    "FaceTemplate": {
+      "properties": {
+        "embedding": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 4096,
+          "minItems": 64,
+          "title": "Embedding",
+          "type": "array"
+        },
+        "model_version": {
+          "maxLength": 50,
+          "title": "Model Version",
+          "type": "string"
+        },
+        "staff_id": {
+          "format": "uuid",
+          "title": "Staff Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "staff_id",
+        "model_version",
+        "embedding"
+      ],
+      "title": "FaceTemplate",
+      "type": "object"
+    }
+  },
+  "description": "Templates of the branch's active staff with recorded consent. Sent decrypted over\nTLS; the box keeps them in memory only, never on disk, and only uses templates made\nwith its own face model version.",
+  "properties": {
+    "templates": {
+      "items": {
+        "$ref": "#/$defs/FaceTemplate"
+      },
+      "maxItems": 2000,
+      "title": "Templates",
+      "type": "array"
+    }
+  },
+  "title": "FaceTemplateList",
+  "type": "object"
+}

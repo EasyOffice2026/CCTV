@@ -107,6 +107,213 @@
         "title": "ApiKeyOut",
         "type": "object"
       },
+      "AttendanceCorrection": {
+        "properties": {
+          "check_in_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Check In At"
+          },
+          "check_out_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Check Out At"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AttendanceStatus"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "AttendanceCorrection",
+        "type": "object"
+      },
+      "AttendanceOut": {
+        "properties": {
+          "branch_id": {
+            "format": "uuid",
+            "title": "Branch Id",
+            "type": "string"
+          },
+          "check_in_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Check In At"
+          },
+          "check_out_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Check Out At"
+          },
+          "corrected_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Corrected At"
+          },
+          "corrected_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Name of the manager who corrected the day",
+            "title": "Corrected By"
+          },
+          "employee_code": {
+            "title": "Employee Code",
+            "type": "string"
+          },
+          "first_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Detected by face recognition",
+            "title": "First Seen At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "source": {
+            "$ref": "#/components/schemas/AttendanceSource"
+          },
+          "staff_id": {
+            "format": "uuid",
+            "title": "Staff Id",
+            "type": "string"
+          },
+          "staff_name": {
+            "title": "Staff Name",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AttendanceStatus"
+          },
+          "work_date": {
+            "format": "date",
+            "title": "Work Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "staff_id",
+          "staff_name",
+          "employee_code",
+          "branch_id",
+          "work_date",
+          "status",
+          "source",
+          "check_in_at",
+          "check_out_at",
+          "first_seen_at",
+          "last_seen_at",
+          "note",
+          "corrected_by",
+          "corrected_at"
+        ],
+        "title": "AttendanceOut",
+        "type": "object"
+      },
+      "AttendanceSource": {
+        "enum": [
+          "face",
+          "manual"
+        ],
+        "title": "AttendanceSource",
+        "type": "string"
+      },
+      "AttendanceStatus": {
+        "enum": [
+          "on_time",
+          "late",
+          "absent",
+          "day_off"
+        ],
+        "title": "AttendanceStatus",
+        "type": "string"
+      },
       "AuditLogOut": {
         "properties": {
           "action": {
@@ -196,6 +403,28 @@
           "at"
         ],
         "title": "AuditLogOut",
+        "type": "object"
+      },
+      "BatchResult": {
+        "description": "Items are accepted or rejected one by one. A rejected item (unknown staff member or\ncamera) will be rejected again, so the box must not resend it.",
+        "properties": {
+          "accepted": {
+            "minimum": 0.0,
+            "title": "Accepted",
+            "type": "integer"
+          },
+          "rejected": {
+            "items": {
+              "$ref": "#/components/schemas/RejectedItem"
+            },
+            "title": "Rejected",
+            "type": "array"
+          }
+        },
+        "required": [
+          "accepted"
+        ],
+        "title": "BatchResult",
         "type": "object"
       },
       "Body_enrol_face_v1_staff__staff_id__face_post": {
@@ -835,6 +1064,171 @@
         "title": "ConsentIn",
         "type": "object"
       },
+      "CountBatch": {
+        "properties": {
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/CountBucketIn"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Buckets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "buckets"
+        ],
+        "title": "CountBatch",
+        "type": "object"
+      },
+      "CountBucketIn": {
+        "properties": {
+          "bucket_seconds": {
+            "default": 300,
+            "maximum": 3600.0,
+            "minimum": 60.0,
+            "title": "Bucket Seconds",
+            "type": "integer"
+          },
+          "bucket_start": {
+            "format": "date-time",
+            "title": "Bucket Start",
+            "type": "string"
+          },
+          "camera_id": {
+            "format": "uuid",
+            "title": "Camera Id",
+            "type": "string"
+          },
+          "in_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "In Count",
+            "type": "integer"
+          },
+          "max_occupancy": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Occupancy"
+          },
+          "occupied_seconds": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occupied Seconds"
+          },
+          "out_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Out Count",
+            "type": "integer"
+          },
+          "zone_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zone Id"
+          }
+        },
+        "required": [
+          "camera_id",
+          "bucket_start"
+        ],
+        "title": "CountBucketIn",
+        "type": "object"
+      },
+      "CountOut": {
+        "properties": {
+          "bucket_seconds": {
+            "title": "Bucket Seconds",
+            "type": "integer"
+          },
+          "bucket_start": {
+            "format": "date-time",
+            "title": "Bucket Start",
+            "type": "string"
+          },
+          "camera_id": {
+            "format": "uuid",
+            "title": "Camera Id",
+            "type": "string"
+          },
+          "in_count": {
+            "title": "In Count",
+            "type": "integer"
+          },
+          "max_occupancy": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Occupancy"
+          },
+          "occupied_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occupied Seconds"
+          },
+          "out_count": {
+            "title": "Out Count",
+            "type": "integer"
+          },
+          "zone_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zone Id"
+          }
+        },
+        "required": [
+          "camera_id",
+          "zone_id",
+          "bucket_start",
+          "bucket_seconds",
+          "in_count",
+          "out_count",
+          "max_occupancy",
+          "occupied_seconds"
+        ],
+        "title": "CountOut",
+        "type": "object"
+      },
       "DeviceStatus": {
         "enum": [
           "pending",
@@ -1454,6 +1848,51 @@
           "images_base64"
         ],
         "title": "FaceEmbeddingRequest",
+        "type": "object"
+      },
+      "FaceTemplate": {
+        "properties": {
+          "embedding": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 4096,
+            "minItems": 64,
+            "title": "Embedding",
+            "type": "array"
+          },
+          "model_version": {
+            "maxLength": 50,
+            "title": "Model Version",
+            "type": "string"
+          },
+          "staff_id": {
+            "format": "uuid",
+            "title": "Staff Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "staff_id",
+          "model_version",
+          "embedding"
+        ],
+        "title": "FaceTemplate",
+        "type": "object"
+      },
+      "FaceTemplateList": {
+        "description": "Templates of the branch's active staff with recorded consent. Sent decrypted over\nTLS; the box keeps them in memory only, never on disk, and only uses templates made\nwith its own face model version.",
+        "properties": {
+          "templates": {
+            "items": {
+              "$ref": "#/components/schemas/FaceTemplate"
+            },
+            "maxItems": 2000,
+            "title": "Templates",
+            "type": "array"
+          }
+        },
+        "title": "FaceTemplateList",
         "type": "object"
       },
       "FeatureConfig": {
@@ -2427,6 +2866,27 @@
         "title": "RecordingsRequest",
         "type": "object"
       },
+      "RejectedItem": {
+        "properties": {
+          "error": {
+            "maxLength": 200,
+            "title": "Error",
+            "type": "string"
+          },
+          "index": {
+            "description": "Position in the batch",
+            "minimum": 0.0,
+            "title": "Index",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "index",
+          "error"
+        ],
+        "title": "RejectedItem",
+        "type": "object"
+      },
       "RemoteReply": {
         "description": "`ok=False` with `error` when the box can't do it (camera offline, NVR unreachable,\nno face model yet). Otherwise the field for the request's kind is set.",
         "properties": {
@@ -2823,6 +3283,24 @@
         "title": "ShiftUpdate",
         "type": "object"
       },
+      "SightingBatch": {
+        "properties": {
+          "sightings": {
+            "items": {
+              "$ref": "#/components/schemas/StaffSighting"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Sightings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sightings"
+        ],
+        "title": "SightingBatch",
+        "type": "object"
+      },
       "StaffIn": {
         "properties": {
           "branch_id": {
@@ -2944,6 +3422,40 @@
           "created_at"
         ],
         "title": "StaffOut",
+        "type": "object"
+      },
+      "StaffSighting": {
+        "properties": {
+          "camera_id": {
+            "format": "uuid",
+            "title": "Camera Id",
+            "type": "string"
+          },
+          "seen_at": {
+            "format": "date-time",
+            "title": "Seen At",
+            "type": "string"
+          },
+          "similarity": {
+            "description": "Match score against the template",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Similarity",
+            "type": "number"
+          },
+          "staff_id": {
+            "format": "uuid",
+            "title": "Staff Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "staff_id",
+          "camera_id",
+          "seen_at",
+          "similarity"
+        ],
+        "title": "StaffSighting",
         "type": "object"
       },
       "StaffStatus": {
@@ -4095,6 +4607,336 @@
         "summary": "Revoke Api Key",
         "tags": [
           "integrations"
+        ]
+      }
+    },
+    "/v1/attendance": {
+      "get": {
+        "description": "Work days from `date_from` to `date_to` (inclusive, branch-local dates).",
+        "operationId": "list_attendance_v1_attendance_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "date_from",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Date From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_to",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Date To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "branch_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Branch Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "staff_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Staff Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AttendanceOut"
+                  },
+                  "title": "Response List Attendance V1 Attendance Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Attendance",
+        "tags": [
+          "attendance"
+        ]
+      }
+    },
+    "/v1/attendance/{staff_id}/{work_date}": {
+      "delete": {
+        "description": "Go back to what face recognition detected for the day. Returns null when nothing\nwas detected that day: the record is removed.",
+        "operationId": "remove_correction_v1_attendance__staff_id___work_date__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "staff_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Staff Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "work_date",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Work Date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AttendanceOut"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Remove Correction V1 Attendance  Staff Id   Work Date  Delete"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Remove Correction",
+        "tags": [
+          "attendance"
+        ]
+      },
+      "put": {
+        "description": "Set a day by hand. Sightings keep updating the detected times but no longer change\nthe corrected ones.",
+        "operationId": "correct_attendance_v1_attendance__staff_id___work_date__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "staff_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Staff Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "work_date",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Work Date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendanceCorrection"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendanceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Correct Attendance",
+        "tags": [
+          "attendance"
         ]
       }
     },
@@ -6381,6 +7223,154 @@
         ]
       }
     },
+    "/v1/counts": {
+      "get": {
+        "description": "People counts (entrance lines) and zone occupancy, per 5-minute bucket.",
+        "operationId": "list_counts_v1_counts_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "branch_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Branch Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "camera_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Camera Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "zone_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Zone Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CountOut"
+                  },
+                  "title": "Response List Counts V1 Counts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Counts",
+        "tags": [
+          "attendance",
+          "counts"
+        ]
+      }
+    },
     "/v1/edge-devices": {
       "get": {
         "operationId": "list_devices_v1_edge_devices_get",
@@ -6709,6 +7699,53 @@
         ]
       }
     },
+    "/v1/edge/attendance": {
+      "post": {
+        "description": "Staff recognised by the box; each item is accepted or rejected on its own.",
+        "operationId": "report_sightings_v1_edge_attendance_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SightingBatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Report Sightings",
+        "tags": [
+          "edge"
+        ]
+      }
+    },
     "/v1/edge/config": {
       "get": {
         "operationId": "get_config_v1_edge_config_get",
@@ -6766,6 +7803,53 @@
         ]
       }
     },
+    "/v1/edge/counts": {
+      "post": {
+        "description": "Finished count buckets; a bucket sent again replaces the stored one.",
+        "operationId": "report_counts_v1_edge_counts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CountBatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Report Counts",
+        "tags": [
+          "edge"
+        ]
+      }
+    },
     "/v1/edge/events": {
       "post": {
         "description": "Idempotent by event_id; each event is accepted or rejected on its own.",
@@ -6808,6 +7892,64 @@
           }
         ],
         "summary": "Ingest Events",
+        "tags": [
+          "edge"
+        ]
+      }
+    },
+    "/v1/edge/face-templates": {
+      "get": {
+        "description": "Templates of the branch's active staff with recorded consent, for recognition on\nthe box. The box keeps them in memory only.",
+        "operationId": "face_templates_v1_edge_face_templates_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "if-none-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-None-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaceTemplateList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "Unchanged"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Face Templates",
         "tags": [
           "edge"
         ]

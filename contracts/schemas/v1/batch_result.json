@@ -1,0 +1,45 @@
+{
+  "$defs": {
+    "RejectedItem": {
+      "properties": {
+        "error": {
+          "maxLength": 200,
+          "title": "Error",
+          "type": "string"
+        },
+        "index": {
+          "description": "Position in the batch",
+          "minimum": 0,
+          "title": "Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "index",
+        "error"
+      ],
+      "title": "RejectedItem",
+      "type": "object"
+    }
+  },
+  "description": "Items are accepted or rejected one by one. A rejected item (unknown staff member or\ncamera) will be rejected again, so the box must not resend it.",
+  "properties": {
+    "accepted": {
+      "minimum": 0,
+      "title": "Accepted",
+      "type": "integer"
+    },
+    "rejected": {
+      "items": {
+        "$ref": "#/$defs/RejectedItem"
+      },
+      "title": "Rejected",
+      "type": "array"
+    }
+  },
+  "required": [
+    "accepted"
+  ],
+  "title": "BatchResult",
+  "type": "object"
+}

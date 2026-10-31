@@ -1,13 +1,12 @@
-"""Detectors and tracking.
+"""Detectors.
 
-A detector turns an RGB frame (H x W x 3, uint8) into labelled boxes. The person detector
-arrives with its model in Phase 5; `MotionDetector` needs no weights and drives the
-after-hours motion rule.
+A detector turns an RGB frame (H x W x 3, uint8) into labelled boxes. Model-based
+detectors (people, phones) are in `cctv_edge.models`; `MotionDetector` needs no weights
+and drives the after-hours motion rule. Tracking is in `cctv_edge.tracking`.
 """
 
-import itertools
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Protocol
 
 import numpy as np
@@ -16,6 +15,11 @@ from cctv_edge.geometry import Box
 
 PERSON = "person"
 MOTION = "motion"
+# Labels produced by classifiers on crops rather than by detectors.
+DRAWER_OPEN = "drawer_open"
+NO_MASK = "no_mask"
+NO_GLOVES = "no_gloves"
+NO_HAIR_CAP = "no_hair_cap"
 
 
 @dataclass(frozen=True)
@@ -26,7 +30,7 @@ class Detection:
 
 
 class Detector(Protocol):
-    label: str
+    labels: frozenset[str]  # what it can report; one model can find several things
 
     def detect(self, frame: np.ndarray) -> list[Detection]: ...
 
@@ -34,7 +38,7 @@ class Detector(Protocol):
 class MotionDetector:
     """Frame differencing on a downscaled grey image. Reports one box around all change."""
 
-    label = MOTION
+    labels = frozenset({MOTION})
 
     def __init__(self, threshold: int = 25, min_fraction: float = 0.005, step: int = 4) -> None:
         self.threshold = threshold
@@ -61,68 +65,3 @@ class MotionDetector:
 DetectorFactory = Callable[[], Detector]
 
 BUILTIN_DETECTORS: dict[str, DetectorFactory] = {MOTION: MotionDetector}
-
-
-@dataclass
-class Track:
-    id: int
-    label: str
-    box: Box
-    confidence: float
-    first_seen: float
-    last_seen: float
-    hits: int = 1
-    previous_box: Box | None = field(default=None, repr=False)
-
-
-class IoUTracker:
-    """Greedy IoU tracker giving each object a stable id across frames.
-
-    Simple on purpose: it is enough for zone dwell and line crossing at 5 fps. Replace with
-    ByteTrack (same `update` interface) when the person model lands in Phase 5.
-    """
-
-    def __init__(
-        self, iou_threshold: float = 0.3, max_age_seconds: float = 2.0, min_hits: int = 2
-    ) -> None:
-        self.iou_threshold = iou_threshold
-        self.max_age_seconds = max_age_seconds
-        self.min_hits = min_hits
-        self._tracks: list[Track] = []
-        self._ids = itertools.count(1)
-
-    def update(self, detections: Sequence[Detection], ts: float) -> list[Track]:
-        """Returns confirmed tracks that were seen in this frame."""
-        self._tracks = [t for t in self._tracks if ts - t.last_seen <= self.max_age_seconds]
-        pairs = sorted(
-            (
-                (track.box.iou(det.box), ti, di)
-                for ti, track in enumerate(self._tracks)
-                for di, det in enumerate(detections)
-                if track.label == det.label
-            ),
-            reverse=True,
-        )
-        used_tracks: set[int] = set()
-        used_dets: set[int] = set()
-        seen: list[Track] = []
-        for iou, ti, di in pairs:
-            if iou < self.iou_threshold:
-                break
-            if ti in used_tracks or di in used_dets:
-                continue
-            used_tracks.add(ti)
-            used_dets.add(di)
-            track, det = self._tracks[ti], detections[di]
-            track.previous_box = track.box
-            track.box = det.box
-            track.confidence = det.confidence
-            track.last_seen = ts
-            track.hits += 1
-            seen.append(track)
-        for di, det in enumerate(detections):
-            if di not in used_dets:
-                track = Track(next(self._ids), det.label, det.box, det.confidence, ts, ts)
-                self._tracks.append(track)
-                seen.append(track)
-        return [t for t in seen if t.hits >= self.min_hits]

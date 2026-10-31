@@ -19,6 +19,9 @@ The token identifies the tenant and branch, so they are never sent in request bo
 | `GET /config` | → `EdgeConfig` (or `304`) | Resolved config; `If-None-Match: <version>` |
 | `GET /remote?wait=25` | → `RemoteRequest` (or `204`) | Long poll for requests only the box can serve: live view and playback (WebRTC offer → answer via go2rtc), the NVR's recordings, a camera frame, face embeddings |
 | `POST /remote/{id}/reply` | `RemoteReply` → `204` | Answer a request once; `404` if it expired or was sent to another box |
+| `GET /face-templates` | → `FaceTemplateList` (or `304`) | Face templates of the branch's consenting staff; `If-None-Match: <etag>`. Keep in memory only |
+| `POST /attendance` | `SightingBatch` → `BatchResult` | Up to 500 face matches (staff, camera, time). Unmatched faces are never sent |
+| `POST /counts` | `CountBatch` → `BatchResult` | Up to 500 finished count buckets (line in/out, zone occupancy); resending replaces |
 
 ## Event flow
 

@@ -1,0 +1,23 @@
+# Footage, frames, crops, labels exports and model files never go into git.
+data/
+datasets/
+runs/
+exports/
+reports/
+*.mp4
+*.mkv
+*.avi
+*.mov
+*.h264
+*.h265
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.onnx
+*.engine
+*.pt
+*.pth
+*.safetensors
+*.npy
+*.npz

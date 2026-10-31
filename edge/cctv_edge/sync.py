@@ -1,4 +1,5 @@
-"""Sends outbox events to the cloud: upload media first, then the events in batches."""
+"""Sends the outbox to the cloud: events (media first, then the events in batches),
+attendance sightings and count buckets."""
 
 import logging
 from uuid import UUID
@@ -6,7 +7,17 @@ from uuid import UUID
 from pydantic import ValidationError
 
 from cctv_contracts.enums import MediaKind
-from cctv_contracts.v1 import MAX_EVENTS_PER_BATCH, EventBatch, EventIn, UploadUrlRequest
+from cctv_contracts.v1 import (
+    MAX_BUCKETS_PER_BATCH,
+    MAX_EVENTS_PER_BATCH,
+    MAX_SIGHTINGS_PER_BATCH,
+    BatchResult,
+    CountBatch,
+    EventBatch,
+    EventIn,
+    SightingBatch,
+    UploadUrlRequest,
+)
 from cctv_edge.cloud import CloudClient, CloudError
 from cctv_edge.outbox import MediaFile, Outbox, PendingEvent
 
@@ -64,6 +75,57 @@ class Syncer:
         if revisions:  # missing from the response: try again later
             self.outbox.mark_retry(revisions, "no result in response", now)
         return accepted
+
+    def sync_sightings(self, now: float) -> int:
+        """Send waiting attendance sightings; returns how many the cloud accepted."""
+        due = self.outbox.due_sightings(now, MAX_SIGHTINGS_PER_BATCH)
+        if not due:
+            return 0
+        ids = [i for i, _ in due]
+        try:
+            result = self.client.send_sightings(SightingBatch(sightings=[s for _, s in due]))
+        except CloudError as exc:
+            if self._retry(exc):
+                log.warning("sending %d sightings failed: %s", len(due), exc)
+                self.outbox.retry_sightings(ids, now)
+            else:
+                log.error("cloud refused %d sightings; dropped: %s", len(due), exc)
+                self.outbox.delete_sightings(ids)
+            return 0
+        self._log_rejected("sighting", result)
+        # Rejected ones (staff no longer active or consenting) would be rejected again.
+        self.outbox.delete_sightings(ids)
+        return result.accepted
+
+    def sync_counts(self, now: float) -> int:
+        """Send finished count buckets; returns how many the cloud accepted."""
+        due = self.outbox.due_counts(now, MAX_BUCKETS_PER_BATCH)
+        if not due:
+            return 0
+        keys = [k for k, _ in due]
+        try:
+            result = self.client.send_counts(CountBatch(buckets=[b for _, b in due]))
+        except CloudError as exc:
+            if self._retry(exc):
+                log.warning("sending %d count buckets failed: %s", len(due), exc)
+                self.outbox.retry_counts(keys, now)
+                return 0
+            log.error("cloud refused %d count buckets; dropped: %s", len(due), exc)
+            result = None
+        if result is not None:
+            self._log_rejected("count bucket", result)
+        self.outbox.mark_counts_sent(keys)  # rejected ones are not resent either
+        return result.accepted if result else 0
+
+    @staticmethod
+    def _retry(exc: CloudError) -> bool:
+        # 404: a cloud that doesn't have the endpoint yet; keep the data until it does.
+        return exc.retryable or exc.status == 404
+
+    @staticmethod
+    def _log_rejected(kind: str, result: BatchResult) -> None:
+        for item in result.rejected:
+            log.warning("cloud rejected %s #%d: %s", kind, item.index, item.error)
 
     def _prepare(self, event: PendingEvent) -> EventIn:
         keys = {m.kind: m.media_key or self._upload(event.event_id, m) for m in event.media}

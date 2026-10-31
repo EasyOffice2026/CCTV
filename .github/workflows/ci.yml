@@ -46,9 +46,21 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
-      - run: pip install -e contracts -e "edge[test]"
+      # models/face extras: the real ONNX and OpenCV tests skip without them.
+      - run: pip install -e contracts -e "edge[test,models,face]"
       - run: pytest
         working-directory: edge
+
+  ml:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e contracts -e "ml[test]"
+      - run: pytest
+        working-directory: ml
 
   cloud:
     runs-on: ubuntu-24.04

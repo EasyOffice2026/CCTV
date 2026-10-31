@@ -9,8 +9,20 @@ Endpoints (all under API_PREFIX, authenticated with the device token except /pai
     GET  {API_PREFIX}/config              (If-None-Match: version) -> EdgeConfig | 304
     GET  {API_PREFIX}/remote?wait=25      (long poll)         -> RemoteRequest | 204
     POST {API_PREFIX}/remote/{id}/reply   RemoteReply         -> 204
+    GET  {API_PREFIX}/face-templates      (If-None-Match: etag) -> FaceTemplateList | 304
+    POST {API_PREFIX}/attendance          SightingBatch       -> BatchResult
+    POST {API_PREFIX}/counts              CountBatch          -> BatchResult
 """
 
+from cctv_contracts.v1.attendance import (
+    MAX_SIGHTINGS_PER_BATCH,
+    BatchResult,
+    FaceTemplate,
+    FaceTemplateList,
+    RejectedItem,
+    SightingBatch,
+    StaffSighting,
+)
 from cctv_contracts.v1.common import ContractModel, MediaKey, UtcDatetime
 from cctv_contracts.v1.config import (
     CameraConfig,
@@ -21,6 +33,7 @@ from cctv_contracts.v1.config import (
     WorkingHours,
     ZoneConfig,
 )
+from cctv_contracts.v1.counts import MAX_BUCKETS_PER_BATCH, CountBatch, CountBucketIn
 from cctv_contracts.v1.events import (
     MAX_EVENTS_PER_BATCH,
     EventBatch,
@@ -57,22 +70,33 @@ SCHEMA_MODELS: dict[str, type[ContractModel]] = {
     "pair_response": PairResponse,
     "remote_request": RemoteRequest,
     "remote_reply": RemoteReply,
+    "face_template_list": FaceTemplateList,
+    "sighting_batch": SightingBatch,
+    "count_batch": CountBatch,
+    "batch_result": BatchResult,
 }
 
 __all__ = [
     "API_PREFIX",
+    "MAX_BUCKETS_PER_BATCH",
     "MAX_EVENTS_PER_BATCH",
+    "MAX_SIGHTINGS_PER_BATCH",
     "SCHEMA_MODELS",
+    "BatchResult",
     "CameraConfig",
     "CameraStatus",
     "ClipSettings",
     "ContractModel",
+    "CountBatch",
+    "CountBucketIn",
     "EdgeConfig",
     "EventBatch",
     "EventBatchResponse",
     "EventIn",
     "EventResult",
     "FaceEmbeddingRequest",
+    "FaceTemplate",
+    "FaceTemplateList",
     "FeatureConfig",
     "FrameRequest",
     "Heartbeat",
@@ -85,8 +109,11 @@ __all__ = [
     "PlaybackRequest",
     "RecordingSpan",
     "RecordingsRequest",
+    "RejectedItem",
     "RemoteReply",
     "RemoteRequest",
+    "SightingBatch",
+    "StaffSighting",
     "SystemStats",
     "UploadUrlRequest",
     "UploadUrlResponse",

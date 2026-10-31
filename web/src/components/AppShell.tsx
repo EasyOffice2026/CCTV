@@ -33,7 +33,10 @@ const NAV: { group: MessageKey; items: NavItem[] }[] = [
   },
   {
     group: "nav.people",
-    items: [{ href: "/staff/", label: "nav.staff", anyOf: ["staff_manage"] }],
+    items: [
+      { href: "/staff/", label: "nav.staff", anyOf: ["staff_manage"] },
+      { href: "/attendance/", label: "nav.attendance", anyOf: ["staff_manage"] },
+    ],
   },
   {
     group: "nav.admin",
@@ -97,7 +100,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <aside
-        className={`fixed inset-y-0 start-0 z-30 w-60 shrink-0 border-e border-slate-200 bg-white transition-transform md:static md:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full rtl:translate-x-full"}`}
+        className={`fixed inset-y-0 start-0 z-30 w-60 shrink-0 border-e border-slate-200 bg-white transition-transform md:static md:translate-x-0 md:rtl:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full rtl:translate-x-full"}`}
       >
         <div className="border-b border-slate-200 px-5 py-4">
           <p className="font-semibold text-slate-900">{t("app.name")}</p>

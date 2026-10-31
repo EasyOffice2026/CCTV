@@ -70,6 +70,12 @@ class FakeCloud:
         self.reject: set[str] = set()
         self.remote_queue: list[dict] = []  # requests handed out by GET /remote
         self.remote_replies: dict[str, dict] = {}
+        self.sightings: list[dict] = []
+        self.counts: list[dict] = []
+        self.reject_staff: set[str] = set()  # sightings for these are rejected
+        self.templates: list[dict] = []
+        self.templates_etag = '"t1"'
+        self.template_requests: list[str | None] = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         if self.down:
@@ -124,6 +130,29 @@ class FakeCloud:
         if path.startswith("/v1/edge/remote/") and path.endswith("/reply"):
             self.remote_replies[path.split("/")[4]] = json.loads(request.content)
             return httpx.Response(204)
+        if path == "/v1/edge/attendance":
+            items = json.loads(request.content)["sightings"]
+            rejected = [
+                {"index": i, "error": "staff member not active"}
+                for i, item in enumerate(items)
+                if item["staff_id"] in self.reject_staff
+            ]
+            self.sightings += [x for x in items if x["staff_id"] not in self.reject_staff]
+            return httpx.Response(
+                200, json={"accepted": len(items) - len(rejected), "rejected": rejected}
+            )
+        if path == "/v1/edge/counts":
+            items = json.loads(request.content)["buckets"]
+            self.counts += items
+            return httpx.Response(200, json={"accepted": len(items), "rejected": []})
+        if path == "/v1/edge/face-templates":
+            etag = request.headers.get("if-none-match")
+            self.template_requests.append(etag)
+            if etag == self.templates_etag:
+                return httpx.Response(304)
+            return httpx.Response(
+                200, json={"templates": self.templates}, headers={"ETag": self.templates_etag}
+            )
         if path == "/v1/edge/config":
             if self.config is None or request.headers.get("if-none-match") == (
                 f'"{self.config.version}"'

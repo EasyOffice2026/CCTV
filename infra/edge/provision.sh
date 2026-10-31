@@ -14,9 +14,12 @@
 #   NVME_DEVICE            e.g. /dev/nvme0n1, mounted at /var/lib/cctv-edge for footage
 #   FORMAT_NVME=yes        format NVME_DEVICE as ext4 if it has no filesystem yet
 #   TAILSCALE_AUTHKEY      join the support VPN (tailnet) for remote maintenance
+#   MODELS_SOURCE          folder of model folders (each with model.json) to install to
+#                          /opt/cctv-edge/models; never from git (see edge/README.md "Models")
 #   ALLOW_NON_JETSON=yes   allow running on a non-Jetson Ubuntu box (lab/testing)
 #
 # Camera passwords go in /etc/cctv-edge/credentials.json afterwards (see edge/README.md).
+# Without models the box runs motion detection only; copy them in later and restart.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,6 +27,7 @@ APP_UID=10001                     # the service user inside the edge image
 CONF_DIR=/etc/cctv-edge
 DATA_DIR=/var/lib/cctv-edge
 INSTALL_DIR=/opt/cctv-edge
+MODELS_DIR=$INSTALL_DIR/models   # mounted read-only into the container
 
 log() { printf '\n==> %s\n' "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
@@ -131,6 +135,19 @@ install -m 644 "$SCRIPT_DIR/docker-compose.yml" "$INSTALL_DIR/docker-compose.yml
 # go2rtc (live view / playback over WebRTC). Its API stays on localhost; browsers reach
 # port 8555 (TCP+UDP), so allow it in the branch firewall unless all viewers use TURN.
 install -m 644 "$SCRIPT_DIR/go2rtc.yaml" "$INSTALL_DIR/go2rtc.yaml"
+# AI models: weights are licensed separately and are never in git. Each model folder has a
+# model.json naming its licence and the sha256 the service checks before loading it.
+install -d -m 755 "$MODELS_DIR"
+if [[ -n ${MODELS_SOURCE:-} ]]; then
+    [[ -d $MODELS_SOURCE ]] || die "MODELS_SOURCE $MODELS_SOURCE is not a folder"
+    for model in "$MODELS_SOURCE"/*/; do
+        [[ -f $model/model.json ]] || { echo "skipping $model (no model.json)"; continue; }
+        rm -rf "${MODELS_DIR:?}/$(basename "$model")"
+        cp -r "$model" "$MODELS_DIR/"
+        echo "model installed: $(basename "$model")"
+    done
+    chmod -R a+rX "$MODELS_DIR"
+fi
 cat > /etc/systemd/system/cctv-edge.service <<EOF
 [Unit]
 Description=CCTV edge AI service

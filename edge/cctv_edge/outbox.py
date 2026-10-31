@@ -3,6 +3,11 @@
 The sync loop sends from the outbox and only marks an event sent once the cloud accepts
 it, so events survive internet outages and restarts. Each change to an event (open ->
 closed) bumps its revision; the cloud upserts by `event_id`, so resending is harmless.
+
+Attendance sightings and count buckets wait here too. They are small and have no media:
+sightings are deleted once the cloud has answered, count buckets are kept a few hours
+after sending so a partial bucket (camera restarted mid-bucket) can be added to them and
+the full totals sent again.
 """
 
 import contextlib
@@ -19,6 +24,7 @@ from typing import Any
 from uuid import UUID
 
 from cctv_contracts.enums import EventStatus, MediaKind
+from cctv_contracts.v1 import CountBucketIn, StaffSighting
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS events (
@@ -49,9 +55,41 @@ CREATE INDEX IF NOT EXISTS events_unsent ON events (next_attempt_at)
     WHERE sent_revision < revision AND dropped = 0;
 CREATE INDEX IF NOT EXISTS events_clip_due ON events (clip_due_at)
     WHERE clip_due_at IS NOT NULL;
+CREATE TABLE IF NOT EXISTS sightings (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    payload         TEXT NOT NULL,           -- StaffSighting JSON
+    attempts        INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at REAL NOT NULL DEFAULT 0,
+    created_at      REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS counts (
+    camera_id        TEXT NOT NULL,
+    zone_id          TEXT NOT NULL DEFAULT '',  -- '' for the whole camera
+    bucket_start     REAL NOT NULL,
+    bucket_seconds   INTEGER NOT NULL,
+    in_count         INTEGER NOT NULL DEFAULT 0,
+    out_count        INTEGER NOT NULL DEFAULT 0,
+    max_occupancy    INTEGER,
+    occupied_seconds INTEGER,
+    sent             INTEGER NOT NULL DEFAULT 0,
+    attempts         INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at  REAL NOT NULL DEFAULT 0,
+    PRIMARY KEY (camera_id, zone_id, bucket_start)
+);
 """
 
 MAX_BACKOFF_SECONDS = 300
+# Sent count buckets are kept this long, to merge late partial buckets into.
+KEEP_SENT_COUNTS_SECONDS = 6 * 3600
+# Sightings the cloud never took (very long outage) are given up after this long.
+MAX_SIGHTING_AGE_SECONDS = 30 * 86400
+
+CountKey = tuple[str, str, float]  # camera id, zone id ('' for none), bucket start
+
+
+def _backoff(attempts: int) -> float:
+    # Exponential backoff with jitter so many devices don't retry in step.
+    return min(MAX_BACKOFF_SECONDS, 2**attempts) * (0.5 + random.random() / 2)  # noqa: S311
 
 
 @dataclass(frozen=True)
@@ -275,13 +313,11 @@ class Outbox:
         for event_id in event_ids:
             rows = self._query("SELECT attempts FROM events WHERE event_id = ?", (str(event_id),))
             attempts = rows[0]["attempts"] + 1
-            # Exponential backoff with jitter so many devices don't retry in step.
-            delay = min(MAX_BACKOFF_SECONDS, 2**attempts) * (0.5 + random.random() / 2)  # noqa: S311
             statements.append(
                 (
                     "UPDATE events SET attempts = ?, next_attempt_at = ?, last_error = ?"
                     " WHERE event_id = ?",
-                    (attempts, now + delay, error[:500], str(event_id)),
+                    (attempts, now + _backoff(attempts), error[:500], str(event_id)),
                 )
             )
         self._tx(statements)
@@ -304,6 +340,142 @@ class Outbox:
             " AND (sent_revision < revision OR clip_due_at IS NOT NULL)"
         )
         return rows[0]["n"]
+
+    # --- attendance sightings -----------------------------------------------------------
+
+    def add_sightings(self, sightings: Iterable[StaffSighting], now: float) -> None:
+        self._tx(
+            (
+                "INSERT INTO sightings (payload, created_at) VALUES (?, ?)",
+                (s.model_dump_json(), now),
+            )
+            for s in sightings
+        )
+
+    def due_sightings(self, now: float, limit: int) -> list[tuple[int, StaffSighting]]:
+        rows = self._query(
+            "SELECT id, payload FROM sightings WHERE next_attempt_at <= ? ORDER BY id LIMIT ?",
+            (now, limit),
+        )
+        return [(row["id"], StaffSighting.model_validate_json(row["payload"])) for row in rows]
+
+    def delete_sightings(self, ids: Iterable[int]) -> None:
+        self._tx(("DELETE FROM sightings WHERE id = ?", (i,)) for i in ids)
+
+    def retry_sightings(self, ids: Iterable[int], now: float) -> None:
+        statements = []
+        for i in ids:
+            rows = self._query("SELECT attempts FROM sightings WHERE id = ?", (i,))
+            if rows:
+                attempts = rows[0]["attempts"] + 1
+                statements.append(
+                    (
+                        "UPDATE sightings SET attempts = ?, next_attempt_at = ? WHERE id = ?",
+                        (attempts, now + _backoff(attempts), i),
+                    )
+                )
+        self._tx(statements)
+
+    # --- count buckets ------------------------------------------------------------------
+
+    def add_counts(self, buckets: Iterable[CountBucketIn]) -> None:
+        """Store finished buckets. A bucket already here (a partial one from before a
+        restart) is added to, and sent again with the combined totals."""
+        self._tx(
+            (
+                "INSERT INTO counts (camera_id, zone_id, bucket_start, bucket_seconds,"
+                " in_count, out_count, max_occupancy, occupied_seconds)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+                " ON CONFLICT (camera_id, zone_id, bucket_start) DO UPDATE SET"
+                " in_count = in_count + excluded.in_count,"
+                " out_count = out_count + excluded.out_count,"
+                " max_occupancy = CASE WHEN max_occupancy IS NULL THEN excluded.max_occupancy"
+                "   WHEN excluded.max_occupancy IS NULL THEN max_occupancy"
+                "   ELSE MAX(max_occupancy, excluded.max_occupancy) END,"
+                " occupied_seconds = CASE WHEN occupied_seconds IS NULL"
+                "   THEN excluded.occupied_seconds"
+                "   WHEN excluded.occupied_seconds IS NULL THEN occupied_seconds"
+                "   ELSE MIN(bucket_seconds, occupied_seconds + excluded.occupied_seconds) END,"
+                " sent = 0, attempts = 0, next_attempt_at = 0",
+                (
+                    str(b.camera_id),
+                    str(b.zone_id) if b.zone_id else "",
+                    b.bucket_start.timestamp(),
+                    b.bucket_seconds,
+                    b.in_count,
+                    b.out_count,
+                    b.max_occupancy,
+                    b.occupied_seconds,
+                ),
+            )
+            for b in buckets
+        )
+
+    def due_counts(self, now: float, limit: int) -> list[tuple[CountKey, CountBucketIn]]:
+        rows = self._query(
+            "SELECT * FROM counts WHERE sent = 0 AND next_attempt_at <= ?"
+            " ORDER BY bucket_start LIMIT ?",
+            (now, limit),
+        )
+        return [
+            (
+                (row["camera_id"], row["zone_id"], row["bucket_start"]),
+                CountBucketIn(
+                    camera_id=row["camera_id"],
+                    zone_id=row["zone_id"] or None,
+                    bucket_start=datetime.fromtimestamp(row["bucket_start"], timezone.utc),
+                    bucket_seconds=row["bucket_seconds"],
+                    in_count=row["in_count"],
+                    out_count=row["out_count"],
+                    max_occupancy=row["max_occupancy"],
+                    occupied_seconds=row["occupied_seconds"],
+                ),
+            )
+            for row in rows
+        ]
+
+    def mark_counts_sent(self, keys: Iterable[CountKey]) -> None:
+        self._tx(
+            (
+                "UPDATE counts SET sent = 1, attempts = 0"
+                " WHERE camera_id = ? AND zone_id = ? AND bucket_start = ?",
+                key,
+            )
+            for key in keys
+        )
+
+    def retry_counts(self, keys: Iterable[CountKey], now: float) -> None:
+        statements = []
+        for key in keys:
+            rows = self._query(
+                "SELECT attempts FROM counts WHERE camera_id = ? AND zone_id = ?"
+                " AND bucket_start = ?",
+                key,
+            )
+            if rows:
+                attempts = rows[0]["attempts"] + 1
+                statements.append(
+                    (
+                        "UPDATE counts SET attempts = ?, next_attempt_at = ?"
+                        " WHERE camera_id = ? AND zone_id = ? AND bucket_start = ?",
+                        (attempts, now + _backoff(attempts), *key),
+                    )
+                )
+        self._tx(statements)
+
+    def cleanup_aggregates(self, now: float) -> None:
+        self._tx(
+            [
+                (
+                    "DELETE FROM counts WHERE sent = 1 AND bucket_start < ?",
+                    (now - KEEP_SENT_COUNTS_SECONDS,),
+                ),
+                (
+                    "DELETE FROM sightings WHERE created_at < ?",
+                    (now - MAX_SIGHTING_AGE_SECONDS,),
+                ),
+            ]
+        )
 
     # --- disk space -------------------------------------------------------------------
 

@@ -45,7 +45,7 @@ minutes after 5 wrong passwords.
 | Download snapshots and clips, export event lists (CSV) | ✓ | ✓ | | |
 | Live view and NVR playback | ✓ | ✓ | | |
 | Current camera frame (for drawing zones) | ✓ | ✓ | | ✓ |
-| Staff, shifts, consent, face enrolment | ✓ | ✓ | | |
+| Staff, shifts, consent, face enrolment, attendance (view and correct) | ✓ | ✓ | | |
 
 Owners see every branch. Other roles see only the branches assigned to them; anything
 in other branches returns 404. Super-admins (our team) can do everything, in any tenant.
@@ -62,9 +62,10 @@ in other branches returns 404. Super-admins (our team) can do everything, in any
 | Events | `/v1/events` (search), `/v1/events/export` (CSV), `/v1/events/{id}`, `/review`, `/media/{snapshot\|clip}` |
 | Live view, playback | `/v1/live/ice-servers`, `/v1/cameras/{id}/live`, `/playback`, `/recordings`, `/frame` |
 | Staff | `/v1/staff`, `/v1/staff/{id}/consent`, `/v1/staff/{id}/face`, `/v1/shifts` |
+| Attendance, counts | `/v1/attendance`, `/v1/attendance/{staff_id}/{date}` (correct / undo), `/v1/counts` |
 | Realtime | WebSocket `/v1/ws` (live event feed) |
 | Integrations | `/v1/api-keys`, `/v1/audit-logs` |
-| Edge | `/v1/edge/pair`, `/config`, `/heartbeat`, `/media/upload-urls`, `/events`, `/remote` (long poll), `/remote/{id}/reply` |
+| Edge | `/v1/edge/pair`, `/config`, `/heartbeat`, `/media/upload-urls`, `/events`, `/remote` (long poll), `/remote/{id}/reply`, `/face-templates`, `/attendance`, `/counts` |
 
 **Feature settings** resolve camera → branch → tenant → default; `params` merge in the same
 order. Any change that affects a branch's edge config bumps the branch's
@@ -99,8 +100,25 @@ or through a TURN server (`CCTV_WEBRTC_ICE_SERVERS`). Every view is audited
 **Face enrolment** requires recorded consent (also a database trigger). The photos are
 relayed to the box, embedded by its face model, and dropped; only the embedding is stored,
 encrypted (`app-secret:v1` key, to move to KMS in plan 7.2). Withdrawing consent or marking
-someone as left deletes their face data (database trigger). Until the face model arrives
-(Phase 5) the box answers "face model not installed" and enrolment returns 502.
+someone as left deletes their face data (database trigger). A box without a face model
+answers "face model not installed" and enrolment returns 502.
+
+**Attendance** (plan 5.4). The box downloads the templates of its branch's active,
+consenting staff (`GET /v1/edge/face-templates`, decrypted, kept in memory on the box only)
+and sends only matches (`POST /v1/edge/attendance`: staff, camera, time). Sightings are
+not stored: each one updates the person's work-day record (`attendance_records`): first
+sighting = check-in, last = check-out, on time or late against the shift start plus grace.
+Sightings until 4 h after the end of a shift that runs past midnight count for the day it
+started. A manager's correction (`PUT /v1/attendance/{staff_id}/{date}`, audited) is kept
+next to the detected times and survives later sightings; `DELETE` goes back to the detected
+times. The worker marks staff **absent** once their shift is over if they have a shift and
+an enrolled face but weren't seen, on days the branch is open (all days when no working
+hours are set). Changes to who can be recognised (enrolment, consent, leaving, moving
+branch) bump the branch config version so the box reloads the templates.
+
+**Counts** (`POST /v1/edge/counts`): 5-minute buckets per camera and zone: entrance-line
+in/out and zone occupancy (`max_occupancy`, `occupied_seconds`, e.g. how long the counter
+was staffed). A bucket sent again replaces the stored one. Read with `GET /v1/counts`.
 
 Without Redis (`CCTV_REDIS_URL=` empty) an in-process bus and relay are used, which only
 work with a single API process.
@@ -109,12 +127,12 @@ work with a single API process.
 
 ```bash
 python -m cctv_cloud.cli create-superadmin --email you@example.com --name "Your Name"
-python -m cctv_cloud.worker run          # retention + offline devices, every 5 min
+python -m cctv_cloud.worker run          # retention, offline devices, absences; every 5 min
 ```
 
 The **retention** job deletes clips and snapshots older than the tenant's
 `retention_media_days` (default 90), then event records older than
-`retention_event_days` (default 365). Configure an object-storage lifecycle rule as a
+`retention_event_days` (default 365), together with count buckets and attendance days. Configure an object-storage lifecycle rule as a
 backstop; the dev stack sets 400 days.
 
 **Email** (password reset, invitations) is written to the log until a provider is chosen.

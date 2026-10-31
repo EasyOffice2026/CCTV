@@ -1,0 +1,41 @@
+<!--
+  Kitchen compliance: one person crop per task (task data: {"image": "<crop url>"}).
+  The label values are the ones classify_eval.py reads: worn / not_worn / not_visible.
+  Guide: ../guides/kitchen_ppe.md
+-->
+<View>
+  <Header value="Judge only what you can see in this crop. If you can't tell, choose not_visible."/>
+  <Image name="image" value="$image" zoom="true" zoomControl="true"/>
+  <View style="display: flex; gap: 2em">
+    <View>
+      <Header value="Mask (covers mouth and nose)" size="6"/>
+      <Choices name="mask" toName="image" choice="single" required="true">
+        <Choice value="worn" hotkey="1"/>
+        <Choice value="not_worn" hotkey="2"/>
+        <Choice value="not_visible" hotkey="3"/>
+      </Choices>
+    </View>
+    <View>
+      <Header value="Gloves (both visible hands)" size="6"/>
+      <Choices name="gloves" toName="image" choice="single" required="true">
+        <Choice value="worn" hotkey="4"/>
+        <Choice value="not_worn" hotkey="5"/>
+        <Choice value="not_visible" hotkey="6"/>
+      </Choices>
+    </View>
+    <View>
+      <Header value="Hair cap / hairnet" size="6"/>
+      <Choices name="hair_cap" toName="image" choice="single" required="true">
+        <Choice value="worn" hotkey="7"/>
+        <Choice value="not_worn" hotkey="8"/>
+        <Choice value="not_visible" hotkey="9"/>
+      </Choices>
+    </View>
+  </View>
+  <Choices name="crop_quality" toName="image" choice="single" showInline="true">
+    <Choice value="ok"/>
+    <Choice value="too_small"/>
+    <Choice value="blurred"/>
+    <Choice value="cut_off"/>
+  </Choices>
+</View>

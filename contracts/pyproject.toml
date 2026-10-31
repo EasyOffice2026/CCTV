@@ -18,4 +18,3 @@ test = ["pytest>=8"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cctv_contracts"]
-  

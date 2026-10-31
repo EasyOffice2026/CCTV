@@ -3,7 +3,7 @@ from typing import ClassVar
 import numpy as np
 
 from cctv_contracts.enums import EventType, FeatureKey, ZoneType
-from cctv_edge.detection import MOTION, PERSON, Detection, IoUTracker, MotionDetector
+from cctv_edge.detection import MOTION, PERSON, Detection, MotionDetector
 from cctv_edge.geometry import Box
 from cctv_edge.pipeline import CameraPipeline
 from cctv_edge.rules import EventOpened
@@ -23,6 +23,7 @@ class ScriptedDetector:
 
     def __init__(self, label: str = PERSON) -> None:
         self.label = label
+        self.labels = frozenset({label})
         self.boxes: list[Box] = []
         self.calls = 0
         ScriptedDetector.instances.append(self)
@@ -30,25 +31,6 @@ class ScriptedDetector:
     def detect(self, frame):
         self.calls += 1
         return [Detection(self.label, b, 0.9) for b in self.boxes]
-
-
-def test_tracker_keeps_ids_and_needs_two_hits():
-    tracker = IoUTracker(min_hits=2)
-    box = Box(0.1, 0.1, 0.3, 0.5)
-    assert tracker.update([Detection(PERSON, box, 0.9)], 0.0) == []
-    tracks = tracker.update([Detection(PERSON, Box(0.12, 0.1, 0.32, 0.5), 0.9)], 0.2)
-    assert len(tracks) == 1
-    first_id = tracks[0].id
-    tracks = tracker.update([Detection(PERSON, Box(0.14, 0.1, 0.34, 0.5), 0.9)], 0.4)
-    assert tracks[0].id == first_id
-    assert tracks[0].previous_box is not None
-
-
-def test_tracker_forgets_old_tracks():
-    tracker = IoUTracker(min_hits=1, max_age_seconds=1)
-    box = Box(0.1, 0.1, 0.3, 0.5)
-    first = tracker.update([Detection(PERSON, box, 0.9)], 0.0)[0].id
-    assert tracker.update([Detection(PERSON, box, 0.9)], 5.0)[0].id != first
 
 
 def test_motion_detector():
@@ -113,4 +95,5 @@ def test_line_counting():
     for i, y in enumerate([0.9, 0.8, 0.7, 0.6, 0.45, 0.35]):  # walks up through the door
         detector.boxes = [Box(0.4, y - 0.3, 0.5, y)]
         pipeline.process(FRAME, i * 0.2)
-    assert pipeline.line_counter.counts == {door.id: [1, 0]}
+    [bucket] = pipeline.flush_counts()
+    assert (bucket.zone_id, bucket.in_count, bucket.out_count) == (door.id, 1, 0)

@@ -90,6 +90,14 @@ class Event(TenantScoped, Base):
 
 
 class AttendanceRecord(UUIDPk, TenantScoped, Base):
+    """One staff member's work day (plan 5.4).
+
+    `first_seen_at` / `last_seen_at` always follow the face sightings from the edge. The
+    effective `check_in_at`, `check_out_at` and `status` are derived from them while
+    `source` is 'face'; a manager's correction sets `source` to 'manual' and they stay as
+    corrected until the correction is removed.
+    """
+
     __tablename__ = "attendance_records"
 
     branch_id: Mapped[uuid.UUID]
@@ -99,6 +107,11 @@ class AttendanceRecord(UUIDPk, TenantScoped, Base):
     check_out_at: Mapped[datetime | None]
     status: Mapped[str] = mapped_column(String(10))
     source: Mapped[str] = mapped_column(String(10), server_default=AttendanceSource.FACE.value)
+    first_seen_at: Mapped[datetime | None]
+    last_seen_at: Mapped[datetime | None]
+    note: Mapped[str | None] = mapped_column(Text)
+    corrected_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    corrected_at: Mapped[datetime | None]
     updated_at: Mapped[datetime | None]
 
     __table_args__ = (
@@ -107,6 +120,10 @@ class AttendanceRecord(UUIDPk, TenantScoped, Base):
         UniqueConstraint("staff_id", "work_date"),
         check_in("status", AttendanceStatus),
         check_in("source", AttendanceSource),
+        CheckConstraint(
+            "check_out_at IS NULL OR check_in_at IS NULL OR check_out_at >= check_in_at",
+            name="check_out_after_check_in",
+        ),
         Index("ix_attendance_tenant_date", "tenant_id", "work_date"),
     )
 
@@ -125,6 +142,8 @@ class CountBucket(TenantScoped, Base):
     in_count: Mapped[int] = mapped_column(server_default="0")
     out_count: Mapped[int] = mapped_column(server_default="0")
     max_occupancy: Mapped[int | None]
+    # Seconds with at least one person in the zone (e.g. the counter was staffed).
+    occupied_seconds: Mapped[int | None]
 
     __table_args__ = (
         tenant_fk("camera_id", "cameras", ondelete="CASCADE"),
@@ -133,5 +152,9 @@ class CountBucket(TenantScoped, Base):
             "camera_id", "zone_id", "bucket_start", postgresql_nulls_not_distinct=True
         ),
         CheckConstraint("in_count >= 0 AND out_count >= 0", name="counts_non_negative"),
+        CheckConstraint(
+            "occupied_seconds IS NULL OR occupied_seconds BETWEEN 0 AND bucket_seconds",
+            name="occupied_within_bucket",
+        ),
         Index("ix_count_buckets_tenant_start", "tenant_id", "bucket_start"),
     )

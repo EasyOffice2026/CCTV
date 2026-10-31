@@ -12,6 +12,7 @@ import { useI18n } from "@/lib/i18n";
 import { key } from "@/lib/labels";
 import { can } from "@/lib/permissions";
 import { useCameras } from "@/lib/queries";
+import { FEATURE_PARAM_DEFAULTS } from "@/lib/featureParams";
 
 type Setting = Schemas["FeatureSettingOut"];
 type Target = { scope: "tenant" } | { scope: "branch"; branch_id: string } | { scope: "camera"; camera_id: string };
@@ -190,6 +191,21 @@ function FeatureSettings() {
             }}
           >
             <p className="text-xs text-slate-500">{t("features.paramsHelp")}</p>
+            {FEATURE_PARAM_DEFAULTS[editing.feature] && (
+              <details className="rounded-md bg-slate-50 p-2 text-xs">
+                <summary className="cursor-pointer text-slate-700">{t("features.defaults")}</summary>
+                <pre dir="ltr" className="mt-2 overflow-x-auto text-start">
+                  {JSON.stringify(FEATURE_PARAM_DEFAULTS[editing.feature], null, 2)}
+                </pre>
+                <Button
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => setEditing({ ...editing, text: JSON.stringify(FEATURE_PARAM_DEFAULTS[editing.feature], null, 2) })}
+                >
+                  {t("features.useDefaults")}
+                </Button>
+              </details>
+            )}
             <Textarea
               dir="ltr"
               rows={8}
