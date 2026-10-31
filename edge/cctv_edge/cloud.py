@@ -1,7 +1,10 @@
 """HTTP client for the edge <-> cloud API (`cctv_contracts.v1`)."""
 
+import json
+import logging
 from pathlib import Path
 from typing import TypeVar
+from uuid import UUID
 
 import httpx
 from pydantic import ValidationError
@@ -14,10 +17,14 @@ from cctv_contracts.v1 import (
     EventBatchResponse,
     Heartbeat,
     HeartbeatResponse,
+    RemoteReply,
+    RemoteRequest,
     UploadUrlRequest,
     UploadUrlResponse,
 )
 from cctv_edge import __version__
+
+log = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=ContractModel)
 
@@ -43,6 +50,7 @@ class CloudClient:
         timeout: float = 10,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
+        self._timeout = timeout
         self._api = httpx.Client(
             base_url=base_url.rstrip("/") + API_PREFIX,
             headers={
@@ -101,6 +109,39 @@ class CloudClient:
 
     def heartbeat(self, heartbeat: Heartbeat) -> HeartbeatResponse:
         return self._post("/heartbeat", heartbeat, HeartbeatResponse)
+
+    def next_remote_request(self, wait_seconds: int) -> RemoteRequest | None:
+        """Long poll for a request from the cloud (live view, playback, ...); None when
+        nothing arrived within `wait_seconds`."""
+        response = self._call(
+            self._api,
+            "GET",
+            "/remote",
+            params={"wait": wait_seconds},
+            timeout=httpx.Timeout(self._timeout, read=wait_seconds + 15),
+        )
+        if response.status_code == 204:
+            return None
+        try:
+            return RemoteRequest.model_validate_json(response.content)
+        except ValidationError as exc:
+            # A kind this box doesn't know yet (newer cloud): say so instead of going silent.
+            try:
+                request_id = UUID(str(json.loads(response.content)["id"]))
+            except (ValueError, KeyError, TypeError) as parse_exc:
+                raise CloudError(f"unexpected remote request: {exc}", 200) from parse_exc
+            log.warning("remote request %s not understood: %s", request_id, exc)
+            self.reply_remote(request_id, RemoteReply(ok=False, error="unsupported request"))
+            return None
+
+    def reply_remote(self, request_id: UUID, reply: RemoteReply) -> None:
+        self._call(
+            self._api,
+            "POST",
+            f"/remote/{request_id}/reply",
+            content=reply.model_dump_json(exclude_none=True),
+            headers={"Content-Type": "application/json"},
+        )
 
 
 def _parse(model: type[T], response: httpx.Response) -> T:

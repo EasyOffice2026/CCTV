@@ -1,19 +1,22 @@
-"""Event search, review and media access (plan 3.6, 3.7)."""
+"""Event search, export, review and media access (plan 3.6, 3.7, 4.3)."""
 
 import base64
 import binascii
+import csv
+import io
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, or_, select
+from sqlalchemy import ColumnElement, and_, or_, select
 
 from cctv_cloud.api.deps import Context, context, forbidden, not_found
 from cctv_cloud.config import get_settings
 from cctv_cloud.db.enums import ReviewStatus
-from cctv_cloud.db.models import Event
+from cctv_cloud.db.models import Branch, Camera, Event, Zone
 from cctv_cloud.rbac import Permission
 from cctv_cloud.services.audit import AuditAction, record
 from cctv_cloud.services.storage import ObjectStorage, get_storage
@@ -24,6 +27,7 @@ router = APIRouter(prefix="/v1/events", tags=["events"])
 Viewer = Annotated[Context, Depends(context(Permission.EVENTS_VIEW))]
 Reviewer = Annotated[Context, Depends(context(Permission.EVENTS_VIEW, Permission.EVENTS_REVIEW))]
 MediaViewer = Annotated[Context, Depends(context(Permission.MEDIA_VIEW))]
+Exporter = Annotated[Context, Depends(context(Permission.EVENTS_VIEW, Permission.MEDIA_EXPORT))]
 
 MAX_PAGE = 200
 
@@ -113,46 +117,70 @@ def _visible_event(ctx: Context, event_id: uuid.UUID) -> Event:
     return event
 
 
+@dataclass
+class EventFilters:
+    """Search filters (plan 3.6), shared by search and export. All optional."""
+
+    start: Annotated[datetime | None, Query(alias="from")] = None
+    end: Annotated[datetime | None, Query(alias="to")] = None
+    branch_id: uuid.UUID | None = None
+    camera_id: uuid.UUID | None = None
+    zone_id: uuid.UUID | None = None
+    feature: FeatureKey | None = None
+    event_type: Annotated[list[EventType] | None, Query()] = None
+    severity: Severity | None = None
+    status: EventStatus | None = None
+    review_status: ReviewStatus | None = None
+    staff_id: uuid.UUID | None = None
+
+    def conditions(self, ctx: Context) -> list[ColumnElement[bool]]:
+        """Matching events in branches the caller can access."""
+        conditions = []
+        for column, value in (
+            (Event.branch_id, self.branch_id),
+            (Event.camera_id, self.camera_id),
+            (Event.zone_id, self.zone_id),
+            (Event.feature_key, self.feature.value if self.feature else None),
+            (Event.severity, self.severity.value if self.severity else None),
+            (Event.status, self.status.value if self.status else None),
+            (Event.review_status, self.review_status.value if self.review_status else None),
+            (Event.staff_id, self.staff_id),
+        ):
+            if value is not None:
+                conditions.append(column == value)
+        if self.event_type:
+            conditions.append(Event.event_type.in_([t.value for t in self.event_type]))
+        if self.start is not None:
+            conditions.append(Event.started_at >= self.start)
+        if self.end is not None:
+            conditions.append(Event.started_at < self.end)
+        if ctx.principal.branch_ids is not None:
+            conditions.append(Event.branch_id.in_(ctx.principal.branch_ids))
+        return conditions
+
+    def used(self) -> dict[str, Any]:
+        """The filters that were set, for the audit log."""
+        used: dict[str, Any] = {}
+        for name, value in vars(self).items():
+            if isinstance(value, list):
+                used[name] = [v.value for v in value]
+            elif value is not None:
+                used[name] = str(getattr(value, "value", value))
+        return used
+
+
+Filters = Annotated[EventFilters, Depends()]
+
+
 @router.get("", response_model=EventPage)
 def search_events(
     ctx: Viewer,
-    start: Annotated[datetime | None, Query(alias="from")] = None,
-    end: Annotated[datetime | None, Query(alias="to")] = None,
-    branch_id: uuid.UUID | None = None,
-    camera_id: uuid.UUID | None = None,
-    zone_id: uuid.UUID | None = None,
-    feature: FeatureKey | None = None,
-    event_type: Annotated[list[EventType] | None, Query()] = None,
-    severity: Severity | None = None,
-    status: EventStatus | None = None,
-    review_status: ReviewStatus | None = None,
-    staff_id: uuid.UUID | None = None,
+    filters: Filters,
     limit: Annotated[int, Query(ge=1, le=MAX_PAGE)] = 50,
     cursor: str | None = None,
 ) -> EventPage:
-    """Newest first. Every filter is optional; results only include branches the caller
-    can access."""
-    conditions = []
-    for column, value in (
-        (Event.branch_id, branch_id),
-        (Event.camera_id, camera_id),
-        (Event.zone_id, zone_id),
-        (Event.feature_key, feature.value if feature else None),
-        (Event.severity, severity.value if severity else None),
-        (Event.status, status.value if status else None),
-        (Event.review_status, review_status.value if review_status else None),
-        (Event.staff_id, staff_id),
-    ):
-        if value is not None:
-            conditions.append(column == value)
-    if event_type:
-        conditions.append(Event.event_type.in_([t.value for t in event_type]))
-    if start is not None:
-        conditions.append(Event.started_at >= start)
-    if end is not None:
-        conditions.append(Event.started_at < end)
-    if ctx.principal.branch_ids is not None:
-        conditions.append(Event.branch_id.in_(ctx.principal.branch_ids))
+    """Newest first. Results only include branches the caller can access."""
+    conditions = filters.conditions(ctx)
     if cursor:
         started, event_id = _decode_cursor(cursor)
         conditions.append(
@@ -170,6 +198,94 @@ def search_events(
     page = rows[:limit]
     next_cursor = _encode_cursor(page[-1]) if len(rows) > limit else None
     return EventPage(items=[_out(e) for e in page], next_cursor=next_cursor)
+
+
+EXPORT_COLUMNS = [
+    "event_id",
+    "started_at",
+    "ended_at",
+    "branch",
+    "camera",
+    "zone",
+    "feature",
+    "event_type",
+    "severity",
+    "status",
+    "confidence",
+    "review_status",
+    "review_note",
+    "staff_id",
+]
+_FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _cell(value: object) -> str:
+    """Text for a CSV cell. A leading = + - @ would run as a formula in Excel."""
+    text = "" if value is None else str(value)
+    return f"'{text}" if text.startswith(_FORMULA_START) else text
+
+
+@router.get(
+    "/export",
+    response_class=Response,
+    responses={200: {"content": {"text/csv": {}}, "description": "Matching events as CSV"}},
+)
+def export_events(ctx: Exporter, filters: Filters, request: Request) -> Response:
+    """The search results as CSV, newest first, up to `event_export_max_rows` rows. Written
+    to the audit log with the filters used."""
+    rows = ctx.db.execute(
+        select(Event, Branch.name, Camera.name, Zone.name)
+        .join(Branch, Branch.id == Event.branch_id)
+        .join(Camera, Camera.id == Event.camera_id)
+        .outerjoin(Zone, Zone.id == Event.zone_id)
+        .where(*filters.conditions(ctx))
+        .order_by(Event.started_at.desc(), Event.id.desc())
+        .limit(get_settings().event_export_max_rows)
+    ).all()
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(EXPORT_COLUMNS)
+    for event, branch, camera, zone in rows:
+        writer.writerow(
+            [
+                _cell(value)
+                for value in (
+                    event.id,
+                    event.started_at.isoformat(),
+                    event.ended_at.isoformat() if event.ended_at else None,
+                    branch,
+                    camera,
+                    zone,
+                    event.feature_key,
+                    event.event_type,
+                    event.severity,
+                    event.status,
+                    f"{event.confidence:.2f}",
+                    event.review_status,
+                    event.review_note,
+                    event.staff_id,
+                )
+            ]
+        )
+    record(
+        ctx.db,
+        ctx.principal,
+        AuditAction.EXPORT_EVENTS,
+        "events",
+        None,
+        request,
+        {"rows": len(rows), "filters": filters.used()},
+    )
+    name = f"events-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}.csv"
+    return Response(
+        # With a BOM, Excel reads the file as UTF-8 (Arabic branch and camera names).
+        "﻿" + out.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{name}"',
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @router.get("/{event_id}", response_model=EventOut)

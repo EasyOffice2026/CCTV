@@ -162,7 +162,7 @@ Assumes about **2 developers** (1 backend/frontend, 1 CV/edge). One developer al
 ### Phase 1 — Foundations (Week 2–3)
 
 - [x] 1.1 Monorepo, CI (lint, tests, Docker build), pre-commit. *Branching rules still to agree; type-checking (mypy) not added yet.*
-- [x] 1.2 Dev environment: `docker-compose` with Postgres, Redis, MinIO (local S3), MQTT, API. *Web is added in Phase 4.*
+- [x] 1.2 Dev environment: `docker-compose` with Postgres, Redis, MinIO (local S3), MQTT, API. *The web dashboard joined the stack in Phase 4.*
 - [x] 1.3 **Simulated cameras:** loop the collected footage as RTSP streams (MediaMTX + ffmpeg) so all development works without being on site.
 - [ ] 1.4 Cloud infrastructure (staging) with Terraform: Postgres, object storage, container hosting, secrets manager, TLS. *Blocked on the cloud provider/region decision (§1 #11).*
 - [x] 1.5 DB schema v1 (§3) + migrations + **RLS policies** + a test that proves tenant A cannot read tenant B.
@@ -203,16 +203,17 @@ Assumes about **2 developers** (1 backend/frontend, 1 CV/edge). One developer al
 
 ### Phase 4 — Web dashboard v1 (Week 6–9)
 
-- [ ] 4.1 App shell: login + 2FA, branch switcher, role-aware navigation, English + **Arabic (RTL)** support (the site names are Arabic).
-- [ ] 4.2 **Event feed:** live (WebSocket), snapshot cards, filters, a one-click clip player, buttons for **Valid / False alarm / Reviewed**.
-- [ ] 4.3 **Search page:** all filters from 3.6, results grid, open clip, export.
-- [ ] 4.4 **Live view:** grid per branch, WebRTC through the edge (sub-stream), opened on demand, auto-closes after inactivity.
-- [ ] 4.5 **Playback:** timeline per camera fetched from the NVR (ISAPI/RTSP playback) through the edge, with event markers on the timeline.
-- [ ] 4.6 **Settings:** draw/edit zone polygons and count lines on a camera snapshot; feature toggles per branch/camera; working hours; alert thresholds.
-- [ ] 4.7 **Admin panel:** clients, branches, cameras, devices (online/offline, versions), users.
-- [ ] 4.8 Staff management: add staff, upload/enrol face (only after the consent checkbox + date), shifts.
+- [x] 4.1 App shell: login + 2FA (QR setup), branch switcher, role-aware navigation, English + **Arabic (RTL)** support (the site names are Arabic). *Static Next.js export behind nginx; refresh token in an HttpOnly cookie, access token in memory only.*
+- [x] 4.2 **Event feed:** live (WebSocket `/v1/ws`), snapshot cards, filters, a one-click clip player, buttons for **Valid / False alarm / Reviewed**.
+- [x] 4.3 **Search page:** all filters from 3.6, results grid, open clip, export (CSV, audited).
+- [x] 4.4 **Live view:** grid per branch, WebRTC through the edge (sub-stream, go2rtc on the box), opened on demand, auto-closes after 5 min of inactivity or when the tab is hidden. *Signalling goes through the API (edge long-poll relay); video flows box → browser. Not yet tried against a real box/NVR; viewers outside the branch network will need a TURN server.*
+- [x] 4.5 **Playback:** timeline per camera from the NVR (ISAPI search + RTSP playback through the edge), with event markers on the timeline. *Hikvision ISAPI/RTSP formats implemented from the documentation; to verify on the site NVRs (and their clock/time-zone settings, see §0).*
+- [x] 4.6 **Settings:** draw/edit zone polygons and count lines on a live camera frame; feature toggles per tenant/branch/camera; working hours; alert thresholds (per-feature JSON for now; friendly forms per feature come with Phase 5 rules).
+- [x] 4.7 **Admin panel:** clients, branches, cameras/NVRs, devices (online/offline, versions, config up to date, pairing codes), users (invite, roles, branch access, 2FA reset).
+- [x] 4.8 Staff management: add staff, consent checkbox + date, enrol face (photos embedded on the edge box, only the encrypted embedding stored), shifts. *Enrolment works end to end once the face model is on the box (Phase 5, §1 #12); until then the box answers "face model not installed".*
 
 **Exit:** a non-developer can set up a branch, draw zones, toggle features and review events without touching code.
+*Status: verified in a browser (Playwright, against the real API and PostgreSQL with a simulated edge box): sign-in with 2FA setup, live event arriving over the WebSocket, review, Arabic/RTL, zone drawing on a frame from the box, staff consent + face enrolment, CSV export, playback timeline. Live video itself needs a real box (go2rtc) and wasn't exercised. To confirm with the client: the role matrix (live view for branch managers?).*
 
 ### Phase 5 — Pilot AI features, wave 1 (Week 5–12, alongside the work above)
 

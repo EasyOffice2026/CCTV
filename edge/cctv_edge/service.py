@@ -17,9 +17,11 @@ from cctv_edge.config_store import ConfigStore
 from cctv_edge.credentials import Credential, redact, with_credentials
 from cctv_edge.detection import BUILTIN_DETECTORS, DetectorFactory
 from cctv_edge.ffmpeg import FfmpegError
+from cctv_edge.go2rtc import Go2rtc
 from cctv_edge.media import build_clip, save_snapshot, still_clip
 from cctv_edge.outbox import Outbox
 from cctv_edge.pipeline import CameraPipeline
+from cctv_edge.remote import RemoteWorker
 from cctv_edge.ringbuffer import SegmentRecorder, list_segments, segments_between
 from cctv_edge.rules import EventOpened, RuleOutput
 from cctv_edge.schedule import BranchSchedule
@@ -153,6 +155,7 @@ class EdgeService:
         credentials: Mapping[str, Credential] | None = None,
         detector_factories: Mapping[str, DetectorFactory] | None = None,
         start_streams: bool = True,
+        go2rtc: Go2rtc | None = None,
     ) -> None:
         self.settings = settings
         self.client = client
@@ -180,6 +183,15 @@ class EdgeService:
         self._threads: list[threading.Thread] = []
         self._ticks: dict[str, tuple[float, float]] = {}  # loop -> (last step done, interval)
         self._started = time.monotonic()
+        self.remote = RemoteWorker(
+            client,
+            go2rtc or Go2rtc(settings.go2rtc_url),
+            lambda: self.config,
+            self.credentials,
+            settings.ffmpeg,
+            settings.remote_workers,
+        )
+        self._remote_backoff = 0.0
 
     # --- config -----------------------------------------------------------------------
 
@@ -345,6 +357,24 @@ class EdgeService:
         if response.latest_config_version > applied:
             self._config_wanted.set()
 
+    def remote_once(self, now: float) -> None:
+        """Wait for one request from the cloud and hand it to a worker thread."""
+        polled_at = time.monotonic()
+        try:
+            request = self.client.next_remote_request(self.settings.remote_wait_seconds)
+        except CloudError as exc:
+            # Back off so a cloud outage doesn't turn the long poll into a busy loop.
+            self._remote_backoff = min(max(self._remote_backoff * 2, 1), 60)
+            log.warning("remote: %s (retry in %.0fs)", exc, self._remote_backoff)
+            self._stop.wait(self._remote_backoff)
+            return
+        self._remote_backoff = 0.0
+        if request is not None:
+            self.remote.submit(request)
+        elif time.monotonic() - polled_at < 1:
+            self._stop.wait(1)  # a cloud that doesn't hold the poll open
+        self.remote.cleanup(now)
+
     def housekeeping(self, now: float) -> None:
         sent_before = now - self.settings.keep_sent_media_hours * 3600
         self.outbox.cleanup(self.settings.disk_quota_bytes, sent_before)
@@ -371,6 +401,8 @@ class EdgeService:
         )
         self._loop("heartbeat", s.heartbeat_seconds, self.heartbeat_once)
         self._loop("housekeeping", 10, self.housekeeping)
+        # The long poll itself is the wait; a step lasts at most remote_wait_seconds + 15 s.
+        self._loop("remote", 0, self.remote_once)
 
     def _loop(
         self,
@@ -420,3 +452,5 @@ class EdgeService:
         self._config_wanted.set()
         for thread in self._threads:
             thread.join(timeout=15)
+        self.remote.close()
+        self.remote.go2rtc.close()

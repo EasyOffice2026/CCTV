@@ -72,7 +72,9 @@ services:
       # Pre-signed URLs are opened by browsers and edge devices on the host, so they must
       # name the host's address for MinIO (signing doesn't contact MinIO).
       CCTV_S3_ENDPOINT_URL: http://localhost:9000
-    command: ["sh", "-c", "alembic upgrade head && uvicorn cctv_cloud.main:app --host 0.0.0.0 --port 8000"]
+    # Behind the web container's proxy: take the client IP from X-Forwarded-For (dev only;
+    # in production list the proxy's address instead of *).
+    command: ["sh", "-c", "alembic upgrade head && uvicorn cctv_cloud.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"]
     ports: ["8000:8000"]
     depends_on:
       postgres:
@@ -87,6 +89,18 @@ services:
       <<: *cloud-env
       CCTV_S3_ENDPOINT_URL: http://minio:9000  # deletes objects, so it talks to MinIO itself
     command: ["python", "-m", "cctv_cloud.worker", "run"]
+    depends_on:
+      api:
+        condition: service_started
+
+  # Web dashboard on http://localhost:3000; proxies /v1 to the API (same origin).
+  web:
+    build:
+      context: ../web
+    environment:
+      API_UPSTREAM: http://api:8000
+      MEDIA_ORIGIN: http://localhost:9000
+    ports: ["3000:8080"]
     depends_on:
       api:
         condition: service_started

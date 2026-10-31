@@ -3,6 +3,7 @@
 ## Requirements
 
 - Python 3.12+ (the edge targets 3.10; CI tests the contracts on both)
+- Node.js 22+ (web dashboard)
 - Docker Desktop (for the local stack and simulated cameras)
 - Git
 
@@ -23,6 +24,7 @@ docker compose -f infra/docker-compose.yml up -d
 
 | Service | URL | Notes |
 |---|---|---|
+| Dashboard | http://localhost:3000 | Web app; proxies `/v1` to the API ([web/README.md](../web/README.md)) |
 | API | http://localhost:8000/docs | Runs migrations on start ([cloud/README.md](../cloud/README.md)) |
 | Worker | — | Retention and offline-device jobs |
 | Postgres | localhost:5432 | `cctv` (app) and `cctv_test` (tests) databases |
@@ -37,7 +39,9 @@ Database roles:
   set by `tenant_session(tenant_id)`.
 
 First user: create a super-admin, open the printed link to set a password, then sign in
-(2FA is set up at the first login). Create tenants under `/v1/platform/tenants`.
+at http://localhost:3000 (2FA is set up at the first login). Create the first client under
+Administration › Clients; its owner gets an invitation email (written to the API log until
+an email provider is chosen).
 
 ```bash
 docker compose -f infra/docker-compose.yml exec api python -m cctv_cloud.cli create-superadmin --email you@example.com --name "You"
@@ -68,6 +72,12 @@ export CCTV_TEST_DATABASE_URL=postgresql+psycopg://cctv_app:cctv_app@localhost:5
 cd cloud && pytest
 ```
 
+Web dashboard (`web/`):
+
+```bash
+cd web && npm ci && npm run lint && npm test && npm run build
+```
+
 Without those variables the database tests are skipped. What the cloud tests check:
 
 - every table with `tenant_id` has a row-level-security policy, and the app role can't bypass it
@@ -79,6 +89,10 @@ Without those variables the database tests are skipped. What the cloud tests che
 - the API: login, 2FA, session rotation, password reset, every role's permissions, branch
   scoping, tenant isolation, API keys, edge pairing/config/ingest, search, audited media
   links, retention
+- the live event WebSocket (branch filtering, token renewal, logout), live view / playback /
+  frame / face enrolment through a simulated edge box (only the addressed box can answer),
+  the relay on Redis (fakeredis) and in-process, staff consent rules, CSV export, the
+  refresh cookie
 
 ## 5. Database changes
 
@@ -90,6 +104,12 @@ alembic upgrade head
 
 New tables with a `tenant_id` column need a row-level-security policy in their migration.
 The `test_every_tenant_table_has_row_level_security` test fails until they have one.
+
+After API changes, regenerate the OpenAPI file and the web app's types (CI checks both):
+
+```bash
+cd cloud && python -m cctv_cloud.openapi && cd ../web && npm run api:types
+```
 
 ## 6. Contract changes
 

@@ -1,0 +1,33 @@
+# go2rtc on the edge box: WebRTC for live view and NVR playback (plan 4.4, 4.5).
+# Installed to /opt/cctv-edge/go2rtc.yaml by provision.sh and mounted read-only, so
+# streams the edge service adds at runtime (with camera credentials) never reach disk.
+# Video goes from this box to the browser directly; the cloud only relays the SDP.
+
+api:
+  # Only the edge service (same host) may add streams; never expose this port.
+  listen: "127.0.0.1:1984"
+
+rtsp:
+  # No RTSP restreaming: the edge service and the NVR are the only RTSP clients.
+  listen: ""
+
+webrtc:
+  # Media port, TCP and UDP. Open it in the branch firewall/router only if browsers
+  # connect without a TURN relay.
+  listen: ":8555"
+  candidates:
+    - stun:8555  # find this box's public address with the STUN server below
+  # go2rtc substitutes ${VAR:default} from the environment (edge.env).
+  ice_servers:
+    - urls: ["${CCTV_EDGE_STUN_URL:stun:stun.l.google.com:19302}"]
+  # Behind strict NAT (most mobile networks), add the same TURN server the browser uses:
+  #  - urls: ["turn:turn.example.com:3478"]
+  #    username: "..."
+  #    credential: "..."
+
+log:
+  level: info
+
+# No static streams: the edge service adds "live-<camera id>" and "pb-<request id>"
+# through the API when someone watches.
+streams: {}

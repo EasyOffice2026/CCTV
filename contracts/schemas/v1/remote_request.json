@@ -1,0 +1,208 @@
+{
+  "$defs": {
+    "FaceEmbeddingRequest": {
+      "description": "Embed enrolment photos with the box's face model. The box must not keep the photos;\nthe cloud stores only the (encrypted) embedding.",
+      "properties": {
+        "images_base64": {
+          "items": {
+            "maxLength": 7000000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "title": "Images Base64",
+          "type": "array"
+        },
+        "kind": {
+          "const": "face_embedding",
+          "default": "face_embedding",
+          "title": "Kind",
+          "type": "string"
+        },
+        "staff_id": {
+          "format": "uuid",
+          "title": "Staff Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "staff_id",
+        "images_base64"
+      ],
+      "title": "FaceEmbeddingRequest",
+      "type": "object"
+    },
+    "FrameRequest": {
+      "description": "One current JPEG frame, e.g. as the background for drawing zones.",
+      "properties": {
+        "camera_id": {
+          "format": "uuid",
+          "title": "Camera Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "frame",
+          "default": "frame",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "camera_id"
+      ],
+      "title": "FrameRequest",
+      "type": "object"
+    },
+    "LiveRequest": {
+      "description": "Start WebRTC from the camera's sub-stream (main stream if it has none).",
+      "properties": {
+        "camera_id": {
+          "format": "uuid",
+          "title": "Camera Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "live",
+          "default": "live",
+          "title": "Kind",
+          "type": "string"
+        },
+        "sdp_offer": {
+          "maxLength": 32000,
+          "minLength": 1,
+          "title": "Sdp Offer",
+          "type": "string"
+        }
+      },
+      "required": [
+        "camera_id",
+        "sdp_offer"
+      ],
+      "title": "LiveRequest",
+      "type": "object"
+    },
+    "PlaybackRequest": {
+      "description": "Start WebRTC from the NVR's recording of the camera, from `start` to `end`.",
+      "properties": {
+        "camera_id": {
+          "format": "uuid",
+          "title": "Camera Id",
+          "type": "string"
+        },
+        "end": {
+          "format": "date-time",
+          "title": "End",
+          "type": "string"
+        },
+        "kind": {
+          "const": "playback",
+          "default": "playback",
+          "title": "Kind",
+          "type": "string"
+        },
+        "sdp_offer": {
+          "maxLength": 32000,
+          "minLength": 1,
+          "title": "Sdp Offer",
+          "type": "string"
+        },
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "camera_id",
+        "sdp_offer"
+      ],
+      "title": "PlaybackRequest",
+      "type": "object"
+    },
+    "RecordingsRequest": {
+      "description": "List what the NVR has recorded for the camera between `start` and `end`.",
+      "properties": {
+        "camera_id": {
+          "format": "uuid",
+          "title": "Camera Id",
+          "type": "string"
+        },
+        "end": {
+          "format": "date-time",
+          "title": "End",
+          "type": "string"
+        },
+        "kind": {
+          "const": "recordings",
+          "default": "recordings",
+          "title": "Kind",
+          "type": "string"
+        },
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "camera_id"
+      ],
+      "title": "RecordingsRequest",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "expires_at": {
+      "format": "date-time",
+      "title": "Expires At",
+      "type": "string"
+    },
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "request": {
+      "discriminator": {
+        "mapping": {
+          "face_embedding": "#/$defs/FaceEmbeddingRequest",
+          "frame": "#/$defs/FrameRequest",
+          "live": "#/$defs/LiveRequest",
+          "playback": "#/$defs/PlaybackRequest",
+          "recordings": "#/$defs/RecordingsRequest"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/LiveRequest"
+        },
+        {
+          "$ref": "#/$defs/PlaybackRequest"
+        },
+        {
+          "$ref": "#/$defs/RecordingsRequest"
+        },
+        {
+          "$ref": "#/$defs/FrameRequest"
+        },
+        {
+          "$ref": "#/$defs/FaceEmbeddingRequest"
+        }
+      ],
+      "title": "Request"
+    }
+  },
+  "required": [
+    "id",
+    "expires_at",
+    "request"
+  ],
+  "title": "RemoteRequest",
+  "type": "object"
+}

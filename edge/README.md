@@ -24,7 +24,8 @@ camera sub-stream ─► decode 5 fps ─► detectors ─► tracker ─► zon
 | `media.py` | JPEG snapshot with boxes; H.264 MP4 clip (browser-playable) |
 | `outbox.py` | Every event and file is stored locally first; disk quota with oldest-first cleanup |
 | `sync.py`, `cloud.py` | Upload media to pre-signed URLs, send events in batches, retry with backoff |
-| `service.py` | Applies cloud config without restart; clip, sync, config, heartbeat loops |
+| `service.py` | Applies cloud config without restart; clip, sync, config, heartbeat, remote loops |
+| `remote.py`, `go2rtc.py`, `nvr.py` | Requests from the cloud: live view, NVR playback and recordings, frames |
 
 Only features enabled in the cloud config run. A camera with no enabled feature is not
 streamed or analysed at all.
@@ -45,6 +46,31 @@ stay silent.
 **Person detection** needs a model and comes in Phase 5 (licence decision pending, see
 the plan §1 #12). Until then only the motion rule fires on real footage.
 
+## Live view, playback and other requests from the cloud
+
+The dashboard sometimes needs something only the box can reach on the branch LAN. The box
+long-polls `GET /v1/edge/remote` (`remote.py`) and answers each request once:
+
+| Request | What the box does |
+|---|---|
+| `live` | Adds the camera's sub-stream to **go2rtc** as `live-<camera id>` and returns go2rtc's WebRTC answer to the browser's offer |
+| `playback` | Same, from the NVR recording (`/Streaming/tracks/<ch>01?starttime=…`) as `pb-<request id>`; removed after 3 h |
+| `recordings` | Lists recorded spans from the NVR (Hikvision ISAPI `ContentMgmt/search`, digest auth) |
+| `frame` | One JPEG from the sub-stream (ffmpeg), e.g. for drawing zones |
+| `face_embedding` | Refused until the face model arrives (Phase 5) |
+
+Video goes from go2rtc straight to the browser; the cloud only passes the SDP offer and
+answer. go2rtc (`infra/edge/go2rtc.yaml`) keeps its API on `127.0.0.1:1984`. Browsers
+connect to **port 8555 (TCP and UDP)**, so allow it in the branch firewall, or give both
+sides a TURN server for networks where a direct connection fails (most mobile networks).
+Camera credentials go to go2rtc only through its local API; its config is mounted
+read-only, so they are never written to disk. Errors sent back to the cloud never
+contain credentials.
+
+Hikvision NVRs read the times in playback URLs and searches as their **local** time,
+even though they end in `Z`. The box converts using the branch time zone, so the NVR's
+clock and time zone must be right (NTP, Asia/Kuwait).
+
 ## Settings (environment variables)
 
 | Variable | Default | |
@@ -57,6 +83,8 @@ the plan §1 #12). Until then only the motion rule fires on real footage.
 | `CCTV_EDGE_ANALYSIS_FPS` | `5` | |
 | `CCTV_EDGE_DISK_QUOTA_BYTES` | 20 GiB | Local media limit |
 | `CCTV_EDGE_DETECTORS` | `["motion"]` | |
+| `CCTV_EDGE_GO2RTC_URL` | `http://127.0.0.1:1984` | Local go2rtc API |
+| `CCTV_EDGE_STUN_URL` | Google public STUN | Used by go2rtc (compose) |
 
 See `cctv_edge/settings.py` for the rest.
 
@@ -90,4 +118,4 @@ The tests use a fake cloud. Tests that need ffmpeg use the one on `PATH`, or the
 from `imageio-ffmpeg` (installed with the `test` extra).
 
 Running the service against the local stack needs the cloud's `/v1/edge` endpoints, which
-are built in Phase 3.
+are built in Phase 3. Live view also needs go2rtc (see `infra/edge/docker-compose.yml`).

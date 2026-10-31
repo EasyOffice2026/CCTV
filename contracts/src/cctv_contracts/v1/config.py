@@ -11,6 +11,8 @@ from cctv_contracts.v1.common import ContractModel, UtcDatetime
 # Zone coordinates are normalised to the frame (0..1) so they survive resolution changes.
 Coordinate = Annotated[float, Field(ge=0, le=1)]
 Point = tuple[Coordinate, Coordinate]
+# A host name or IP address (IPv6 in brackets); no user info, port or path.
+HOST_PATTERN = r"^[A-Za-z0-9.\-]+$|^\[[0-9A-Fa-f:.]+\]$"
 
 
 class ZoneConfig(ContractModel):
@@ -34,6 +36,18 @@ class FeatureConfig(ContractModel):
     params: dict[str, JsonValue] = Field(default_factory=dict)
 
 
+class NvrRef(ContractModel):
+    """The NVR that records the camera, for playback and the list of recordings.
+    `channel` is the NVR channel number (Hikvision track 101 = channel 1, main stream)."""
+
+    vendor: str = Field(default="hikvision", max_length=50)
+    host: str = Field(max_length=255, pattern=HOST_PATTERN)
+    http_port: int = Field(default=80, ge=1, le=65535)
+    rtsp_port: int = Field(default=554, ge=1, le=65535)
+    channel: int = Field(ge=1, le=256)
+    credentials_ref: str | None = Field(default=None, max_length=100)
+
+
 class CameraConfig(ContractModel):
     """A camera and the features that are *enabled* for it.
 
@@ -50,6 +64,8 @@ class CameraConfig(ContractModel):
     credentials_ref: str | None = Field(default=None, max_length=100)
     features: list[FeatureConfig] = Field(default_factory=list)
     zones: list[ZoneConfig] = Field(default_factory=list)
+    # Set when the camera is recorded on a known NVR channel (optional; added in v1).
+    nvr: NvrRef | None = None
 
     @field_validator("rtsp_main", "rtsp_sub")
     @classmethod

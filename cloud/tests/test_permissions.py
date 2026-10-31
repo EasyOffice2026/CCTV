@@ -202,3 +202,22 @@ def test_api_key_secret_may_contain_underscores(client, org, h, monkeypatch):
     ).json()
     assert created["key"].count("_") >= 3
     assert client.get("/v1/events", headers={"X-API-Key": created["key"]}).status_code == 200
+
+
+def test_feature_settings_of_other_branches_stay_hidden(client, org, h):
+    """Camera-level settings have no branch id; they must still follow branch access."""
+    for camera in ("cam_a1", "cam_a2"):
+        r = client.put(
+            "/v1/feature-settings",
+            json={
+                "scope": "camera",
+                "camera_id": str(org.ids[camera]),
+                "feature_key": "security",
+                "enabled": True,
+            },
+            headers=h("owner_a"),
+        )
+        assert r.status_code == 200, r.text
+    seen = client.get("/v1/feature-settings", headers=h("manager_a")).json()  # branch a1 only
+    assert [s["camera_id"] for s in seen] == [str(org.ids["cam_a1"])]
+    assert len(client.get("/v1/feature-settings", headers=h("owner_a")).json()) == 2

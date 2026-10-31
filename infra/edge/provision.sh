@@ -10,6 +10,7 @@
 #   CCTV_EDGE_SERIAL       optional: the serial registered in the admin panel, checked at pairing
 #   CCTV_EDGE_DEVICE_TOKEN use an existing device token instead of pairing
 #   CCTV_EDGE_IMAGE        edge image to run (default: see docker-compose.yml)
+#   CCTV_EDGE_STUN_URL     STUN server go2rtc uses for live view (default: Google's public one)
 #   NVME_DEVICE            e.g. /dev/nvme0n1, mounted at /var/lib/cctv-edge for footage
 #   FORMAT_NVME=yes        format NVME_DEVICE as ext4 if it has no filesystem yet
 #   TAILSCALE_AUTHKEY      join the support VPN (tailnet) for remote maintenance
@@ -106,6 +107,7 @@ CCTV_EDGE_CLOUD_URL=$cloud_url
 CCTV_EDGE_DEVICE_TOKEN=$token
 EOF
     [[ -z ${CCTV_EDGE_IMAGE:-} ]] || echo "CCTV_EDGE_IMAGE=$CCTV_EDGE_IMAGE" >> "$CONF_DIR/edge.env"
+    [[ -z ${CCTV_EDGE_STUN_URL:-} ]] || echo "CCTV_EDGE_STUN_URL=$CCTV_EDGE_STUN_URL" >> "$CONF_DIR/edge.env"
 fi
 [[ -f $CONF_DIR/credentials.json ]] || echo '{}' > "$CONF_DIR/credentials.json"
 chown "$APP_UID:$APP_UID" "$CONF_DIR/edge.env" "$CONF_DIR/credentials.json"
@@ -126,6 +128,9 @@ fi
 log "Edge service: $INSTALL_DIR, started at boot"
 install -d "$INSTALL_DIR"
 install -m 644 "$SCRIPT_DIR/docker-compose.yml" "$INSTALL_DIR/docker-compose.yml"
+# go2rtc (live view / playback over WebRTC). Its API stays on localhost; browsers reach
+# port 8555 (TCP+UDP), so allow it in the branch firewall unless all viewers use TURN.
+install -m 644 "$SCRIPT_DIR/go2rtc.yaml" "$INSTALL_DIR/go2rtc.yaml"
 cat > /etc/systemd/system/cctv-edge.service <<EOF
 [Unit]
 Description=CCTV edge AI service

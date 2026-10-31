@@ -36,6 +36,14 @@ class AuditAction(str, Enum):
     USER_CHANGE = "user_change"
     DEVICE_CHANGE = "device_change"
     API_KEY_CHANGE = "api_key_change"
+    VIEW_LIVE = "view_live"
+    VIEW_PLAYBACK = "view_playback"
+    VIEW_FRAME = "view_frame"
+    EXPORT_EVENTS = "export_events"
+    STAFF_CHANGE = "staff_change"
+    CONSENT_CHANGE = "consent_change"
+    FACE_ENROL = "face_enrol"
+    FACE_DELETE = "face_delete"
 
 
 def record(

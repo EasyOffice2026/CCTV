@@ -33,6 +33,17 @@
           "title": "Name",
           "type": "string"
         },
+        "nvr": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NvrRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "role": {
           "$ref": "#/$defs/CameraRole"
         },
@@ -138,6 +149,62 @@
       "type": "string"
     },
     "JsonValue": {},
+    "NvrRef": {
+      "description": "The NVR that records the camera, for playback and the list of recordings.\n`channel` is the NVR channel number (Hikvision track 101 = channel 1, main stream).",
+      "properties": {
+        "channel": {
+          "maximum": 256,
+          "minimum": 1,
+          "title": "Channel",
+          "type": "integer"
+        },
+        "credentials_ref": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Credentials Ref"
+        },
+        "host": {
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9.\\-]+$|^\\[[0-9A-Fa-f:.]+\\]$",
+          "title": "Host",
+          "type": "string"
+        },
+        "http_port": {
+          "default": 80,
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Http Port",
+          "type": "integer"
+        },
+        "rtsp_port": {
+          "default": 554,
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Rtsp Port",
+          "type": "integer"
+        },
+        "vendor": {
+          "default": "hikvision",
+          "maxLength": 50,
+          "title": "Vendor",
+          "type": "string"
+        }
+      },
+      "required": [
+        "host",
+        "channel"
+      ],
+      "title": "NvrRef",
+      "type": "object"
+    },
     "WorkingHours": {
       "properties": {
         "closes_at": {

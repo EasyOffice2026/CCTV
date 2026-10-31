@@ -6,6 +6,7 @@ every camera, zone, staff member and media key is checked against the device's b
 """
 
 import logging
+import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -17,6 +18,7 @@ from fastapi import (
     Depends,
     Header,
     HTTPException,
+    Query,
     Response,
     status,
 )
@@ -32,6 +34,7 @@ from cctv_cloud.db.models import Branch, Camera, EdgeDevice, Event, Staff, Zone
 from cctv_cloud.db.session import tenant_session
 from cctv_cloud.security import new_secret, normalise_pairing_code, sha256_hex
 from cctv_cloud.services.edge_config import build_edge_config
+from cctv_cloud.services.relay import EdgeRelay, get_relay
 from cctv_cloud.services.storage import ObjectStorage, get_storage, key_belongs_to, media_key
 from cctv_contracts.enums import EventStatus, MediaKind
 from cctv_contracts.v1 import (
@@ -45,6 +48,8 @@ from cctv_contracts.v1 import (
     HeartbeatResponse,
     PairRequest,
     PairResponse,
+    RemoteReply,
+    RemoteRequest,
     UploadUrlRequest,
     UploadUrlResponse,
 )
@@ -61,9 +66,10 @@ class DeviceContext:
     db: Session
 
 
-def device_context(
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
-) -> Iterator[DeviceContext]:
+def _find_device(
+    credentials: HTTPAuthorizationCredentials | None,
+) -> tuple[uuid.UUID, uuid.UUID, str]:
+    """(device id, tenant id, token hash) for a device token."""
     if credentials is None:
         raise unauthorized("device token required")
     token_hash = sha256_hex(credentials.credentials)
@@ -73,14 +79,34 @@ def device_context(
         ).one_or_none()
     if found is None:
         raise unauthorized("unknown or retired device")
-    with tenant_session(found.tenant_id) as db:
-        device = db.get(EdgeDevice, found.device_id)
+    return found.device_id, found.tenant_id, token_hash
+
+
+def device_context(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+) -> Iterator[DeviceContext]:
+    device_id, tenant_id, token_hash = _find_device(credentials)
+    with tenant_session(tenant_id) as db:
+        device = db.get(EdgeDevice, device_id)
         if device is None or device.token_hash != token_hash:
             raise unauthorized("unknown or retired device")
         yield DeviceContext(device, db)
 
 
+def device_id(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+) -> uuid.UUID:
+    """Authenticates the device without holding a database session (for long polls)."""
+    found_id, tenant_id, token_hash = _find_device(credentials)
+    with tenant_session(tenant_id) as db:
+        if db.scalar(select(EdgeDevice.token_hash).where(EdgeDevice.id == found_id)) != token_hash:
+            raise unauthorized("unknown or retired device")
+    return found_id
+
+
 Device = Annotated[DeviceContext, Depends(device_context)]
+DeviceId = Annotated[uuid.UUID, Depends(device_id)]
+Relay = Annotated[EdgeRelay, Depends(get_relay)]
 
 
 @router.post("/pair", response_model=PairResponse)
@@ -268,3 +294,27 @@ def ingest_events(
             )
     ctx.device.last_seen_at = now
     return EventBatchResponse(results=results)
+
+
+@router.get(
+    "/remote",
+    response_model=RemoteRequest,
+    responses={204: {"description": "Nothing to do within `wait` seconds"}},
+)
+async def next_remote_request(
+    device: DeviceId, relay: Relay, wait: Annotated[int, Query(ge=0, le=55)] = 25
+) -> RemoteRequest | Response:
+    """Long poll: the next request for this box (live view, playback, ...), if any."""
+    request = await relay.next_request(device, wait)
+    if request is None:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return request
+
+
+@router.post("/remote/{request_id}/reply", status_code=status.HTTP_204_NO_CONTENT)
+async def reply_remote(
+    request_id: uuid.UUID, body: RemoteReply, device: DeviceId, relay: Relay
+) -> None:
+    """Answer a request; only the box it was sent to can, and only once."""
+    if not await relay.reply(device, request_id, body):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "unknown or expired request")

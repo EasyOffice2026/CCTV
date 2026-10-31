@@ -6,6 +6,9 @@ POST /mfa/enable       setup_token + code -> tokens
 POST /mfa/verify       mfa_token + code -> tokens
 POST /refresh          refresh_token -> new tokens (rotated; reuse ends the session)
 POST /logout           ends the current session
+
+Browsers also get the refresh token as an HttpOnly cookie (path /v1/auth, SameSite=Strict),
+so the web app never has to store it; /refresh accepts the cookie instead of a body.
 GET  /me               the caller
 POST /password/forgot  email -> reset link by email (always 202)
 POST /password/reset   token + new password
@@ -16,7 +19,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import text, update
 from sqlalchemy.orm import Session
@@ -46,6 +49,7 @@ from cctv_cloud.services.mailer import Mailer, get_mailer
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 
 MFA_TOKEN_LIFETIME = timedelta(minutes=5)
+REFRESH_COOKIE = "cctv_refresh"
 Password = Annotated[str, Field(min_length=10, max_length=200)]
 
 
@@ -154,6 +158,31 @@ def _token_pair(user: User, session_row: UserSession) -> TokenPair:
     )
 
 
+def _set_refresh_cookie(response: Response, pair: TokenPair) -> TokenPair:
+    settings = get_settings()
+    response.set_cookie(
+        REFRESH_COOKIE,
+        pair.refresh_token,
+        max_age=settings.session_max_days * 86400,
+        path=router.prefix,
+        secure=settings.secure_cookies,
+        httponly=True,
+        samesite="strict",
+    )
+    return pair
+
+
+def _clear_refresh_cookie(response: Response) -> None:
+    settings = get_settings()
+    response.delete_cookie(
+        REFRESH_COOKIE,
+        path=router.prefix,
+        secure=settings.secure_cookies,
+        httponly=True,
+        samesite="strict",
+    )
+
+
 def _mfa_claims(token: str) -> tuple[uuid.UUID, uuid.UUID | None, dict]:
     try:
         claims = decode_token(token, "mfa")
@@ -167,7 +196,7 @@ def _mfa_claims(token: str) -> tuple[uuid.UUID, uuid.UUID | None, dict]:
 
 
 @router.post("/login", response_model=TokenPair | MfaChallenge)
-def login(body: LoginRequest, request: Request) -> TokenPair | MfaChallenge:
+def login(body: LoginRequest, request: Request, response: Response) -> TokenPair | MfaChallenge:
     settings = get_settings()
     found = _find_user(body.email)
     if found is None:
@@ -230,6 +259,8 @@ def login(body: LoginRequest, request: Request) -> TokenPair | MfaChallenge:
                 result = _issue_tokens(db, user, request)
     if result is None:  # raised after the block so the failure count is committed
         raise unauthorized("wrong email or password")
+    if isinstance(result, TokenPair):
+        _set_refresh_cookie(response, result)
     return result
 
 
@@ -256,7 +287,7 @@ def mfa_setup(body: TokenRequest) -> MfaSetup:
 
 
 @router.post("/mfa/enable", response_model=TokenPair)
-def mfa_enable(body: MfaCode, request: Request) -> TokenPair:
+def mfa_enable(body: MfaCode, request: Request, response: Response) -> TokenPair:
     user_id, tenant_id, claims = _mfa_claims(body.token)
     if claims.get("stage") != "enable":
         raise unauthorized("invalid 2FA setup token")
@@ -270,11 +301,11 @@ def mfa_enable(body: MfaCode, request: Request) -> TokenPair:
             raise unauthorized("2FA is already set up")
         user.totp_secret_encrypted = encrypted
         user.totp_last_step = step
-        return _issue_tokens(db, user, request)
+        return _set_refresh_cookie(response, _issue_tokens(db, user, request))
 
 
 @router.post("/mfa/verify", response_model=TokenPair)
-def mfa_verify(body: MfaCode, request: Request) -> TokenPair:
+def mfa_verify(body: MfaCode, request: Request, response: Response) -> TokenPair:
     user_id, tenant_id, claims = _mfa_claims(body.token)
     if claims.get("stage") != "verify":
         raise unauthorized("invalid 2FA token")
@@ -298,14 +329,22 @@ def mfa_verify(body: MfaCode, request: Request) -> TokenPair:
                 tenant_id=tenant_id,
                 user_id=user_id,
             )
-        return _issue_tokens(db, user, request)
+        return _set_refresh_cookie(response, _issue_tokens(db, user, request))
 
 
 @router.post("/refresh", response_model=TokenPair)
-def refresh(body: TokenRequest) -> TokenPair:
+def refresh(
+    response: Response,
+    body: TokenRequest | None = None,
+    cookie: Annotated[str | None, Cookie(alias=REFRESH_COOKIE)] = None,
+) -> TokenPair:
+    """Send the refresh token in the body, or rely on the cookie set at login."""
     settings = get_settings()
+    token = body.token if body is not None else cookie
+    if not token:
+        raise unauthorized("refresh token required")
     try:
-        claims = decode_token(body.token, "refresh")
+        claims = decode_token(token, "refresh")
         user_id = uuid.UUID(claims["sub"])
         tenant_id = uuid.UUID(claims["tid"]) if claims.get("tid") else None
         session_id = uuid.UUID(claims["sid"])
@@ -332,11 +371,12 @@ def refresh(body: TokenRequest) -> TokenPair:
             result = _token_pair(user, session_row)
     if result is None:  # raised after the block so the revocation is committed
         raise unauthorized("session ended")
-    return result
+    return _set_refresh_cookie(response, result)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout(principal: Annotated[Principal, Depends(get_principal)]) -> None:
+def logout(principal: Annotated[Principal, Depends(get_principal)], response: Response) -> None:
+    _clear_refresh_cookie(response)
     if principal.session_id is None:
         return
     with tenant_session(principal.tenant_id, principal.user_id) as db:

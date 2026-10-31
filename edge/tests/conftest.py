@@ -68,6 +68,8 @@ class FakeCloud:
         self.heartbeats: list[dict] = []
         self.config: EdgeConfig | None = None
         self.reject: set[str] = set()
+        self.remote_queue: list[dict] = []  # requests handed out by GET /remote
+        self.remote_replies: dict[str, dict] = {}
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         if self.down:
@@ -115,6 +117,13 @@ class FakeCloud:
                     "latest_config_version": self.config.version if self.config else 0,
                 },
             )
+        if path == "/v1/edge/remote":
+            if not self.remote_queue:
+                return httpx.Response(204)
+            return httpx.Response(200, json=self.remote_queue.pop(0))
+        if path.startswith("/v1/edge/remote/") and path.endswith("/reply"):
+            self.remote_replies[path.split("/")[4]] = json.loads(request.content)
+            return httpx.Response(204)
         if path == "/v1/edge/config":
             if self.config is None or request.headers.get("if-none-match") == (
                 f'"{self.config.version}"'

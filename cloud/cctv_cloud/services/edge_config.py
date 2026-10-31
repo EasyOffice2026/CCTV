@@ -30,6 +30,7 @@ from cctv_contracts.v1 import (
     CameraConfig,
     EdgeConfig,
     FeatureConfig,
+    NvrRef,
     ZoneConfig,
 )
 from cctv_contracts.v1 import WorkingHours as WorkingHoursConfig
@@ -95,9 +96,7 @@ def build_edge_config(session: Session, device: EdgeDevice) -> EdgeConfig:
         .order_by(Camera.name)
     ).all()
     camera_ids = [c.id for c in cameras]
-    nvr_refs = dict(
-        session.execute(select(Nvr.id, Nvr.credentials_ref).where(Nvr.branch_id == branch.id)).all()
-    )
+    nvrs = {n.id: n for n in session.scalars(select(Nvr).where(Nvr.branch_id == branch.id))}
     zones: dict[uuid.UUID, list[Zone]] = {}
     for zone in session.scalars(
         select(Zone).where(Zone.camera_id.in_(camera_ids)).order_by(Zone.name)
@@ -122,7 +121,8 @@ def build_edge_config(session: Session, device: EdgeDevice) -> EdgeConfig:
                 role=CameraRole(camera.role),
                 rtsp_main=camera.rtsp_main,
                 rtsp_sub=camera.rtsp_sub,
-                credentials_ref=camera.credentials_ref or nvr_refs.get(camera.nvr_id),
+                credentials_ref=camera.credentials_ref
+                or (nvrs[camera.nvr_id].credentials_ref if camera.nvr_id else None),
                 features=[
                     FeatureConfig(key=FeatureKey(f.key), params=f.params)
                     for f in features[camera.id].values()
@@ -132,9 +132,23 @@ def build_edge_config(session: Session, device: EdgeDevice) -> EdgeConfig:
                     ZoneConfig(id=z.id, name=z.name, type=ZoneType(z.zone_type), points=z.points)
                     for z in zones.get(camera.id, [])
                 ],
+                nvr=_nvr_ref(nvrs.get(camera.nvr_id), camera.channel),
             )
             for camera in cameras
         ],
+    )
+
+
+def _nvr_ref(nvr: Nvr | None, channel: int | None) -> NvrRef | None:
+    if nvr is None or channel is None:
+        return None
+    return NvrRef(
+        vendor=nvr.vendor,
+        host=nvr.host,
+        http_port=nvr.http_port,
+        rtsp_port=nvr.rtsp_port,
+        channel=channel,
+        credentials_ref=nvr.credentials_ref,
     )
 
 

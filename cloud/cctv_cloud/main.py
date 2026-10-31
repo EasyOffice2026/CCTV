@@ -14,6 +14,9 @@ from cctv_cloud.api import (
     health,
     integrations,
     platform,
+    realtime,
+    remote,
+    staff,
 )
 from cctv_cloud.config import get_settings
 
@@ -25,6 +28,7 @@ Multi-tenant API for the AI CCTV system.
 * **Super-admins** pick the tenant to act on with the `X-Tenant-Id` header.
 * **Integrations** (POS, HRM) send `X-API-Key: <key>` (created under `/v1/api-keys`).
 * **Edge devices** use `/v1/edge/*` with their device token (see contracts/README.md).
+* **Live events**: WebSocket `/v1/ws`; send `{"type": "auth", "token": ...}` first.
 """
 
 
@@ -34,6 +38,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[settings.web_url],
+        allow_credentials=True,  # the refresh-token cookie
         allow_methods=["*"],
         allow_headers=["Authorization", "Content-Type", "X-Tenant-Id"],
     )
@@ -46,7 +51,20 @@ def create_app() -> FastAPI:
             content={"detail": "conflicts with existing data"},
         )
 
-    for module in (health, auth, platform, admin, devices, features, events, integrations, edge):
+    for module in (
+        health,
+        auth,
+        platform,
+        admin,
+        devices,
+        features,
+        events,
+        remote,
+        staff,
+        integrations,
+        realtime,
+        edge,
+    ):
         app.include_router(module.router)
     return app
 

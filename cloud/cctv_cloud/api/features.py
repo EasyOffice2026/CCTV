@@ -18,7 +18,7 @@ from cctv_cloud.api.admin import ORMModel, accessible_branch, notify_config
 from cctv_cloud.api.deps import Context, PublisherDep, context, forbidden, not_found
 from cctv_cloud.api.devices import accessible_camera
 from cctv_cloud.db.enums import FeatureScope
-from cctv_cloud.db.models import Feature, FeatureSetting
+from cctv_cloud.db.models import Camera, Feature, FeatureSetting
 from cctv_cloud.rbac import Permission
 from cctv_cloud.services.audit import AuditAction, record
 from cctv_cloud.services.edge_config import bump_config_version, resolve_features
@@ -108,9 +108,24 @@ def list_feature_settings(
         accessible_camera(ctx, camera_id)
         query = query.where(FeatureSetting.camera_id == camera_id)
     rows = ctx.db.scalars(query).all()
-    if ctx.principal.branch_ids is None:
+    allowed = ctx.principal.branch_ids
+    if allowed is None:
         return list(rows)
-    return [r for r in rows if r.branch_id is None or r.branch_id in ctx.principal.branch_ids]
+    # Camera-scope rows have no branch_id: check the camera's branch instead.
+    camera_branch = dict(
+        ctx.db.execute(
+            select(Camera.id, Camera.branch_id).where(
+                Camera.id.in_([r.camera_id for r in rows if r.camera_id is not None])
+            )
+        ).all()
+    )
+    return [
+        r
+        for r in rows
+        if r.scope == FeatureScope.TENANT.value
+        or r.branch_id in allowed
+        or camera_branch.get(r.camera_id) in allowed
+    ]
 
 
 @router.put("/feature-settings", response_model=FeatureSettingOut)

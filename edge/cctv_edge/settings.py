@@ -42,6 +42,13 @@ class EdgeSettings(BaseSettings):
     config_poll_seconds: float = 60
     heartbeat_seconds: float = 30
 
+    # Requests from the cloud (live view, playback, recordings, frames): long poll length
+    # and how many are handled at once. go2rtc serves the WebRTC streams; its API must
+    # only listen on localhost (see infra/edge/go2rtc.yaml).
+    go2rtc_url: str = "http://127.0.0.1:1984"
+    remote_wait_seconds: int = Field(default=25, ge=1, le=55)
+    remote_workers: int = Field(default=4, ge=1, le=16)
+
     # Detectors to load: "motion" works without model weights. Person detection is added
     # with the model in Phase 5.
     detectors: list[str] = Field(default_factory=lambda: ["motion"])

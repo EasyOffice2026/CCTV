@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: system-ui, "Segoe UI", Tahoma, "Noto Sans Arabic", "Noto Sans", Arial, sans-serif;
+  --color-brand-50: #eef6ff;
+  --color-brand-100: #d9eaff;
+  --color-brand-500: #2f6fde;
+  --color-brand-600: #2259c2;
+  --color-brand-700: #1d489c;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: var(--color-slate-50);
+  color: var(--color-slate-900);
+}
+
+/* Video tiles keep a 16:9 frame while loading. */
+.video-frame {
+  aspect-ratio: 16 / 9;
+}

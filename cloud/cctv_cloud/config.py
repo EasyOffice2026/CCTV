@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -46,6 +46,20 @@ class Settings(BaseSettings):
     # Edge devices: pairing codes expire; a device is offline after missing heartbeats.
     pairing_code_hours: int = 24
     device_offline_seconds: int = 120
+
+    # Live view, playback, frames and face enrolment go through the branch's edge box;
+    # the browser's request waits this long for the box to answer.
+    remote_timeout_seconds: float = 15
+    face_embedding_timeout_seconds: float = 30
+    # ICE servers given to browsers for WebRTC (live view, playback). Add a TURN server for
+    # viewers whose network blocks direct connections to the box.
+    webrtc_ice_servers: list[dict[str, Any]] = [{"urls": ["stun:stun.l.google.com:19302"]}]
+
+    event_export_max_rows: int = 10_000
+
+    @property
+    def secure_cookies(self) -> bool:
+        return self.environment in ("staging", "production")
 
     @model_validator(mode="after")
     def _check_secrets(self) -> "Settings":

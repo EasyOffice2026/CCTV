@@ -1,0 +1,123 @@
+{
+  "$defs": {
+    "RecordingSpan": {
+      "properties": {
+        "end": {
+          "format": "date-time",
+          "title": "End",
+          "type": "string"
+        },
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "RecordingSpan",
+      "type": "object"
+    }
+  },
+  "description": "`ok=False` with `error` when the box can't do it (camera offline, NVR unreachable,\nno face model yet). Otherwise the field for the request's kind is set.",
+  "properties": {
+    "embedding": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 4096,
+          "minItems": 64,
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Embedding"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error"
+    },
+    "jpeg_base64": {
+      "anyOf": [
+        {
+          "maxLength": 7000000,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Jpeg Base64"
+    },
+    "model_version": {
+      "anyOf": [
+        {
+          "maxLength": 50,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Model Version"
+    },
+    "ok": {
+      "title": "Ok",
+      "type": "boolean"
+    },
+    "recordings": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/RecordingSpan"
+          },
+          "maxItems": 2000,
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Recordings"
+    },
+    "sdp_answer": {
+      "anyOf": [
+        {
+          "maxLength": 32000,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sdp Answer"
+    }
+  },
+  "required": [
+    "ok"
+  ],
+  "title": "RemoteReply",
+  "type": "object"
+}

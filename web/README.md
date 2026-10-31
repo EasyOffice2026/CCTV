@@ -1,0 +1,61 @@
+# cctv-web: dashboard and admin panel
+
+Next.js 16 + React 19 + TypeScript, TanStack Query, Tailwind CSS 4. English and Arabic
+(right-to-left). Built as a **static single-page app** (`output: "export"`): no Node server
+in production; nginx serves the files and proxies `/v1` to the API (see `Dockerfile`).
+
+## Run it
+
+```bash
+cd web
+cp .env.example .env.local     # NEXT_PUBLIC_API_URL=http://localhost:8000
+npm ci
+npm run dev                     # http://localhost:3000 (the API must allow this origin: CCTV_WEB_URL)
+```
+
+With the Docker stack (`infra/docker-compose.yml`) the dashboard is on http://localhost:3000
+and talks to the API through its own proxy.
+
+| Command | |
+|---|---|
+| `npm run dev` | Development server |
+| `npm run build` | Static export to `out/` (includes the TypeScript check) |
+| `npm run lint` / `npm test` | ESLint / unit tests (Vitest: time zones, zone geometry, translations) |
+| `npm run api:types` | Regenerate `src/api/schema.d.ts` from `cloud/openapi.json` (after `python -m cctv_cloud.openapi`); CI fails if it is stale |
+
+## Pages
+
+| Page | Who (permission) | What |
+|---|---|---|
+| Live events | `events_view` | Event cards that update live over the WebSocket; clip player; Valid / False alarm / Reviewed |
+| Search | `events_view` | Every filter of the search API; CSV export (`media_export`) |
+| Live view | `live_view` | Camera grid per branch, WebRTC from the edge box on demand; stops after 5 min without activity or when the tab is hidden |
+| Playback | `live_view` | A day's timeline of the NVR's recordings with event markers; click to play |
+| Zones | `devices_manage` edits, `settings_manage` views | Draw polygons and count lines on a live frame |
+| Features | `settings_manage` | On/off per tenant, branch and camera; thresholds (JSON) |
+| Working hours | `branch_edit` | Weekly opening hours per branch |
+| Staff | `staff_manage` | Staff, shifts, consent, face enrolment (only after consent) |
+| Clients, Branches, Cameras & NVRs, Edge devices, Users | `platform_admin`, `tenant_admin`, `devices_manage` | Administration |
+
+The UI hides what a role can't use; the API enforces it.
+
+## How it works
+
+- **Sign-in.** The access token lives in memory only. The refresh token is an HttpOnly,
+  SameSite=Strict cookie set by the API (path `/v1/auth`), so scripts never see it. The app
+  refreshes on load, on a 401, and shortly before expiry while the user is active (so the
+  server's 8-hour idle timeout still applies).
+- **Live events.** `/v1/ws`; the token is sent as the first message, again after each refresh.
+- **Video.** The browser sends a WebRTC offer to the API, which relays it to the branch's edge
+  box (go2rtc) and returns the answer. Video then flows from the box to the browser directly,
+  or through the TURN server in `CCTV_WEBRTC_ICE_SERVERS` when a direct path isn't possible.
+- **Times** are shown in the branch's time zone (Asia/Kuwait), not the viewer's.
+- **Arabic.** `dir="rtl"` on `<html>`; layouts use logical properties (`ms-`, `pe-`, `start-`…).
+  Every text is in `src/lib/messages/en.ts` and `ar.ts`; TypeScript and a test check that both
+  have every key.
+
+## Known issue
+
+`next build` on **Windows** writes the router's prefetch files under the wrong names (a
+Next.js 16.4 export bug with `\` paths), so prefetches 404 and navigation falls back to
+normal loads. Builds on Linux (CI, the Docker image) are correct.

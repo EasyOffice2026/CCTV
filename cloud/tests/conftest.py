@@ -29,7 +29,8 @@ from cctv_cloud.db.models import Branch, Camera, Tenant, User, UserBranchAccess
 from cctv_cloud.db.session import get_engine, get_sessionmaker
 from cctv_cloud.main import app
 from cctv_cloud.services.mailer import get_mailer
-from cctv_cloud.services.notify import get_publisher
+from cctv_cloud.services.notify import LocalBus, get_publisher, get_subscriber
+from cctv_cloud.services.relay import LocalRelay, get_relay
 from cctv_cloud.services.storage import get_storage
 
 CLOUD_DIR = Path(__file__).resolve().parents[1]
@@ -129,12 +130,16 @@ class FakeStorage:
         self.deleted.extend(keys)
 
 
-class FakePublisher:
+class FakePublisher(LocalBus):
+    """The in-process bus, recording what was published."""
+
     def __init__(self) -> None:
+        super().__init__()
         self.messages: list[tuple[str, dict]] = []
 
     def publish(self, channel: str, message: dict) -> None:
         self.messages.append((channel, message))
+        super().publish(channel, message)
 
 
 class FakeMailer:
@@ -163,16 +168,25 @@ class Org:
 @pytest.fixture
 def fakes():
     storage, publisher, mailer = FakeStorage(), FakePublisher(), FakeMailer()
+    relay = LocalRelay()
     app.dependency_overrides.update(
-        {get_storage: lambda: storage, get_publisher: lambda: publisher, get_mailer: lambda: mailer}
+        {
+            get_storage: lambda: storage,
+            get_publisher: lambda: publisher,
+            get_subscriber: lambda: publisher,
+            get_mailer: lambda: mailer,
+            get_relay: lambda: relay,
+        }
     )
     yield storage, publisher, mailer
     app.dependency_overrides.clear()
 
 
 @pytest.fixture
-def client(owner_engine, fakes) -> TestClient:
-    return TestClient(app)
+def client(owner_engine, fakes) -> Iterator[TestClient]:
+    # One event loop for the whole test (the in-process relay and bus live on it).
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 @pytest.fixture

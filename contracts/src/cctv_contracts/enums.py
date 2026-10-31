@@ -116,3 +116,13 @@ class ZoneType(str, Enum):
 
 
 LINE_ZONE_TYPES = frozenset({ZoneType.ENTRANCE_LINE})
+
+
+class RemoteKind(str, Enum):
+    """Requests the cloud passes to an edge box (see cctv_contracts.v1.remote)."""
+
+    LIVE = "live"
+    PLAYBACK = "playback"
+    RECORDINGS = "recordings"
+    FRAME = "frame"
+    FACE_EMBEDDING = "face_embedding"

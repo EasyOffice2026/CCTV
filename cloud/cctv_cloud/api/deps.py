@@ -48,7 +48,8 @@ def not_found(what: str = "not found") -> HTTPException:
     return HTTPException(status.HTTP_404_NOT_FOUND, what)
 
 
-def _user_principal(token: str, tenant_header: uuid.UUID | None) -> Principal:
+def user_principal(token: str, tenant_header: uuid.UUID | None) -> Principal:
+    """The user behind an access token, checked against their session on every call."""
     try:
         claims = decode_token(token, "access")
         user_id = uuid.UUID(claims["sub"])
@@ -129,7 +130,7 @@ def get_principal(
         return _api_key_principal(api_key)
     if credentials is None:
         raise unauthorized()
-    return _user_principal(credentials.credentials, tenant_header)
+    return user_principal(credentials.credentials, tenant_header)
 
 
 def require(*permissions: Permission) -> Callable[..., Principal]:
@@ -143,6 +144,18 @@ def require(*permissions: Permission) -> Callable[..., Principal]:
                 status.HTTP_400_BAD_REQUEST, f"choose a tenant with the {TENANT_HEADER} header"
             )
         return principal
+
+    return check
+
+
+def require_any(*permissions: Permission) -> Callable[..., Principal]:
+    """Dependency: the caller must hold at least one of `permissions` and have a tenant."""
+    tenant_check = require()
+
+    def check(principal: Annotated[Principal, Depends(get_principal)]) -> Principal:
+        if not any(principal.can(p) for p in permissions):
+            raise forbidden()
+        return tenant_check(principal)
 
     return check
 

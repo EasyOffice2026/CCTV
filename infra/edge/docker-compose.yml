@@ -24,6 +24,23 @@ services:
         max-size: 20m
         max-file: "5"
 
+  # WebRTC for live view and NVR playback. Its API listens on 127.0.0.1:1984 only (the edge
+  # service adds streams there); browsers connect to port 8555 (TCP/UDP).
+  go2rtc:
+    image: alexxit/go2rtc:1.9.9
+    restart: unless-stopped
+    network_mode: host
+    # Only what go2rtc.yaml uses; the device token stays with the edge service.
+    environment:
+      CCTV_EDGE_STUN_URL: ${CCTV_EDGE_STUN_URL:-stun:stun.l.google.com:19302}
+    volumes:
+      - /opt/cctv-edge/go2rtc.yaml:/config/go2rtc.yaml:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
 secrets:
   camera-credentials:
     file: /etc/cctv-edge/credentials.json

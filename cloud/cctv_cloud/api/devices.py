@@ -21,6 +21,7 @@ from cctv_cloud.services.audit import AuditAction, record
 from cctv_cloud.services.edge_config import bump_config_version
 from cctv_contracts.enums import CameraHealth, CameraRole, ZoneType
 from cctv_contracts.v1 import ZoneConfig
+from cctv_contracts.v1.config import HOST_PATTERN
 
 router = APIRouter(prefix="/v1", tags=["devices"])
 
@@ -61,7 +62,7 @@ class NvrIn(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     vendor: str = "hikvision"
     model: str | None = Field(default=None, max_length=100)
-    host: str = Field(min_length=1, max_length=255)
+    host: str = Field(min_length=1, max_length=255, pattern=HOST_PATTERN)
     http_port: int = Field(default=80, ge=1, le=65535)
     rtsp_port: int = Field(default=554, ge=1, le=65535)
     credentials_ref: str | None = Field(default=None, max_length=100)

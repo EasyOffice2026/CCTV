@@ -19,7 +19,7 @@ migration `0002`.
 
 | Who | How |
 |---|---|
-| Users | `POST /v1/auth/login` → access token (15 min) + refresh token. Send `Authorization: Bearer <access>` |
+| Users | `POST /v1/auth/login` → access token (15 min) + refresh token. Send `Authorization: Bearer <access>`. Browsers also get the refresh token as an HttpOnly, SameSite=Strict cookie (path `/v1/auth`); `/refresh` accepts it instead of a body |
 | Owners, super-admins | Must use 2FA (TOTP): login returns an `mfa_token`, then `/mfa/verify` (or `/mfa/setup` + `/mfa/enable` the first time) |
 | Super-admins | Pick the tenant to act on with the `X-Tenant-Id` header |
 | Integrations | `X-API-Key: cctv_…`, created under `/v1/api-keys` with scopes (`events:read`) |
@@ -42,7 +42,10 @@ minutes after 5 wrong passwords.
 | Search and view events | ✓ | ✓ | ✓ | |
 | Review events (valid / false alarm) | ✓ | ✓ | ✓ | |
 | View snapshots and clips | ✓ | ✓ | ✓ | |
-| Download snapshots and clips | ✓ | ✓ | | |
+| Download snapshots and clips, export event lists (CSV) | ✓ | ✓ | | |
+| Live view and NVR playback | ✓ | ✓ | | |
+| Current camera frame (for drawing zones) | ✓ | ✓ | | ✓ |
+| Staff, shifts, consent, face enrolment | ✓ | ✓ | | |
 
 Owners see every branch. Other roles see only the branches assigned to them; anything
 in other branches returns 404. Super-admins (our team) can do everything, in any tenant.
@@ -56,9 +59,12 @@ in other branches returns 404. Super-admins (our team) can do everything, in any
 | Organisation | `/v1/tenant`, `/v1/branches`, `/v1/branches/{id}/working-hours`, `/v1/users` |
 | Devices | `/v1/nvrs`, `/v1/cameras`, `/v1/cameras/{id}/zones`, `/v1/zones/{id}`, `/v1/edge-devices` |
 | Features | `/v1/features`, `/v1/feature-settings`, `/v1/cameras/{id}/features` (resolved) |
-| Events | `/v1/events` (search), `/v1/events/{id}`, `/review`, `/media/{snapshot\|clip}` |
+| Events | `/v1/events` (search), `/v1/events/export` (CSV), `/v1/events/{id}`, `/review`, `/media/{snapshot\|clip}` |
+| Live view, playback | `/v1/live/ice-servers`, `/v1/cameras/{id}/live`, `/playback`, `/recordings`, `/frame` |
+| Staff | `/v1/staff`, `/v1/staff/{id}/consent`, `/v1/staff/{id}/face`, `/v1/shifts` |
+| Realtime | WebSocket `/v1/ws` (live event feed) |
 | Integrations | `/v1/api-keys`, `/v1/audit-logs` |
-| Edge | `/v1/edge/pair`, `/config`, `/heartbeat`, `/media/upload-urls`, `/events` |
+| Edge | `/v1/edge/pair`, `/config`, `/heartbeat`, `/media/upload-urls`, `/events`, `/remote` (long poll), `/remote/{id}/reply` |
 
 **Feature settings** resolve camera → branch → tenant → default; `params` merge in the same
 order. Any change that affects a branch's edge config bumps the branch's
@@ -71,7 +77,33 @@ device's branch. A late "open" retry never reopens a closed event. Accepted even
 published on Redis `events:<tenant_id>` (live dashboard and alerts, Phases 4 and 6).
 
 **Media** links are pre-signed, last 5 minutes, and every view or download is written to
-the audit log in the same transaction.
+the audit log in the same transaction. The CSV export is audited with the filters used,
+and cells that would start a spreadsheet formula are escaped.
+
+**Live event feed** (`/v1/ws`): the client sends `{"type": "auth", "token": ...}` first
+(tokens never go in URLs), then gets `{"type": "event", ...}` for events in its branches,
+read from Redis `events:<tenant_id>`. The session is re-checked every minute; the socket
+closes with code 4401 when the token expires without renewal or the session ends.
+
+**Live view, playback, frames and face enrolment go through the edge box**, because only the
+box can reach the cameras and NVR on the branch LAN and the box is behind NAT. The API puts
+a request on the box's queue (Redis `relay:q:<device>`), the box long-polls
+`GET /v1/edge/remote`, and answers with `POST /v1/edge/remote/{id}/reply`; only the box
+the request was sent to can answer, and only once (an atomic Redis script). The waiting
+browser request gets the answer, or 503 if the branch has no online box, 504 if the box
+doesn't answer in 15 s, 502 with the box's message if it fails. For video only the WebRTC
+offer/answer passes through the API; the stream goes from the box to the browser directly
+or through a TURN server (`CCTV_WEBRTC_ICE_SERVERS`). Every view is audited
+(`view_live`, `view_playback`, `view_frame`) before the box is asked.
+
+**Face enrolment** requires recorded consent (also a database trigger). The photos are
+relayed to the box, embedded by its face model, and dropped; only the embedding is stored,
+encrypted (`app-secret:v1` key, to move to KMS in plan 7.2). Withdrawing consent or marking
+someone as left deletes their face data (database trigger). Until the face model arrives
+(Phase 5) the box answers "face model not installed" and enrolment returns 502.
+
+Without Redis (`CCTV_REDIS_URL=` empty) an in-process bus and relay are used, which only
+work with a single API process.
 
 ## Operations
 
