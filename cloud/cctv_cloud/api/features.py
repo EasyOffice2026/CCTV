@@ -25,8 +25,8 @@ from cctv_cloud.services.edge_config import bump_config_version, resolve_feature
 
 router = APIRouter(prefix="/v1", tags=["features"])
 
-AnyMember = Annotated[Context, Depends(context())]
-SettingsAdmin = Annotated[Context, Depends(context(Permission.SETTINGS_MANAGE))]
+AnyMember = Annotated[Context, Depends(context(), scope="function")]
+SettingsAdmin = Annotated[Context, Depends(context(Permission.SETTINGS_MANAGE), scope="function")]
 
 
 class FeatureOut(ORMModel):

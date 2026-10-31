@@ -80,7 +80,7 @@ services:
       postgres:
         condition: service_healthy
 
-  # Retention and offline-device jobs.
+  # Alert retries, reports, absences, retention and offline-device jobs.
   worker:
     build:
       context: ..

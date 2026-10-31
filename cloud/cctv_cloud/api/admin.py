@@ -21,9 +21,9 @@ from cctv_cloud.services.mailer import Mailer, get_mailer
 
 router = APIRouter(prefix="/v1", tags=["admin"])
 
-AnyMember = Annotated[Context, Depends(context())]
-TenantAdmin = Annotated[Context, Depends(context(Permission.TENANT_ADMIN))]
-BranchEditor = Annotated[Context, Depends(context(Permission.BRANCH_EDIT))]
+AnyMember = Annotated[Context, Depends(context(), scope="function")]
+TenantAdmin = Annotated[Context, Depends(context(Permission.TENANT_ADMIN), scope="function")]
+BranchEditor = Annotated[Context, Depends(context(Permission.BRANCH_EDIT), scope="function")]
 
 
 class ORMModel(BaseModel):

@@ -66,6 +66,22 @@ class AlertChannel(str, Enum):
 
 class DeliveryStatus(str, Enum):
     QUEUED = "queued"
-    SENT = "sent"
-    DELIVERED = "delivered"
+    SENT = "sent"  # accepted by the channel (published, push service, WhatsApp API)
+    DELIVERED = "delivered"  # the channel confirmed delivery to the phone (WhatsApp webhook)
     FAILED = "failed"
+
+
+class AlertKind(str, Enum):
+    ALERT = "alert"
+    RESOLVED = "resolved"  # the event ended (optional, per alert rule)
+
+
+class Locale(str, Enum):
+    EN = "en"
+    AR = "ar"
+
+
+class ReportPeriod(str, Enum):
+    DAY = "day"
+    WEEK = "week"
+    MONTH = "month"

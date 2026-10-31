@@ -20,6 +20,7 @@ class Permission(str, Enum):
     MEDIA_EXPORT = "media_export"  # download clips/snapshots, export event lists
     LIVE_VIEW = "live_view"  # live view and NVR playback (through the edge box)
     STAFF_MANAGE = "staff_manage"  # staff, shifts, consent and face enrolment
+    REPORTS_VIEW = "reports_view"  # branch reports (they include attendance per person)
 
 
 _ALL = frozenset(Permission)
@@ -37,6 +38,7 @@ ROLE_PERMISSIONS: dict[UserRole, frozenset[Permission]] = {
             Permission.MEDIA_EXPORT,
             Permission.LIVE_VIEW,
             Permission.STAFF_MANAGE,
+            Permission.REPORTS_VIEW,
         }
     ),
     UserRole.REVIEWER: frozenset(

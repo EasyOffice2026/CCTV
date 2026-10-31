@@ -174,7 +174,11 @@ class Context:
 
 def context(*permissions: Permission) -> Callable[..., Iterator[Context]]:
     """Dependency: the caller (holding every permission in `permissions`) and a database
-    session bound to their tenant. The session commits after the endpoint returns."""
+    session bound to their tenant. The session commits after the endpoint returns.
+
+    Use it as `Depends(context(...), scope="function")`: the commit then happens before
+    the response is sent (so a failed commit is an error, not a lost write) and before
+    background tasks run (they may read what the request wrote)."""
     checker = require(*permissions)
 
     def dependency(principal: Annotated[Principal, Depends(checker)]) -> Iterator[Context]:
@@ -187,7 +191,8 @@ def context(*permissions: Permission) -> Callable[..., Iterator[Context]]:
 def notify_after_commit(
     background: BackgroundTasks, publisher: Publisher, channel: str, message: dict
 ) -> None:
-    """Background tasks run after the response, i.e. after the request transaction commits."""
+    """Background tasks run after the response, i.e. after the request transaction commits
+    (with function-scoped session dependencies, see `context`)."""
     background.add_task(publisher.publish, channel, message)
 
 

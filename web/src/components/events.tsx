@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth";
 import { useBranches } from "@/lib/branches";
 import { intlLocale, useI18n } from "@/lib/i18n";
 import { REVIEW_TONE, SEVERITY_TONE, key } from "@/lib/labels";
+import type { MessageKey } from "@/lib/messages/en";
 import { can } from "@/lib/permissions";
 import { useCameraNames } from "@/lib/queries";
 import { formatDateTime, formatDuration, formatTime } from "@/lib/time";
@@ -227,6 +228,7 @@ function EventDetailBody({ event }: { event: EventOut }) {
               <ErrorText error={review.error} />
             </div>
           )}
+          <EventAlerts eventId={current.id} timeZone={tz} />
           {canExport && (
             <div className="flex flex-wrap gap-2 border-t border-slate-200 pt-3">
               {current.has_clip && (
@@ -243,5 +245,44 @@ function EventDetailBody({ event }: { event: EventOut }) {
           )}
         </div>
       </div>
+  );
+}
+
+const DELIVERY_TONE: Record<Schemas["DeliveryStatus"], "slate" | "green" | "red" | "blue"> = {
+  queued: "slate",
+  sent: "blue",
+  delivered: "green",
+  failed: "red",
+};
+
+/** Who was alerted, on which channel, and how fast (plan 6.7). */
+function EventAlerts({ eventId, timeZone }: { eventId: string; timeZone: string }) {
+  const { t, locale } = useI18n();
+  const { tenantId } = useAuth();
+  const deliveries = useQuery({
+    queryKey: ["event-alerts", tenantId, eventId],
+    queryFn: () => unwrap(api.GET("/v1/events/{event_id}/alerts", { params: { path: { event_id: eventId } } })),
+  });
+  if (!deliveries.data?.length) return null;
+  return (
+    <div className="border-t border-slate-200 pt-3">
+      <p className="mb-1 font-medium">{t("alerts.sentTitle")}</p>
+      <ul className="flex flex-col gap-1 text-xs">
+        {deliveries.data.map((d, i) => (
+          <li key={i} className="flex flex-wrap items-center gap-1.5" title={d.error ?? undefined}>
+            <span className="text-slate-700">{d.user_name}</span>
+            <Badge>{t(`alerts.channel.${d.channel}` as MessageKey)}</Badge>
+            {d.kind === "resolved" && <Badge>{t("alerts.resolved")}</Badge>}
+            <Badge tone={DELIVERY_TONE[d.status]}>{t(`alerts.status.${d.status}` as MessageKey)}</Badge>
+            {d.latency_ms != null && <span className="text-slate-500">{(d.latency_ms / 1000).toFixed(1)} s</span>}
+            {d.sent_at && (
+              <span dir="ltr" className="text-slate-400">
+                {formatTime(d.sent_at, timeZone, intlLocale(locale))}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

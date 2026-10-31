@@ -24,10 +24,14 @@ from cctv_contracts.enums import EventStatus, EventType, FeatureKey, MediaKind, 
 
 router = APIRouter(prefix="/v1/events", tags=["events"])
 
-Viewer = Annotated[Context, Depends(context(Permission.EVENTS_VIEW))]
-Reviewer = Annotated[Context, Depends(context(Permission.EVENTS_VIEW, Permission.EVENTS_REVIEW))]
-MediaViewer = Annotated[Context, Depends(context(Permission.MEDIA_VIEW))]
-Exporter = Annotated[Context, Depends(context(Permission.EVENTS_VIEW, Permission.MEDIA_EXPORT))]
+Viewer = Annotated[Context, Depends(context(Permission.EVENTS_VIEW), scope="function")]
+Reviewer = Annotated[
+    Context, Depends(context(Permission.EVENTS_VIEW, Permission.EVENTS_REVIEW), scope="function")
+]
+MediaViewer = Annotated[Context, Depends(context(Permission.MEDIA_VIEW), scope="function")]
+Exporter = Annotated[
+    Context, Depends(context(Permission.EVENTS_VIEW, Permission.MEDIA_EXPORT), scope="function")
+]
 
 MAX_PAGE = 200
 

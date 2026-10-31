@@ -13,7 +13,8 @@ export type Permission =
   | "media_view"
   | "media_export"
   | "live_view"
-  | "staff_manage";
+  | "staff_manage"
+  | "reports_view";
 
 export type Me = Schemas["Me"];
 

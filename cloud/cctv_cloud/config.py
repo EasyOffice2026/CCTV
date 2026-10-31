@@ -57,6 +57,40 @@ class Settings(BaseSettings):
 
     event_export_max_rows: int = 10_000
 
+    # Alerts (plan 6.1-6.4). A user gets one alert per event and channel, and none for the
+    # same camera, zone and event type within the cooldown. Events older than
+    # alert_max_age_minutes when they arrive (e.g. synced after an outage) don't alert;
+    # they are in the feed and the reports.
+    alert_cooldown_seconds: int = 300
+    alert_max_age_minutes: int = 30
+    alert_max_attempts: int = 5
+    # WhatsApp Business Platform (Cloud API). Without a token, messages go to the log.
+    whatsapp_api_url: str = "https://graph.facebook.com/v21.0"
+    whatsapp_phone_number_id: str = ""
+    whatsapp_token: SecretStr = SecretStr("")
+    # Verify delivery-report webhooks (app secret) and the webhook subscription.
+    whatsapp_app_secret: SecretStr = SecretStr("")
+    whatsapp_verify_token: SecretStr = SecretStr("")
+    # Message templates approved by Meta (see cloud/README.md for their text).
+    whatsapp_templates: dict[str, str] = {
+        "alert": "cctv_alert",
+        "resolved": "cctv_alert_resolved",
+        "report": "cctv_report",
+    }
+    whatsapp_max_per_hour: int = 20  # per user; WhatsApp messages cost money
+    # Web Push (VAPID): `python -m cctv_cloud.cli vapid-keys`. Empty: browser
+    # notifications only while the dashboard is open.
+    vapid_private_key: SecretStr = SecretStr("")
+    vapid_subject: str = "mailto:alerts@example.com"
+
+    # Reports (plan 6.6): yesterday's report is made after this hour (branch time), so
+    # events the edge buffered overnight are in it. Weeks start on Sunday (6; Monday = 0).
+    report_hour: int = 2
+    report_week_start: int = 6
+    report_retention_days: int = 730
+    # A TrueType font with Arabic for PDF reports; found automatically when empty.
+    report_font: str = ""
+
     @property
     def secure_cookies(self) -> bool:
         return self.environment in ("staging", "production")

@@ -253,13 +253,15 @@ For **each** feature follow the same loop: **label → train/configure → offli
 
 ### Phase 6 — Alerts & reports (Week 9–12)
 
-- [ ] 6.1 Alert router: event → matching subscriptions (user, feature, severity, branch) → channels.
-- [ ] 6.2 Browser notifications (Web Push + in-app toast) with snapshot and clip link.
-- [ ] 6.3 **WhatsApp Cloud API**: templates (e.g. `after_hours_intrusion`) approved by Meta, a short link to the clip (login required), rate limit.
-- [ ] 6.4 **No repeat alerts:** one alert per ongoing event plus a cooldown per camera/zone/feature; send an optional "resolved" message.
-- [ ] 6.5 Per-user alert preferences page (features, severity, quiet hours, channels).
-- [ ] 6.6 **Reports:** daily branch summary (attendance, compliance issues, customer count, peak hours, security events), weekly/monthly trends, staff scorecard (attendance %, compliance score). Scheduled generation, then PDF/Excel download and an email/WhatsApp link.
-- [ ] 6.7 Measure alert latency (event start → notification delivered) and store it per alert. This proves the "< 10 s" target.
+- [x] 6.1 Alert router: event → matching subscriptions (user, feature, severity, branch) → channels. *Routed in the ingest transaction (one queued delivery per user and channel, permission and branch access re-checked), sent right after the commit, retried by the worker with backoff.*
+- [x] 6.2 Browser notifications (Web Push + in-app toast) with snapshot and clip link. *Toast over the WebSocket to that user only; Web Push (VAPID, own RFC 8291 encryption) via `public/sw.js` when no tab is in front; both link to the event (snapshot and clip open there, audited). Needs `CCTV_VAPID_PRIVATE_KEY` in each environment.*
+- [ ] 6.3 **WhatsApp Cloud API**: templates (e.g. `after_hours_intrusion`) approved by Meta, a short link to the clip (login required), rate limit. *Software done: template messages (`cctv_alert`, `cctv_alert_resolved`, `cctv_report`, English and Arabic; text in `cloud/README.md`), link button to the event, number + recorded consent per user, 20 per user per hour, signed delivery-report webhook. Waiting on: the verified business number, the token and Meta's template approval (§1 #10).*
+- [x] 6.4 **No repeat alerts:** one alert per ongoing event plus a cooldown per camera/zone/feature; send an optional "resolved" message. *Unique per event/user/channel/kind; 5-minute cooldown per camera, zone and event type; "resolved" per rule; events arriving > 30 min late don't alert.*
+- [x] 6.5 Per-user alert preferences page (features, severity, quiet hours, channels). *Alerts page: rules (feature, branch, severity, channels, quiet hours with critical alerts still sent, "resolved"), WhatsApp number and consent, message language, report links, browser notifications, test buttons.*
+- [x] 6.6 **Reports:** daily branch summary (attendance, compliance issues, customer count, peak hours, security events), weekly/monthly trends, staff scorecard (attendance %, compliance score). Scheduled generation, then PDF/Excel download and an email/WhatsApp link. *Reports page and API; worker makes daily (after 02:00 branch time), weekly (Sunday start) and monthly reports and sends links; PDF and Excel in English or Arabic, audited; kept 2 years (§6). Compliance per person only counts events matched to a person, which kitchen events aren't yet (the PPE pipeline doesn't identify people).*
+- [x] 6.7 Measure alert latency (event start → notification delivered) and store it per alert. This proves the "< 10 s" target. *`latency_ms` per delivery (event start to accepted by the channel) and `delivered_at` from WhatsApp delivery reports; shown per event and as p50/p95/% within 10 s in every report.*
+
+*Status: tested against PostgreSQL with fake channels (routing, cooldown, quiet hours, retries, rate limit, push encryption round trip, webhook signatures, report figures and files, scheduling), and in a browser (rule set-up, live toast within seconds of an edge event, event link with the deliveries, report with PDF and Excel downloads, Arabic). Not yet exercised: real WhatsApp delivery, real browser push services (needs a VAPID key and HTTPS), and an email provider (emails still go to the log).*
 
 ### Phase 7 — Security, privacy & compliance (Week 3–13, alongside the work above; finish by Week 13)
 

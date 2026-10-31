@@ -38,6 +38,7 @@ from cctv_cloud.security import (
     normalise_pairing_code,
     sha256_hex,
 )
+from cctv_cloud.services.alerts import Change, Senders, dispatch, get_senders, route_event
 from cctv_cloud.services.attendance import apply_sightings
 from cctv_cloud.services.counts import apply_counts
 from cctv_cloud.services.edge_config import build_edge_config
@@ -116,7 +117,7 @@ def device_id(
     return found_id
 
 
-Device = Annotated[DeviceContext, Depends(device_context)]
+Device = Annotated[DeviceContext, Depends(device_context, scope="function")]
 DeviceId = Annotated[uuid.UUID, Depends(device_id)]
 Relay = Annotated[EdgeRelay, Depends(get_relay)]
 
@@ -224,37 +225,38 @@ def _check(ctx: DeviceContext, event: EventIn) -> None:
             raise _RejectedError(f"{kind.value} key was not issued for this event")
 
 
-def _store(ctx: DeviceContext, event: EventIn, now: datetime) -> bool:
-    """Insert or update; returns False when nothing changed (a stale retry)."""
+def _store(ctx: DeviceContext, event: EventIn, now: datetime) -> tuple[Event, Change] | None:
+    """Insert or update; returns None when nothing changed (a stale retry)."""
     existing = ctx.db.get(Event, event.event_id)
     if existing is None:
-        ctx.db.add(
-            Event(
-                id=event.event_id,
-                tenant_id=ctx.device.tenant_id,
-                branch_id=ctx.device.branch_id,
-                camera_id=event.camera_id,
-                zone_id=event.zone_id,
-                edge_device_id=ctx.device.id,
-                feature_key=event.feature.value,
-                event_type=event.event_type.value,
-                severity=event.severity.value,
-                status=event.status.value,
-                started_at=event.started_at,
-                ended_at=event.ended_at,
-                confidence=event.confidence,
-                staff_id=event.staff_id,
-                track_id=event.track_id,
-                snapshot_key=event.snapshot_key,
-                clip_key=event.clip_key,
-                attributes=event.attributes,
-            )
+        stored = Event(
+            id=event.event_id,
+            tenant_id=ctx.device.tenant_id,
+            branch_id=ctx.device.branch_id,
+            camera_id=event.camera_id,
+            zone_id=event.zone_id,
+            edge_device_id=ctx.device.id,
+            feature_key=event.feature.value,
+            event_type=event.event_type.value,
+            severity=event.severity.value,
+            status=event.status.value,
+            started_at=event.started_at,
+            ended_at=event.ended_at,
+            confidence=event.confidence,
+            staff_id=event.staff_id,
+            track_id=event.track_id,
+            snapshot_key=event.snapshot_key,
+            clip_key=event.clip_key,
+            attributes=event.attributes,
         )
-        return True
+        ctx.db.add(stored)
+        ctx.db.flush()
+        return stored, Change.NEW
     if existing.camera_id != event.camera_id or existing.event_type != event.event_type.value:
         raise _RejectedError("event_id already used for another event")
     if existing.status == EventStatus.CLOSED.value and event.status is EventStatus.OPEN:
-        return False  # an older "open" retry arriving after "closed": keep the newer state
+        return None  # an older "open" retry arriving after "closed": keep the newer state
+    closing = existing.status == EventStatus.OPEN.value and event.status is EventStatus.CLOSED
     existing.status = event.status.value
     existing.ended_at = event.ended_at
     existing.severity = event.severity.value
@@ -265,16 +267,22 @@ def _store(ctx: DeviceContext, event: EventIn, now: datetime) -> bool:
     existing.clip_key = event.clip_key or existing.clip_key
     existing.attributes = {**existing.attributes, **event.attributes}
     existing.updated_at = now
-    return True
+    return existing, Change.CLOSED if closing else Change.UPDATED
 
 
 @router.post("/events", response_model=EventBatchResponse)
 def ingest_events(
-    body: EventBatch, ctx: Device, background: BackgroundTasks, publisher: PublisherDep
+    body: EventBatch,
+    ctx: Device,
+    background: BackgroundTasks,
+    publisher: PublisherDep,
+    senders: Annotated[Senders, Depends(get_senders)],
 ) -> EventBatchResponse:
-    """Idempotent by event_id; each event is accepted or rejected on its own."""
+    """Idempotent by event_id; each event is accepted or rejected on its own. New events
+    are routed to alert rules; the alerts are sent once the batch is committed."""
     now = datetime.now(timezone.utc)
     results = []
+    deliveries: list[int] = []
     for event in body.events:
         try:
             with ctx.db.begin_nested():  # one bad event doesn't undo the others
@@ -291,6 +299,11 @@ def ingest_events(
             continue
         results.append(EventResult(event_id=event.event_id, accepted=True))
         if changed:
+            try:
+                with ctx.db.begin_nested():  # an alerting bug must not lose the event
+                    deliveries += route_event(ctx.db, *changed, now)
+            except Exception:
+                log.exception("alert routing failed for event %s", event.event_id)
             background.add_task(
                 publisher.publish,
                 f"events:{ctx.device.tenant_id}",
@@ -305,6 +318,8 @@ def ingest_events(
                 },
             )
     ctx.device.last_seen_at = now
+    if deliveries:
+        background.add_task(dispatch, ctx.device.tenant_id, senders, deliveries)
     return EventBatchResponse(results=results)
 
 

@@ -6,11 +6,13 @@ message instead of the URL (URLs end up in logs):
     client -> {"type": "auth", "token": "<access token>", "tenant_id": "<super-admins only>"}
     server -> {"type": "ready"}
     server -> {"type": "event", "event_id": ..., "status": ..., "branch_id": ..., ...}
+    server -> {"type": "alert", "event_id": ..., "title": ..., "body": ..., "url": ...}
     server -> {"type": "ping"}                      every 25 s
     client -> {"type": "auth", "token": "<new access token>"}   after each token refresh
 
 Only events of branches the user can access are sent; the client loads the full event
-with GET /v1/events/{id}. The session is re-checked every minute, and the socket closes
+with GET /v1/events/{id}. Alerts (plan 6.2, in-app toasts) go only to the user they were
+routed to. The session is re-checked every minute, and the socket closes
 with code 4401 when the token expires without being renewed or the session ends.
 """
 
@@ -70,6 +72,9 @@ async def _authenticate(message: Any, current: _Auth | None = None) -> _Auth:
 
 
 def _visible(principal: Principal, message: dict[str, Any]) -> bool:
+    recipient = message.get("user_id")
+    if recipient is not None:  # an alert: routing already checked the user's branches
+        return recipient == str(principal.user_id)
     try:
         return principal.can_access_branch(uuid.UUID(message["branch_id"]))
     except (KeyError, ValueError, TypeError):
@@ -106,7 +111,7 @@ async def events_socket(
                 if published in done:
                     message = published.result()
                     if _visible(auth.principal, message):
-                        await websocket.send_json({**message, "type": "event"})
+                        await websocket.send_json({"type": "event", **message})
                     published = asyncio.ensure_future(anext(messages))
                 if not done:
                     if time.monotonic() >= auth.expires_at:

@@ -17,7 +17,7 @@ from cctv_cloud.services.audit import AuditAction, record
 
 router = APIRouter(prefix="/v1", tags=["integrations"])
 
-TenantAdmin = Annotated[Context, Depends(context(Permission.TENANT_ADMIN))]
+TenantAdmin = Annotated[Context, Depends(context(Permission.TENANT_ADMIN), scope="function")]
 
 
 class ApiKeyIn(BaseModel):

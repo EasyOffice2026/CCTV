@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from cctv_cloud import __version__
 from cctv_cloud.api import (
     admin,
+    alerts,
     attendance,
     auth,
     devices,
@@ -17,6 +18,7 @@ from cctv_cloud.api import (
     platform,
     realtime,
     remote,
+    reports,
     staff,
 )
 from cctv_cloud.config import get_settings
@@ -42,6 +44,7 @@ def create_app() -> FastAPI:
         allow_credentials=True,  # the refresh-token cookie
         allow_methods=["*"],
         allow_headers=["Authorization", "Content-Type", "X-Tenant-Id"],
+        expose_headers=["Content-Disposition"],  # file names of downloads (reports, CSV)
     )
 
     @app.exception_handler(IntegrityError)
@@ -63,6 +66,8 @@ def create_app() -> FastAPI:
         remote,
         staff,
         attendance,
+        alerts,
+        reports,
         integrations,
         realtime,
         edge,

@@ -1,6 +1,11 @@
 """All ORM models; importing this module registers every table on Base.metadata."""
 
-from cctv_cloud.db.models.alerts import AlertDelivery, AlertSubscription, AuditLog
+from cctv_cloud.db.models.alerts import (
+    AlertDelivery,
+    AlertSubscription,
+    AuditLog,
+    PushSubscription,
+)
 from cctv_cloud.db.models.devices import Camera, EdgeDevice, Nvr, Zone
 from cctv_cloud.db.models.events import AttendanceRecord, CountBucket, Event
 from cctv_cloud.db.models.features import Feature, FeatureSetting
@@ -12,6 +17,7 @@ from cctv_cloud.db.models.people import (
     UserBranchAccess,
     UserSession,
 )
+from cctv_cloud.db.models.reports import Report
 from cctv_cloud.db.models.tenancy import Branch, Shift, Tenant, WorkingHours
 
 __all__ = [
@@ -29,6 +35,8 @@ __all__ = [
     "Feature",
     "FeatureSetting",
     "Nvr",
+    "PushSubscription",
+    "Report",
     "Shift",
     "Staff",
     "Tenant",

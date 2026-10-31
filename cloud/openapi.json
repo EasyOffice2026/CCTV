@@ -1,6 +1,380 @@
 {
   "components": {
     "schemas": {
+      "AlertChannel": {
+        "enum": [
+          "web",
+          "whatsapp",
+          "email"
+        ],
+        "title": "AlertChannel",
+        "type": "string"
+      },
+      "AlertKind": {
+        "enum": [
+          "alert",
+          "resolved"
+        ],
+        "title": "AlertKind",
+        "type": "string"
+      },
+      "AlertProfileIn": {
+        "properties": {
+          "locale": {
+            "$ref": "#/components/schemas/Locale",
+            "default": "en"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "pattern": "^\\+[1-9][0-9]{6,14}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "WhatsApp number, e.g. +96550000000",
+            "title": "Phone"
+          },
+          "report_channels": {
+            "items": {
+              "enum": [
+                "email",
+                "whatsapp"
+              ],
+              "type": "string"
+            },
+            "title": "Report Channels",
+            "type": "array"
+          },
+          "whatsapp_opt_in": {
+            "default": false,
+            "description": "The user agrees to receive alerts on WhatsApp",
+            "title": "Whatsapp Opt In",
+            "type": "boolean"
+          }
+        },
+        "title": "AlertProfileIn",
+        "type": "object"
+      },
+      "AlertProfileOut": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "locale": {
+            "$ref": "#/components/schemas/Locale",
+            "default": "en"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "pattern": "^\\+[1-9][0-9]{6,14}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "WhatsApp number, e.g. +96550000000",
+            "title": "Phone"
+          },
+          "push_public_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "VAPID key for PushManager.subscribe; null when Web Push isn't set up",
+            "title": "Push Public Key"
+          },
+          "report_channels": {
+            "items": {
+              "enum": [
+                "email",
+                "whatsapp"
+              ],
+              "type": "string"
+            },
+            "title": "Report Channels",
+            "type": "array"
+          },
+          "whatsapp_configured": {
+            "description": "False: WhatsApp messages go to the log",
+            "title": "Whatsapp Configured",
+            "type": "boolean"
+          },
+          "whatsapp_opt_in": {
+            "default": false,
+            "description": "The user agrees to receive alerts on WhatsApp",
+            "title": "Whatsapp Opt In",
+            "type": "boolean"
+          },
+          "whatsapp_opt_in_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Whatsapp Opt In At"
+          }
+        },
+        "required": [
+          "email",
+          "whatsapp_opt_in_at",
+          "whatsapp_configured",
+          "push_public_key"
+        ],
+        "title": "AlertProfileOut",
+        "type": "object"
+      },
+      "AlertRuleIn": {
+        "properties": {
+          "branch_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null: every branch",
+            "title": "Branch Id"
+          },
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/AlertChannel"
+            },
+            "minItems": 1,
+            "title": "Channels",
+            "type": "array"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "feature_key": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeatureKey"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null: every feature"
+          },
+          "min_severity": {
+            "$ref": "#/components/schemas/Severity",
+            "default": "warning"
+          },
+          "notify_resolved": {
+            "default": false,
+            "title": "Notify Resolved",
+            "type": "boolean"
+          },
+          "quiet_from": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Branch time; only critical alerts",
+            "title": "Quiet From"
+          },
+          "quiet_until": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet Until"
+          }
+        },
+        "required": [
+          "channels"
+        ],
+        "title": "AlertRuleIn",
+        "type": "object"
+      },
+      "AlertRuleOut": {
+        "properties": {
+          "branch_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null: every branch",
+            "title": "Branch Id"
+          },
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/AlertChannel"
+            },
+            "minItems": 1,
+            "title": "Channels",
+            "type": "array"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "feature_key": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeatureKey"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null: every feature"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "min_severity": {
+            "$ref": "#/components/schemas/Severity",
+            "default": "warning"
+          },
+          "notify_resolved": {
+            "default": false,
+            "title": "Notify Resolved",
+            "type": "boolean"
+          },
+          "quiet_from": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Branch time; only critical alerts",
+            "title": "Quiet From"
+          },
+          "quiet_until": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet Until"
+          }
+        },
+        "required": [
+          "channels",
+          "id"
+        ],
+        "title": "AlertRuleOut",
+        "type": "object"
+      },
+      "AlertSummary": {
+        "properties": {
+          "delivered_p95_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivered P95 Ms"
+          },
+          "failed": {
+            "default": 0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "p50_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P50 Ms"
+          },
+          "p95_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P95 Ms"
+          },
+          "sent": {
+            "default": 0,
+            "title": "Sent",
+            "type": "integer"
+          },
+          "within_10s_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Within 10S Pct"
+          }
+        },
+        "title": "AlertSummary",
+        "type": "object"
+      },
+      "AlertTest": {
+        "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/AlertChannel"
+          }
+        },
+        "required": [
+          "channel"
+        ],
+        "title": "AlertTest",
+        "type": "object"
+      },
       "ApiKeyCreated": {
         "properties": {
           "api_key": {
@@ -1229,6 +1603,173 @@
         "title": "CountOut",
         "type": "object"
       },
+      "DayRow": {
+        "properties": {
+          "absent": {
+            "default": 0,
+            "title": "Absent",
+            "type": "integer"
+          },
+          "cashier": {
+            "default": 0,
+            "title": "Cashier",
+            "type": "integer"
+          },
+          "compliance": {
+            "default": 0,
+            "title": "Compliance",
+            "type": "integer"
+          },
+          "critical": {
+            "default": 0,
+            "title": "Critical",
+            "type": "integer"
+          },
+          "customers_in": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customers In"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "events": {
+            "default": 0,
+            "title": "Events",
+            "type": "integer"
+          },
+          "false_alarms": {
+            "default": 0,
+            "title": "False Alarms",
+            "type": "integer"
+          },
+          "late": {
+            "default": 0,
+            "title": "Late",
+            "type": "integer"
+          },
+          "on_time": {
+            "default": 0,
+            "title": "On Time",
+            "type": "integer"
+          },
+          "security": {
+            "default": 0,
+            "title": "Security",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date"
+        ],
+        "title": "DayRow",
+        "type": "object"
+      },
+      "DeliveryOut": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/AlertChannel"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "delivered_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivered At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AlertKind"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Event start to sent (ms)",
+            "title": "Latency Ms"
+          },
+          "sent_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sent At"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DeliveryStatus"
+          },
+          "user_name": {
+            "title": "User Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_name",
+          "channel",
+          "kind",
+          "status",
+          "created_at",
+          "sent_at",
+          "latency_ms",
+          "delivered_at",
+          "attempts",
+          "error"
+        ],
+        "title": "DeliveryOut",
+        "type": "object"
+      },
+      "DeliveryStatus": {
+        "enum": [
+          "queued",
+          "sent",
+          "delivered",
+          "failed"
+        ],
+        "title": "DeliveryStatus",
+        "type": "string"
+      },
       "DeviceStatus": {
         "enum": [
           "pending",
@@ -2263,6 +2804,14 @@
         "title": "LiveRequest",
         "type": "object"
       },
+      "Locale": {
+        "enum": [
+          "en",
+          "ar"
+        ],
+        "title": "Locale",
+        "type": "string"
+      },
       "LoginRequest": {
         "properties": {
           "email": {
@@ -2813,6 +3362,47 @@
         "title": "PlaybackRequest",
         "type": "object"
       },
+      "PushKeys": {
+        "properties": {
+          "auth": {
+            "maxLength": 100,
+            "minLength": 16,
+            "title": "Auth",
+            "type": "string"
+          },
+          "p256dh": {
+            "maxLength": 200,
+            "minLength": 80,
+            "title": "P256Dh",
+            "type": "string"
+          }
+        },
+        "required": [
+          "p256dh",
+          "auth"
+        ],
+        "title": "PushKeys",
+        "type": "object"
+      },
+      "PushSubscriptionIn": {
+        "description": "`PushSubscription.toJSON()` from the browser.",
+        "properties": {
+          "endpoint": {
+            "maxLength": 1000,
+            "title": "Endpoint",
+            "type": "string"
+          },
+          "keys": {
+            "$ref": "#/components/schemas/PushKeys"
+          }
+        },
+        "required": [
+          "endpoint",
+          "keys"
+        ],
+        "title": "PushSubscriptionIn",
+        "type": "object"
+      },
       "RecordingSpan": {
         "properties": {
           "end": {
@@ -3033,6 +3623,249 @@
         "title": "RemoteRequest",
         "type": "object"
       },
+      "ReportData": {
+        "properties": {
+          "alerts": {
+            "$ref": "#/components/schemas/AlertSummary"
+          },
+          "branch_id": {
+            "format": "uuid",
+            "title": "Branch Id",
+            "type": "string"
+          },
+          "branch_name": {
+            "title": "Branch Name",
+            "type": "string"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/DayRow"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "end": {
+            "format": "date",
+            "title": "End",
+            "type": "string"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "hours": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hours"
+          },
+          "partial": {
+            "title": "Partial",
+            "type": "boolean"
+          },
+          "period": {
+            "$ref": "#/components/schemas/ReportPeriod"
+          },
+          "security_events": {
+            "items": {
+              "$ref": "#/components/schemas/SecurityRow"
+            },
+            "title": "Security Events",
+            "type": "array"
+          },
+          "staff": {
+            "items": {
+              "$ref": "#/components/schemas/StaffRow"
+            },
+            "title": "Staff",
+            "type": "array"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/Totals"
+          },
+          "types": {
+            "items": {
+              "$ref": "#/components/schemas/TypeRow"
+            },
+            "title": "Types",
+            "type": "array"
+          },
+          "version": {
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "branch_id",
+          "branch_name",
+          "timezone",
+          "period",
+          "start",
+          "end",
+          "generated_at",
+          "partial",
+          "totals",
+          "days",
+          "hours",
+          "types",
+          "staff",
+          "security_events",
+          "alerts"
+        ],
+        "title": "ReportData",
+        "type": "object"
+      },
+      "ReportOut": {
+        "properties": {
+          "branch_id": {
+            "format": "uuid",
+            "title": "Branch Id",
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ReportData"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "partial": {
+            "title": "Partial",
+            "type": "boolean"
+          },
+          "period": {
+            "$ref": "#/components/schemas/ReportPeriod"
+          },
+          "period_end": {
+            "format": "date",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date",
+            "title": "Period Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "branch_id",
+          "period",
+          "period_start",
+          "period_end",
+          "generated_at",
+          "partial",
+          "data"
+        ],
+        "title": "ReportOut",
+        "type": "object"
+      },
+      "ReportPeriod": {
+        "enum": [
+          "day",
+          "week",
+          "month"
+        ],
+        "title": "ReportPeriod",
+        "type": "string"
+      },
+      "ReportRequest": {
+        "properties": {
+          "branch_id": {
+            "format": "uuid",
+            "title": "Branch Id",
+            "type": "string"
+          },
+          "day": {
+            "description": "Any day in the period; it may be the current period",
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "period": {
+            "$ref": "#/components/schemas/ReportPeriod"
+          }
+        },
+        "required": [
+          "branch_id",
+          "period",
+          "day"
+        ],
+        "title": "ReportRequest",
+        "type": "object"
+      },
+      "ReportSummary": {
+        "properties": {
+          "branch_id": {
+            "format": "uuid",
+            "title": "Branch Id",
+            "type": "string"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "partial": {
+            "title": "Partial",
+            "type": "boolean"
+          },
+          "period": {
+            "$ref": "#/components/schemas/ReportPeriod"
+          },
+          "period_end": {
+            "format": "date",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date",
+            "title": "Period Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "branch_id",
+          "period",
+          "period_start",
+          "period_end",
+          "generated_at",
+          "partial"
+        ],
+        "title": "ReportSummary",
+        "type": "object"
+      },
       "ResetRequest": {
         "properties": {
           "new_password": {
@@ -3128,6 +3961,46 @@
           "sdp_answer"
         ],
         "title": "SdpAnswer",
+        "type": "object"
+      },
+      "SecurityRow": {
+        "properties": {
+          "camera": {
+            "title": "Camera",
+            "type": "string"
+          },
+          "event_id": {
+            "format": "uuid",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "event_type": {
+            "title": "Event Type",
+            "type": "string"
+          },
+          "review_status": {
+            "title": "Review Status",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "started_at",
+          "event_type",
+          "severity",
+          "camera",
+          "review_status"
+        ],
+        "title": "SecurityRow",
         "type": "object"
       },
       "Severity": {
@@ -3422,6 +4295,77 @@
           "created_at"
         ],
         "title": "StaffOut",
+        "type": "object"
+      },
+      "StaffRow": {
+        "properties": {
+          "absent": {
+            "default": 0,
+            "title": "Absent",
+            "type": "integer"
+          },
+          "attendance_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attendance Pct"
+          },
+          "compliance_issues": {
+            "default": 0,
+            "title": "Compliance Issues",
+            "type": "integer"
+          },
+          "day_off": {
+            "default": 0,
+            "title": "Day Off",
+            "type": "integer"
+          },
+          "employee_code": {
+            "title": "Employee Code",
+            "type": "string"
+          },
+          "late": {
+            "default": 0,
+            "title": "Late",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "on_time": {
+            "default": 0,
+            "title": "On Time",
+            "type": "integer"
+          },
+          "punctuality_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Punctuality Pct"
+          },
+          "staff_id": {
+            "format": "uuid",
+            "title": "Staff Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "staff_id",
+          "name",
+          "employee_code"
+        ],
+        "title": "StaffRow",
         "type": "object"
       },
       "StaffSighting": {
@@ -3791,6 +4735,171 @@
           "token"
         ],
         "title": "TokenRequest",
+        "type": "object"
+      },
+      "Totals": {
+        "properties": {
+          "absent": {
+            "default": 0,
+            "title": "Absent",
+            "type": "integer"
+          },
+          "attendance_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attendance Pct"
+          },
+          "cashier": {
+            "default": 0,
+            "title": "Cashier",
+            "type": "integer"
+          },
+          "compliance": {
+            "default": 0,
+            "title": "Compliance",
+            "type": "integer"
+          },
+          "counter_staffed_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counter Staffed Pct"
+          },
+          "critical": {
+            "default": 0,
+            "title": "Critical",
+            "type": "integer"
+          },
+          "customers_in": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customers In"
+          },
+          "day_off": {
+            "default": 0,
+            "title": "Day Off",
+            "type": "integer"
+          },
+          "events": {
+            "default": 0,
+            "title": "Events",
+            "type": "integer"
+          },
+          "false_alarms": {
+            "default": 0,
+            "title": "False Alarms",
+            "type": "integer"
+          },
+          "late": {
+            "default": 0,
+            "title": "Late",
+            "type": "integer"
+          },
+          "on_time": {
+            "default": 0,
+            "title": "On Time",
+            "type": "integer"
+          },
+          "peak_hour": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak Hour"
+          },
+          "peak_occupancy": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak Occupancy"
+          },
+          "punctuality_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Punctuality Pct"
+          },
+          "security": {
+            "default": 0,
+            "title": "Security",
+            "type": "integer"
+          },
+          "unreviewed": {
+            "default": 0,
+            "title": "Unreviewed",
+            "type": "integer"
+          }
+        },
+        "title": "Totals",
+        "type": "object"
+      },
+      "TypeRow": {
+        "properties": {
+          "event_type": {
+            "title": "Event Type",
+            "type": "string"
+          },
+          "false_alarm": {
+            "title": "False Alarm",
+            "type": "integer"
+          },
+          "feature": {
+            "title": "Feature",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "unreviewed": {
+            "title": "Unreviewed",
+            "type": "integer"
+          },
+          "valid": {
+            "title": "Valid",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "event_type",
+          "feature",
+          "total",
+          "valid",
+          "false_alarm",
+          "unreviewed"
+        ],
+        "title": "TypeRow",
         "type": "object"
       },
       "UploadUrlRequest": {
@@ -7852,7 +8961,7 @@
     },
     "/v1/edge/events": {
       "post": {
-        "description": "Idempotent by event_id; each event is accepted or rejected on its own.",
+        "description": "Idempotent by event_id; each event is accepted or rejected on its own. New events\nare routed to alert rules; the alerts are sent once the batch is committed.",
         "operationId": "ingest_events_v1_edge_events_post",
         "requestBody": {
           "content": {
@@ -8814,6 +9923,93 @@
         ]
       }
     },
+    "/v1/events/{event_id}/alerts": {
+      "get": {
+        "description": "Who was alerted about an event, how, and how fast (plan 6.7).",
+        "operationId": "event_alerts_v1_events__event_id__alerts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Event Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DeliveryOut"
+                  },
+                  "title": "Response Event Alerts V1 Events  Event Id  Alerts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Event Alerts",
+        "tags": [
+          "alerts",
+          "events"
+        ]
+      }
+    },
     "/v1/events/{event_id}/media/{kind}": {
       "get": {
         "description": "A short-lived link to the snapshot or clip. Every call is written to the audit log.",
@@ -9415,6 +10611,695 @@
         ]
       }
     },
+    "/v1/me/alert-profile": {
+      "get": {
+        "operationId": "get_alert_profile_v1_me_alert_profile_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertProfileOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Alert Profile",
+        "tags": [
+          "alerts"
+        ]
+      },
+      "put": {
+        "operationId": "update_alert_profile_v1_me_alert_profile_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertProfileIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertProfileOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Alert Profile",
+        "tags": [
+          "alerts"
+        ]
+      }
+    },
+    "/v1/me/alert-rules": {
+      "get": {
+        "operationId": "list_alert_rules_v1_me_alert_rules_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AlertRuleOut"
+                  },
+                  "title": "Response List Alert Rules V1 Me Alert Rules Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Alert Rules",
+        "tags": [
+          "alerts"
+        ]
+      },
+      "post": {
+        "operationId": "create_alert_rule_v1_me_alert_rules_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertRuleIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertRuleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Alert Rule",
+        "tags": [
+          "alerts"
+        ]
+      }
+    },
+    "/v1/me/alert-rules/{rule_id}": {
+      "delete": {
+        "operationId": "delete_alert_rule_v1_me_alert_rules__rule_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rule Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Alert Rule",
+        "tags": [
+          "alerts"
+        ]
+      },
+      "put": {
+        "operationId": "update_alert_rule_v1_me_alert_rules__rule_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rule Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertRuleIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertRuleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Alert Rule",
+        "tags": [
+          "alerts"
+        ]
+      }
+    },
+    "/v1/me/alert-test": {
+      "post": {
+        "description": "Send a sample message on one channel to the caller (to check the setup).",
+        "operationId": "test_alert_v1_me_alert_test_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertTest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Test Alert",
+        "tags": [
+          "alerts"
+        ]
+      }
+    },
+    "/v1/me/push-subscriptions": {
+      "delete": {
+        "operationId": "delete_push_subscription_v1_me_push_subscriptions_delete",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "endpoint",
+            "required": true,
+            "schema": {
+              "maxLength": 1000,
+              "title": "Endpoint",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Push Subscription",
+        "tags": [
+          "alerts"
+        ]
+      },
+      "put": {
+        "description": "Register this browser for notifications (again: the keys may have changed).",
+        "operationId": "save_push_subscription_v1_me_push_subscriptions_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushSubscriptionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Save Push Subscription",
+        "tags": [
+          "alerts"
+        ]
+      }
+    },
     "/v1/nvrs": {
       "get": {
         "operationId": "list_nvrs_v1_nvrs_get",
@@ -9795,6 +11680,382 @@
         "summary": "Create Tenant",
         "tags": [
           "platform"
+        ]
+      }
+    },
+    "/v1/reports": {
+      "get": {
+        "description": "Newest first.",
+        "operationId": "list_reports_v1_reports_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "branch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Branch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ReportPeriod"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 60,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReportSummary"
+                  },
+                  "title": "Response List Reports V1 Reports Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Reports",
+        "tags": [
+          "reports"
+        ]
+      },
+      "post": {
+        "description": "Make (or remake) the report of the period containing `date`, from current data.",
+        "operationId": "generate_report_v1_reports_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Generate Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/reports/{report_id}": {
+      "get": {
+        "operationId": "get_report_v1_reports__report_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/reports/{report_id}/file": {
+      "get": {
+        "operationId": "download_report_v1_reports__report_id__file_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "pdf",
+              "enum": [
+                "pdf",
+                "xlsx"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lang",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Locale",
+              "default": "en"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/pdf": {},
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Download Report",
+        "tags": [
+          "reports"
         ]
       }
     },

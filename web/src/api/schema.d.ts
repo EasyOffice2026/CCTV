@@ -676,7 +676,8 @@ export interface paths {
         put?: never;
         /**
          * Ingest Events
-         * @description Idempotent by event_id; each event is accepted or rejected on its own.
+         * @description Idempotent by event_id; each event is accepted or rejected on its own. New events
+         *     are routed to alert rules; the alerts are sent once the batch is committed.
          */
         post: operations["ingest_events_v1_edge_events_post"];
         delete?: never;
@@ -858,6 +859,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/events/{event_id}/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Event Alerts
+         * @description Who was alerted about an event, how, and how fast (plan 6.7).
+         */
+        get: operations["event_alerts_v1_events__event_id__alerts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/events/{event_id}/media/{kind}": {
         parameters: {
             query?: never;
@@ -970,6 +991,101 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/alert-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Alert Profile */
+        get: operations["get_alert_profile_v1_me_alert_profile_get"];
+        /** Update Alert Profile */
+        put: operations["update_alert_profile_v1_me_alert_profile_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/alert-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Alert Rules */
+        get: operations["list_alert_rules_v1_me_alert_rules_get"];
+        put?: never;
+        /** Create Alert Rule */
+        post: operations["create_alert_rule_v1_me_alert_rules_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/alert-rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Alert Rule */
+        put: operations["update_alert_rule_v1_me_alert_rules__rule_id__put"];
+        post?: never;
+        /** Delete Alert Rule */
+        delete: operations["delete_alert_rule_v1_me_alert_rules__rule_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/alert-test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Alert
+         * @description Send a sample message on one channel to the caller (to check the setup).
+         */
+        post: operations["test_alert_v1_me_alert_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/push-subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Push Subscription
+         * @description Register this browser for notifications (again: the keys may have changed).
+         */
+        put: operations["save_push_subscription_v1_me_push_subscriptions_put"];
+        post?: never;
+        /** Delete Push Subscription */
+        delete: operations["delete_push_subscription_v1_me_push_subscriptions_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/nvrs": {
         parameters: {
             query?: never;
@@ -1020,6 +1136,64 @@ export interface paths {
          * @description Creates the tenant and its first owner, who gets an email to set a password.
          */
         post: operations["create_tenant_v1_platform_tenants_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Reports
+         * @description Newest first.
+         */
+        get: operations["list_reports_v1_reports_get"];
+        put?: never;
+        /**
+         * Generate Report
+         * @description Make (or remake) the report of the period containing `date`, from current data.
+         */
+        post: operations["generate_report_v1_reports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reports/{report_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Report */
+        get: operations["get_report_v1_reports__report_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reports/{report_id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download Report */
+        get: operations["download_report_v1_reports__report_id__file_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1241,6 +1415,158 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AlertChannel
+         * @enum {string}
+         */
+        AlertChannel: "web" | "whatsapp" | "email";
+        /**
+         * AlertKind
+         * @enum {string}
+         */
+        AlertKind: "alert" | "resolved";
+        /** AlertProfileIn */
+        AlertProfileIn: {
+            /** @default en */
+            locale: components["schemas"]["Locale"];
+            /**
+             * Phone
+             * @description WhatsApp number, e.g. +96550000000
+             */
+            phone?: string | null;
+            /** Report Channels */
+            report_channels?: ("email" | "whatsapp")[];
+            /**
+             * Whatsapp Opt In
+             * @description The user agrees to receive alerts on WhatsApp
+             * @default false
+             */
+            whatsapp_opt_in: boolean;
+        };
+        /** AlertProfileOut */
+        AlertProfileOut: {
+            /** Email */
+            email: string;
+            /** @default en */
+            locale: components["schemas"]["Locale"];
+            /**
+             * Phone
+             * @description WhatsApp number, e.g. +96550000000
+             */
+            phone?: string | null;
+            /**
+             * Push Public Key
+             * @description VAPID key for PushManager.subscribe; null when Web Push isn't set up
+             */
+            push_public_key: string | null;
+            /** Report Channels */
+            report_channels?: ("email" | "whatsapp")[];
+            /**
+             * Whatsapp Configured
+             * @description False: WhatsApp messages go to the log
+             */
+            whatsapp_configured: boolean;
+            /**
+             * Whatsapp Opt In
+             * @description The user agrees to receive alerts on WhatsApp
+             * @default false
+             */
+            whatsapp_opt_in: boolean;
+            /** Whatsapp Opt In At */
+            whatsapp_opt_in_at: string | null;
+        };
+        /** AlertRuleIn */
+        AlertRuleIn: {
+            /**
+             * Branch Id
+             * @description null: every branch
+             */
+            branch_id?: string | null;
+            /** Channels */
+            channels: components["schemas"]["AlertChannel"][];
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /** @description null: every feature */
+            feature_key?: components["schemas"]["FeatureKey"] | null;
+            /** @default warning */
+            min_severity: components["schemas"]["Severity"];
+            /**
+             * Notify Resolved
+             * @default false
+             */
+            notify_resolved: boolean;
+            /**
+             * Quiet From
+             * @description Branch time; only critical alerts
+             */
+            quiet_from?: string | null;
+            /** Quiet Until */
+            quiet_until?: string | null;
+        };
+        /** AlertRuleOut */
+        AlertRuleOut: {
+            /**
+             * Branch Id
+             * @description null: every branch
+             */
+            branch_id?: string | null;
+            /** Channels */
+            channels: components["schemas"]["AlertChannel"][];
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /** @description null: every feature */
+            feature_key?: components["schemas"]["FeatureKey"] | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** @default warning */
+            min_severity: components["schemas"]["Severity"];
+            /**
+             * Notify Resolved
+             * @default false
+             */
+            notify_resolved: boolean;
+            /**
+             * Quiet From
+             * @description Branch time; only critical alerts
+             */
+            quiet_from?: string | null;
+            /** Quiet Until */
+            quiet_until?: string | null;
+        };
+        /** AlertSummary */
+        AlertSummary: {
+            /** Delivered P95 Ms */
+            delivered_p95_ms?: number | null;
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+            /** P50 Ms */
+            p50_ms?: number | null;
+            /** P95 Ms */
+            p95_ms?: number | null;
+            /**
+             * Sent
+             * @default 0
+             */
+            sent: number;
+            /** Within 10S Pct */
+            within_10s_pct?: number | null;
+        };
+        /** AlertTest */
+        AlertTest: {
+            channel: components["schemas"]["AlertChannel"];
+        };
         /** ApiKeyCreated */
         ApiKeyCreated: {
             api_key: components["schemas"]["ApiKeyOut"];
@@ -1662,6 +1988,92 @@ export interface components {
             /** Zone Id */
             zone_id: string | null;
         };
+        /** DayRow */
+        DayRow: {
+            /**
+             * Absent
+             * @default 0
+             */
+            absent: number;
+            /**
+             * Cashier
+             * @default 0
+             */
+            cashier: number;
+            /**
+             * Compliance
+             * @default 0
+             */
+            compliance: number;
+            /**
+             * Critical
+             * @default 0
+             */
+            critical: number;
+            /** Customers In */
+            customers_in?: number | null;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Events
+             * @default 0
+             */
+            events: number;
+            /**
+             * False Alarms
+             * @default 0
+             */
+            false_alarms: number;
+            /**
+             * Late
+             * @default 0
+             */
+            late: number;
+            /**
+             * On Time
+             * @default 0
+             */
+            on_time: number;
+            /**
+             * Security
+             * @default 0
+             */
+            security: number;
+        };
+        /** DeliveryOut */
+        DeliveryOut: {
+            /** Attempts */
+            attempts: number;
+            channel: components["schemas"]["AlertChannel"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Delivered At */
+            delivered_at: string | null;
+            /** Error */
+            error: string | null;
+            kind: components["schemas"]["AlertKind"];
+            /**
+             * Latency Ms
+             * @description Event start to sent (ms)
+             */
+            latency_ms: number | null;
+            /** Sent At */
+            sent_at: string | null;
+            status: components["schemas"]["DeliveryStatus"];
+            /** User Name */
+            user_name: string;
+        };
+        /**
+         * DeliveryStatus
+         * @enum {string}
+         */
+        DeliveryStatus: "queued" | "sent" | "delivered" | "failed";
         /**
          * DeviceStatus
          * @enum {string}
@@ -2083,6 +2495,11 @@ export interface components {
             /** Sdp Offer */
             sdp_offer: string;
         };
+        /**
+         * Locale
+         * @enum {string}
+         */
+        Locale: "en" | "ar";
         /** LoginRequest */
         LoginRequest: {
             /**
@@ -2342,6 +2759,22 @@ export interface components {
              */
             start: string;
         };
+        /** PushKeys */
+        PushKeys: {
+            /** Auth */
+            auth: string;
+            /** P256Dh */
+            p256dh: string;
+        };
+        /**
+         * PushSubscriptionIn
+         * @description `PushSubscription.toJSON()` from the browser.
+         */
+        PushSubscriptionIn: {
+            /** Endpoint */
+            endpoint: string;
+            keys: components["schemas"]["PushKeys"];
+        };
         /** RecordingSpan */
         RecordingSpan: {
             /**
@@ -2427,6 +2860,136 @@ export interface components {
             /** Request */
             request: components["schemas"]["LiveRequest"] | components["schemas"]["PlaybackRequest"] | components["schemas"]["RecordingsRequest"] | components["schemas"]["FrameRequest"] | components["schemas"]["FaceEmbeddingRequest"];
         };
+        /** ReportData */
+        ReportData: {
+            alerts: components["schemas"]["AlertSummary"];
+            /**
+             * Branch Id
+             * Format: uuid
+             */
+            branch_id: string;
+            /** Branch Name */
+            branch_name: string;
+            /** Days */
+            days: components["schemas"]["DayRow"][];
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Hours */
+            hours: number[] | null;
+            /** Partial */
+            partial: boolean;
+            period: components["schemas"]["ReportPeriod"];
+            /** Security Events */
+            security_events: components["schemas"]["SecurityRow"][];
+            /** Staff */
+            staff: components["schemas"]["StaffRow"][];
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /** Timezone */
+            timezone: string;
+            totals: components["schemas"]["Totals"];
+            /** Types */
+            types: components["schemas"]["TypeRow"][];
+            /**
+             * Version
+             * @default 1
+             */
+            version: number;
+        };
+        /** ReportOut */
+        ReportOut: {
+            /**
+             * Branch Id
+             * Format: uuid
+             */
+            branch_id: string;
+            data: components["schemas"]["ReportData"];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Partial */
+            partial: boolean;
+            period: components["schemas"]["ReportPeriod"];
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+        };
+        /**
+         * ReportPeriod
+         * @enum {string}
+         */
+        ReportPeriod: "day" | "week" | "month";
+        /** ReportRequest */
+        ReportRequest: {
+            /**
+             * Branch Id
+             * Format: uuid
+             */
+            branch_id: string;
+            /**
+             * Day
+             * Format: date
+             * @description Any day in the period; it may be the current period
+             */
+            day: string;
+            period: components["schemas"]["ReportPeriod"];
+        };
+        /** ReportSummary */
+        ReportSummary: {
+            /**
+             * Branch Id
+             * Format: uuid
+             */
+            branch_id: string;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Partial */
+            partial: boolean;
+            period: components["schemas"]["ReportPeriod"];
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+        };
         /** ResetRequest */
         ResetRequest: {
             /** New Password */
@@ -2465,6 +3028,27 @@ export interface components {
         SdpAnswer: {
             /** Sdp Answer */
             sdp_answer: string;
+        };
+        /** SecurityRow */
+        SecurityRow: {
+            /** Camera */
+            camera: string;
+            /**
+             * Event Id
+             * Format: uuid
+             */
+            event_id: string;
+            /** Event Type */
+            event_type: string;
+            /** Review Status */
+            review_status: string;
+            /** Severity */
+            severity: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
         };
         /**
          * Severity
@@ -2588,6 +3172,47 @@ export interface components {
             /** Shift Id */
             shift_id: string | null;
             status: components["schemas"]["StaffStatus"];
+        };
+        /** StaffRow */
+        StaffRow: {
+            /**
+             * Absent
+             * @default 0
+             */
+            absent: number;
+            /** Attendance Pct */
+            attendance_pct?: number | null;
+            /**
+             * Compliance Issues
+             * @default 0
+             */
+            compliance_issues: number;
+            /**
+             * Day Off
+             * @default 0
+             */
+            day_off: number;
+            /** Employee Code */
+            employee_code: string;
+            /**
+             * Late
+             * @default 0
+             */
+            late: number;
+            /** Name */
+            name: string;
+            /**
+             * On Time
+             * @default 0
+             */
+            on_time: number;
+            /** Punctuality Pct */
+            punctuality_pct?: number | null;
+            /**
+             * Staff Id
+             * Format: uuid
+             */
+            staff_id: string;
         };
         /** StaffSighting */
         StaffSighting: {
@@ -2729,6 +3354,91 @@ export interface components {
         TokenRequest: {
             /** Token */
             token: string;
+        };
+        /** Totals */
+        Totals: {
+            /**
+             * Absent
+             * @default 0
+             */
+            absent: number;
+            /** Attendance Pct */
+            attendance_pct?: number | null;
+            /**
+             * Cashier
+             * @default 0
+             */
+            cashier: number;
+            /**
+             * Compliance
+             * @default 0
+             */
+            compliance: number;
+            /** Counter Staffed Pct */
+            counter_staffed_pct?: number | null;
+            /**
+             * Critical
+             * @default 0
+             */
+            critical: number;
+            /** Customers In */
+            customers_in?: number | null;
+            /**
+             * Day Off
+             * @default 0
+             */
+            day_off: number;
+            /**
+             * Events
+             * @default 0
+             */
+            events: number;
+            /**
+             * False Alarms
+             * @default 0
+             */
+            false_alarms: number;
+            /**
+             * Late
+             * @default 0
+             */
+            late: number;
+            /**
+             * On Time
+             * @default 0
+             */
+            on_time: number;
+            /** Peak Hour */
+            peak_hour?: number | null;
+            /** Peak Occupancy */
+            peak_occupancy?: number | null;
+            /** Punctuality Pct */
+            punctuality_pct?: number | null;
+            /**
+             * Security
+             * @default 0
+             */
+            security: number;
+            /**
+             * Unreviewed
+             * @default 0
+             */
+            unreviewed: number;
+        };
+        /** TypeRow */
+        TypeRow: {
+            /** Event Type */
+            event_type: string;
+            /** False Alarm */
+            false_alarm: number;
+            /** Feature */
+            feature: string;
+            /** Total */
+            total: number;
+            /** Unreviewed */
+            unreviewed: number;
+            /** Valid */
+            valid: number;
         };
         /**
          * UploadUrlRequest
@@ -4897,6 +5607,40 @@ export interface operations {
             };
         };
     };
+    event_alerts_v1_events__event_id__alerts_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path: {
+                event_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     media_link_v1_events__event_id__media__kind__get: {
         parameters: {
             query?: {
@@ -5139,6 +5883,312 @@ export interface operations {
             };
         };
     };
+    get_alert_profile_v1_me_alert_profile_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_alert_profile_v1_me_alert_profile_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlertProfileIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_alert_rules_v1_me_alert_rules_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertRuleOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_alert_rule_v1_me_alert_rules_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlertRuleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertRuleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_alert_rule_v1_me_alert_rules__rule_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlertRuleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertRuleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_alert_rule_v1_me_alert_rules__rule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_alert_v1_me_alert_test_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlertTest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_push_subscription_v1_me_push_subscriptions_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushSubscriptionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_push_subscription_v1_me_push_subscriptions_delete: {
+        parameters: {
+            query: {
+                endpoint: string;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_nvrs_v1_nvrs_get: {
         parameters: {
             query?: never;
@@ -5294,6 +6344,150 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TenantCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_reports_v1_reports_get: {
+        parameters: {
+            query: {
+                branch_id: string;
+                period?: components["schemas"]["ReportPeriod"] | null;
+                limit?: number;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_report_v1_reports_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_report_v1_reports__report_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_report_v1_reports__report_id__file_get: {
+        parameters: {
+            query?: {
+                format?: "pdf" | "xlsx";
+                lang?: components["schemas"]["Locale"];
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": unknown;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
                 };
             };
             /** @description Validation Error */

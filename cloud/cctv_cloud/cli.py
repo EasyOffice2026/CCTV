@@ -1,8 +1,10 @@
 """Admin commands.
 
     python -m cctv_cloud.cli create-superadmin --email you@example.com --name "Your Name"
+    python -m cctv_cloud.cli vapid-keys
 
-Prints a link to set the password; 2FA is set up at the first login.
+create-superadmin prints a link to set the password; 2FA is set up at the first login.
+vapid-keys prints a new key for browser notifications (CCTV_VAPID_PRIVATE_KEY).
 """
 
 import argparse
@@ -15,6 +17,7 @@ from cctv_cloud.db.enums import UserRole
 from cctv_cloud.db.models import User
 from cctv_cloud.db.session import tenant_session
 from cctv_cloud.services.mailer import LogMailer
+from cctv_cloud.services.webpush import Vapid, new_vapid_private_key
 
 
 class _PrintMailer(LogMailer):
@@ -41,7 +44,13 @@ def main(argv: list[str] | None = None) -> int:
     create = commands.add_parser("create-superadmin")
     create.add_argument("--email", required=True)
     create.add_argument("--name", required=True)
+    commands.add_parser("vapid-keys")
     args = parser.parse_args(argv)
+    if args.command == "vapid-keys":
+        private = new_vapid_private_key()
+        print(f"CCTV_VAPID_PRIVATE_KEY={private}")
+        print(f"# public key (sent to browsers): {Vapid.from_private(private, '').public_key}")
+        return 0
     try:
         create_superadmin(args.email, args.name)
     except IntegrityError:

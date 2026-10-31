@@ -1,9 +1,13 @@
-"""Background jobs: retention and offline devices (plan 3.8), absences (plan 5.4).
+"""Background jobs: retention and offline devices (plan 3.8), absences (plan 5.4), alerts
+and reports (plan 6).
 
     python -m cctv_cloud.worker retention   # once
     python -m cctv_cloud.worker devices     # once
     python -m cctv_cloud.worker attendance  # once
-    python -m cctv_cloud.worker run         # all, every few minutes, until stopped
+    python -m cctv_cloud.worker alerts      # once: send queued alerts (retries)
+    python -m cctv_cloud.worker reports     # once: make due reports, send their links
+    python -m cctv_cloud.worker run         # all until stopped: alerts every few seconds,
+                                            # the rest every few minutes
 
 Runs as the restricted app role, one tenant at a time. Object-storage lifecycle rules
 (expire objects after the longest retention a tenant can choose) are a backstop in case
@@ -30,7 +34,9 @@ from cctv_cloud.db.models import (
     Tenant,
 )
 from cctv_cloud.db.session import tenant_session
+from cctv_cloud.services.alerts import Senders, default_senders, dispatch_all
 from cctv_cloud.services.attendance import mark_absences
+from cctv_cloud.services.reports import generate_due
 from cctv_cloud.services.storage import ObjectStorage, get_storage
 
 log = logging.getLogger("cctv_cloud.worker")
@@ -145,10 +151,26 @@ def mark_absent_staff(now: datetime | None = None) -> int:
     return count
 
 
+def make_reports(senders: Senders, now: datetime | None = None) -> int:
+    """Due daily/weekly/monthly reports in every tenant."""
+    count = 0
+    for tenant_id in tenant_ids():
+        try:
+            count += generate_due(tenant_id, senders, now)
+        except Exception:
+            log.exception("reports failed for tenant %s", tenant_id)
+    return count
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="cctv_cloud.worker")
-    parser.add_argument("job", choices=["retention", "devices", "attendance", "run"])
+    parser.add_argument(
+        "job", choices=["retention", "devices", "attendance", "alerts", "reports", "run"]
+    )
     parser.add_argument("--interval", type=int, default=300, help="seconds between runs (run)")
+    parser.add_argument(
+        "--alerts-interval", type=float, default=5, help="seconds between alert retries (run)"
+    )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -158,15 +180,28 @@ def main(argv: list[str] | None = None) -> int:
         log.info("devices marked offline: %d", mark_offline_devices())
     elif args.job == "attendance":
         log.info("absences recorded: %d", mark_absent_staff())
+    elif args.job == "alerts":
+        log.info("alerts sent: %d", dispatch_all(default_senders()))
+    elif args.job == "reports":
+        log.info("reports made: %d", make_reports(default_senders()))
     else:
-        last_retention = 0.0
+        senders = default_senders()
+        last_jobs = last_retention = float("-inf")
         while True:
-            mark_offline_devices()
-            mark_absent_staff()
+            # The API sends alerts right away; this retries failures and catches up.
+            try:
+                dispatch_all(senders)
+            except Exception:
+                log.exception("sending alerts failed")
+            if time.monotonic() - last_jobs >= args.interval:
+                mark_offline_devices()
+                mark_absent_staff()
+                make_reports(senders)
+                last_jobs = time.monotonic()
             if time.monotonic() - last_retention > 3600:
                 log.info("retention: %s", apply_retention(get_storage()))
                 last_retention = time.monotonic()
-            time.sleep(args.interval)
+            time.sleep(args.alerts_interval)
     return 0
 
 

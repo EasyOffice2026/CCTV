@@ -35,6 +35,9 @@ and talks to the API through its own proxy.
 | Features | `settings_manage` | On/off per tenant, branch and camera; thresholds (JSON) |
 | Working hours | `branch_edit` | Weekly opening hours per branch |
 | Staff | `staff_manage` | Staff, shifts, consent, face enrolment (only after consent) |
+| Attendance | `staff_manage` | A day's check-in/out per person; correct and undo |
+| Reports | `reports_view` | Daily, weekly and monthly branch reports; make or update one; PDF and Excel in the current language. `?report=<id>` opens one (links in report messages) |
+| Alerts | `events_view` | The user's alert rules, WhatsApp number and consent, message language, report links, browser notifications, test messages |
 | Clients, Branches, Cameras & NVRs, Edge devices, Users | `platform_admin`, `tenant_admin`, `devices_manage` | Administration |
 
 The UI hides what a role can't use; the API enforces it.
@@ -46,6 +49,11 @@ The UI hides what a role can't use; the API enforces it.
   refreshes on load, on a 401, and shortly before expiry while the user is active (so the
   server's 8-hour idle timeout still applies).
 - **Live events.** `/v1/ws`; the token is sent as the first message, again after each refresh.
+  One socket per tab is shared by the event feed and the alert toasts (`src/lib/live-events.ts`).
+- **Alerts.** Alerts routed to the user arrive on the same socket as toasts (critical ones
+  stay until closed). With notifications turned on (Alerts page), `public/sw.js` shows them
+  as system notifications when no dashboard tab is in front; clicking opens
+  `/events/?event=<id>`, through sign-in if needed (the `next` link keeps the query).
 - **Video.** The browser sends a WebRTC offer to the API, which relays it to the branch's edge
   box (go2rtc) and returns the answer. Video then flows from the box to the browser directly,
   or through the TURN server in `CCTV_WEBRTC_ICE_SERVERS` when a direct path isn't possible.

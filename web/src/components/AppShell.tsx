@@ -4,12 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
+import { AlertToasts } from "@/components/AlertToasts";
 import { Select } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useBranches } from "@/lib/branches";
 import { useI18n } from "@/lib/i18n";
 import type { MessageKey } from "@/lib/messages/en";
-import { canAny, type Permission } from "@/lib/permissions";
+import { can, canAny, type Permission } from "@/lib/permissions";
 
 type NavItem = { href: string; label: MessageKey; anyOf: Permission[] };
 
@@ -21,6 +22,7 @@ const NAV: { group: MessageKey; items: NavItem[] }[] = [
       { href: "/search/", label: "nav.search", anyOf: ["events_view"] },
       { href: "/live/", label: "nav.live", anyOf: ["live_view"] },
       { href: "/playback/", label: "nav.playback", anyOf: ["live_view"] },
+      { href: "/reports/", label: "nav.reports", anyOf: ["reports_view"] },
     ],
   },
   {
@@ -29,6 +31,7 @@ const NAV: { group: MessageKey; items: NavItem[] }[] = [
       { href: "/settings/zones/", label: "nav.zones", anyOf: ["devices_manage", "settings_manage"] },
       { href: "/settings/features/", label: "nav.features", anyOf: ["settings_manage"] },
       { href: "/settings/hours/", label: "nav.hours", anyOf: ["branch_edit"] },
+      { href: "/alerts/", label: "nav.alerts", anyOf: ["events_view"] },
     ],
   },
   {
@@ -157,6 +160,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
         <main className="mx-auto w-full max-w-7xl flex-1 p-4 md:p-6">{children}</main>
       </div>
+      <AlertToasts enabled={!!tenantId && can(me, "events_view")} />
     </div>
   );
 }

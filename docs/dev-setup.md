@@ -26,7 +26,7 @@ docker compose -f infra/docker-compose.yml up -d
 |---|---|---|
 | Dashboard | http://localhost:3000 | Web app; proxies `/v1` to the API ([web/README.md](../web/README.md)) |
 | API | http://localhost:8000/docs | Runs migrations on start ([cloud/README.md](../cloud/README.md)) |
-| Worker | — | Retention, offline-device and absence jobs |
+| Worker | — | Alert retries, reports, retention, offline-device and absence jobs |
 | Postgres | localhost:5432 | `cctv` (app) and `cctv_test` (tests) databases |
 | MinIO | http://localhost:9001 | user `cctv`, password `cctv-dev-secret` |
 | MQTT | localhost:1883 | anonymous (dev only) |

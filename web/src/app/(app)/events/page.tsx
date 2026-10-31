@@ -1,7 +1,7 @@
 "use client";
 
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { EventCard, EventDetail, type EventOut } from "@/components/events";
 import { RequirePermission } from "@/components/RequirePermission";
@@ -87,6 +87,15 @@ function Feed() {
     [branchId, feature, severity, newOnly, tenantId, queryClient],
   );
   const status = useLiveEvents(onLiveEvent);
+
+  // Links in alerts open one event: /events/?event=<id>.
+  useEffect(() => {
+    const eventId = new URLSearchParams(window.location.search).get("event");
+    if (!eventId || !/^[0-9a-f-]{36}$/i.test(eventId)) return;
+    void unwrap(api.GET("/v1/events/{event_id}", { params: { path: { event_id: eventId } } }))
+      .then(setOpen)
+      .catch(() => undefined); // gone or not visible: just the feed
+  }, []);
 
   const events = feed.data?.pages.flatMap((p) => p.items) ?? [];
   const statusBadge = {

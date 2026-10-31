@@ -32,5 +32,6 @@ export function AuthCard({ title, children }: { title: string; children: React.R
 
 /** Only same-site paths are followed after login. */
 export function safeNext(next: string | null): string | null {
-  return next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login") ? next : null;
+  // Same-origin paths only ("//host" and "/\host" are other sites to a browser).
+  return next && next.startsWith("/") && !/^\/[/\\]/.test(next) && !next.startsWith("/login") ? next : null;
 }

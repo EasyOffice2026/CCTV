@@ -16,7 +16,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, INET
 from sqlalchemy.orm import Mapped, mapped_column
 
 from cctv_cloud.db.base import Base, CreatedAt, TenantScoped, UUIDPk, check_in, tenant_fk
-from cctv_cloud.db.enums import StaffStatus, UserRole
+from cctv_cloud.db.enums import AlertChannel, Locale, StaffStatus, UserRole
 
 
 class Staff(UUIDPk, CreatedAt, TenantScoped, Base):
@@ -71,12 +71,28 @@ class User(UUIDPk, CreatedAt, Base):
     locked_until: Mapped[datetime | None]
     # Password-reset links embed this, so they stop working once the password changes.
     password_changed_at: Mapped[datetime | None]
+    # Alerts and reports (plan 6.3, 6.5): WhatsApp number (E.164) and when the user agreed
+    # to receive WhatsApp messages; the language of their messages.
+    phone: Mapped[str | None] = mapped_column(String(20))
+    whatsapp_opt_in_at: Mapped[datetime | None]
+    locale: Mapped[str] = mapped_column(String(5), server_default=Locale.EN.value)
+    # Where to send a link when a branch report is ready (email, whatsapp).
+    report_channels: Mapped[list[str]] = mapped_column(
+        ARRAY(String(20)), server_default=text("'{}'::varchar(20)[]")
+    )
 
     __table_args__ = (
         UniqueConstraint("id", "tenant_id"),
         Index("uq_users_email_lower", text("lower(email)"), unique=True),
         check_in("role", UserRole),
+        check_in("locale", Locale),
         CheckConstraint("(role = 'super_admin') = (tenant_id IS NULL)", name="role_tenant"),
+        CheckConstraint(r"phone ~ '^\+[1-9][0-9]{6,14}$'", name="phone_e164"),
+        CheckConstraint(
+            f"report_channels <@ ARRAY['{AlertChannel.EMAIL.value}',"
+            f" '{AlertChannel.WHATSAPP.value}']::varchar(20)[]",
+            name="report_channels_valid",
+        ),
     )
 
 

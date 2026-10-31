@@ -24,8 +24,8 @@ from cctv_cloud.services.audit import AuditAction, record
 
 router = APIRouter(prefix="/v1", tags=["attendance"])
 
-StaffAdmin = Annotated[Context, Depends(context(Permission.STAFF_MANAGE))]
-Viewer = Annotated[Context, Depends(context(Permission.EVENTS_VIEW))]
+StaffAdmin = Annotated[Context, Depends(context(Permission.STAFF_MANAGE), scope="function")]
+Viewer = Annotated[Context, Depends(context(Permission.EVENTS_VIEW), scope="function")]
 
 MAX_DAYS = 62
 MAX_COUNT_RANGE = timedelta(days=31)

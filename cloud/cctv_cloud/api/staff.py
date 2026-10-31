@@ -35,7 +35,7 @@ from cctv_contracts.v1 import FaceEmbeddingRequest
 
 router = APIRouter(prefix="/v1", tags=["staff"])
 
-StaffAdmin = Annotated[Context, Depends(context(Permission.STAFF_MANAGE))]
+StaffAdmin = Annotated[Context, Depends(context(Permission.STAFF_MANAGE), scope="function")]
 StaffAdminPrincipal = Annotated[Principal, Depends(require(Permission.STAFF_MANAGE))]
 
 MAX_PHOTOS = 5

@@ -46,6 +46,8 @@ minutes after 5 wrong passwords.
 | Live view and NVR playback | ✓ | ✓ | | |
 | Current camera frame (for drawing zones) | ✓ | ✓ | | ✓ |
 | Staff, shifts, consent, face enrolment, attendance (view and correct) | ✓ | ✓ | | |
+| Branch reports (view, make, download) | ✓ | ✓ | | |
+| Own alert rules (events of their branches) | ✓ | ✓ | ✓ | |
 
 Owners see every branch. Other roles see only the branches assigned to them; anything
 in other branches returns 404. Super-admins (our team) can do everything, in any tenant.
@@ -63,7 +65,10 @@ in other branches returns 404. Super-admins (our team) can do everything, in any
 | Live view, playback | `/v1/live/ice-servers`, `/v1/cameras/{id}/live`, `/playback`, `/recordings`, `/frame` |
 | Staff | `/v1/staff`, `/v1/staff/{id}/consent`, `/v1/staff/{id}/face`, `/v1/shifts` |
 | Attendance, counts | `/v1/attendance`, `/v1/attendance/{staff_id}/{date}` (correct / undo), `/v1/counts` |
-| Realtime | WebSocket `/v1/ws` (live event feed) |
+| Alerts | `/v1/me/alert-rules`, `/v1/me/alert-profile`, `/v1/me/push-subscriptions`, `/v1/me/alert-test`, `/v1/events/{id}/alerts` (who was told, how fast) |
+| Reports | `/v1/reports` (list, make), `/v1/reports/{id}`, `/v1/reports/{id}/file?format=pdf\|xlsx&lang=en\|ar` |
+| Realtime | WebSocket `/v1/ws` (live event feed, in-app alerts) |
+| Webhooks | `/v1/webhooks/whatsapp` (delivery reports from Meta; signed) |
 | Integrations | `/v1/api-keys`, `/v1/audit-logs` |
 | Edge | `/v1/edge/pair`, `/config`, `/heartbeat`, `/media/upload-urls`, `/events`, `/remote` (long poll), `/remote/{id}/reply`, `/face-templates`, `/attendance`, `/counts` |
 
@@ -120,6 +125,62 @@ branch) bump the branch config version so the box reloads the templates.
 in/out and zone occupancy (`max_occupancy`, `occupied_seconds`, e.g. how long the counter
 was staffed). A bucket sent again replaces the stored one. Read with `GET /v1/counts`.
 
+**Alerts** (plan 6.1-6.5, 6.7). Each user keeps their own alert rules: feature (or all),
+branch (or all of theirs), minimum severity, channels (browser, WhatsApp, email), quiet
+hours (branch time; only critical alerts get through) and whether to say when the event
+ends. When the edge reports a new event, the API matches the rules in the same transaction
+and queues one `alert_deliveries` row per user and channel: unique per event, user, channel
+and kind, so retries and updates never alert twice. It also checks again that the user is
+active, may see events and has the branch, and skips a user and channel already alerted for
+the same camera, zone and event type within `CCTV_ALERT_COOLDOWN_SECONDS` (300). Events that
+arrive more than `CCTV_ALERT_MAX_AGE_MINUTES` (30) after they started (e.g. buffered during an
+outage) don't alert. After the commit the API sends right away; the worker retries what is
+still queued (backoff 5 s to 5 min, at most 5 attempts) and drops messages older than an
+hour. `latency_ms` is event start (edge clock) to the channel accepting the message, and
+`GET /v1/events/{id}/alerts` and the reports show it.
+
+* **Browser**: an in-app toast over the WebSocket (`{"type": "alert", ...}`, to that user
+  only) and Web Push to the user's registered browsers (RFC 8291 encryption and VAPID,
+  `services/webpush.py`; only Google, Mozilla, Microsoft and Apple push services are
+  contacted). Generate the key with `python -m cctv_cloud.cli vapid-keys` and set
+  `CCTV_VAPID_PRIVATE_KEY` and `CCTV_VAPID_SUBJECT` (a `mailto:`). Without it, alerts show
+  only while a dashboard tab is open.
+* **WhatsApp** (Cloud API): only to users who entered a number and agreed (the consent
+  time is stored, and reset when the number changes); at most `CCTV_WHATSAPP_MAX_PER_HOUR`
+  (20) per user. No images are sent, only a link that needs a sign-in. Set
+  `CCTV_WHATSAPP_PHONE_NUMBER_ID` and `CCTV_WHATSAPP_TOKEN` (a system-user token); without
+  them messages go to the log. Delivery reports: subscribe the app's webhook to
+  `https://<api>/v1/webhooks/whatsapp` with `CCTV_WHATSAPP_VERIFY_TOKEN`, and set
+  `CCTV_WHATSAPP_APP_SECRET` to check the signatures; "delivered" sets `delivered_at`.
+* **Email**: through the mailer (the log until a provider is chosen).
+
+WhatsApp templates to submit to Meta (names in `CCTV_WHATSAPP_TEMPLATES`), in English
+(`en`) and Arabic (`ar`), category Utility, each with one URL button whose dynamic suffix is
+the id:
+
+| Template | Body (en) | Button URL |
+|---|---|---|
+| `cctv_alert` | `{{1}} at {{2}}, {{3}}, {{4}}.` (what, branch, camera and zone, time) | `https://<web>/events/?event={{1}}` |
+| `cctv_alert_resolved` | `Ended: {{1}} at {{2}}, {{3}}, {{4}}.` | `https://<web>/events/?event={{1}}` |
+| `cctv_report` | `{{1}} for {{2}} ({{3}}) is ready.` (report, branch, period) | `https://<web>/reports/?report={{1}}` |
+
+**Reports** (plan 6.6). A report summarises one branch for a day, week (from Sunday,
+`CCTV_REPORT_WEEK_START`) or month: events by type and review result, critical and security
+events, compliance issues, cashier events, attendance (per person: on time, late, absent,
+attendance and punctuality rates, compliance issues matched to them), customers in from
+entrance lines by hour (peak hour), dining-zone peak occupancy, how long the counter was
+staffed, and alert times (p50, p95, share within 10 s, failures, time to "delivered").
+False alarms are counted but not as issues. The figures are stored as JSON
+(`reports.data`); PDF (ReportLab, Arabic shaped with arabic-reshaper and python-bidi) and
+Excel files are rendered on download in the reader's language, and downloads are audited
+(`export_report`). The worker makes yesterday's report after `CCTV_REPORT_HOUR` (2:00 branch
+time, so overnight events buffered by the box are in), the weekly and monthly ones after
+the period, catches up three days back, and sends a link by email or WhatsApp to users who
+asked for one (Alerts page) and may see the branch. Managers can make or remake any period,
+including the current one ("so far"). Reports are kept `CCTV_REPORT_RETENTION_DAYS` (730).
+PDFs need a font with Arabic letters: the API image installs DejaVu Sans; elsewhere set
+`CCTV_REPORT_FONT` if none of the usual fonts is found.
+
 Without Redis (`CCTV_REDIS_URL=` empty) an in-process bus and relay are used, which only
 work with a single API process.
 
@@ -127,7 +188,9 @@ work with a single API process.
 
 ```bash
 python -m cctv_cloud.cli create-superadmin --email you@example.com --name "Your Name"
-python -m cctv_cloud.worker run          # retention, offline devices, absences; every 5 min
+python -m cctv_cloud.cli vapid-keys      # key for browser notifications
+python -m cctv_cloud.worker run          # alert retries every 5 s; offline devices,
+                                         # absences and reports every 5 min; retention hourly
 ```
 
 The **retention** job deletes clips and snapshots older than the tenant's

@@ -25,8 +25,8 @@ from cctv_contracts.v1.config import HOST_PATTERN
 
 router = APIRouter(prefix="/v1", tags=["devices"])
 
-AnyMember = Annotated[Context, Depends(context())]
-DeviceAdmin = Annotated[Context, Depends(context(Permission.DEVICES_MANAGE))]
+AnyMember = Annotated[Context, Depends(context(), scope="function")]
+DeviceAdmin = Annotated[Context, Depends(context(Permission.DEVICES_MANAGE), scope="function")]
 
 
 def _conflict(message: str) -> HTTPException:

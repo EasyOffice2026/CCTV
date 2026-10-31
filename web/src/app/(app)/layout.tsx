@@ -18,7 +18,8 @@ export default function SignedInLayout({ children }: { children: React.ReactNode
   const pathname = usePathname();
 
   useEffect(() => {
-    if (status === "anonymous") router.replace(`/login/?next=${encodeURIComponent(pathname)}`);
+    // Keep the query (e.g. ?event=... from an alert link) for after sign-in.
+    if (status === "anonymous") router.replace(`/login/?next=${encodeURIComponent(pathname + window.location.search)}`);
   }, [status, router, pathname]);
 
   if (status !== "signed-in" || !me) return <Spinner />;
