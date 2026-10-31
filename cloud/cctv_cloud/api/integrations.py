@@ -1,17 +1,25 @@
-"""API keys for integrations (plan 3.9) and the audit log viewer."""
+"""API keys for integrations (plan 3.9) and the audit log viewer (plan 7.3)."""
 
+import csv
+import io
+import json
 import uuid
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import Select, select
+from sqlalchemy.orm import Session
 
 from cctv_cloud.api.admin import ORMModel
-from cctv_cloud.api.deps import Context, context, not_found
-from cctv_cloud.db.models import ApiKey, AuditLog
-from cctv_cloud.rbac import API_KEY_SCOPES, Permission
+from cctv_cloud.api.deps import Context, context, not_found, require_platform
+from cctv_cloud.api.events import csv_cell
+from cctv_cloud.config import get_settings
+from cctv_cloud.db.models import ApiKey, AuditLog, User
+from cctv_cloud.db.session import tenant_session
+from cctv_cloud.rbac import API_KEY_SCOPES, Permission, Principal
 from cctv_cloud.security import new_secret, sha256_hex
 from cctv_cloud.services.audit import AuditAction, record
 
@@ -100,6 +108,9 @@ def revoke_api_key(api_key_id: uuid.UUID, ctx: TenantAdmin, request: Request) ->
 class AuditLogOut(ORMModel):
     id: int
     user_id: uuid.UUID | None
+    # None when the user isn't in this tenant (our support staff acting for the client).
+    user_name: str | None = None
+    user_email: str | None = None
     action: str
     target_type: str | None
     target_id: str | None
@@ -114,20 +125,148 @@ class AuditLogOut(ORMModel):
         return None if value is None else str(value)  # INET comes back as an ipaddress object
 
 
+@dataclass
+class AuditFilters:
+    """Who did what, to what, when. Newest first; page with `before_id` = the last id of
+    the previous page."""
+
+    action: Annotated[list[AuditAction] | None, Query()] = None
+    user_id: uuid.UUID | None = None
+    target_type: Annotated[str | None, Query(max_length=50)] = None
+    target_id: Annotated[str | None, Query(max_length=100)] = None
+    since: datetime | None = None
+    until: datetime | None = None
+
+    def used(self) -> dict[str, Any]:
+        return {
+            k: [a.value for a in v] if k == "action" else str(v)
+            for k, v in asdict(self).items()
+            if v is not None
+        }
+
+    def query(self) -> Select:
+        query = select(AuditLog, User.full_name, User.email).outerjoin(
+            User, User.id == AuditLog.user_id
+        )
+        if self.action:
+            query = query.where(AuditLog.action.in_([a.value for a in self.action]))
+        if self.user_id:
+            query = query.where(AuditLog.user_id == self.user_id)
+        if self.target_type:
+            query = query.where(AuditLog.target_type == self.target_type)
+        if self.target_id:
+            query = query.where(AuditLog.target_id == self.target_id)
+        if self.since:
+            query = query.where(AuditLog.at >= self.since)
+        if self.until:
+            query = query.where(AuditLog.at < self.until)
+        return query.order_by(AuditLog.id.desc())
+
+
+AuditQuery = Annotated[AuditFilters, Depends()]
+
+
+def _entries(db: Session, query: Select) -> list[AuditLogOut]:
+    return [
+        AuditLogOut.model_validate(entry).model_copy(
+            update={"user_name": name, "user_email": email}
+        )
+        for entry, name, email in db.execute(query)
+    ]
+
+
 @router.get("/audit-logs", response_model=list[AuditLogOut])
 def list_audit_logs(
     ctx: TenantAdmin,
-    action: str | None = None,
-    user_id: uuid.UUID | None = None,
+    filters: AuditQuery,
     before_id: int | None = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
-) -> list[AuditLog]:
-    """Newest first; page with `before_id` = the last id of the previous page."""
-    query = select(AuditLog).order_by(AuditLog.id.desc()).limit(limit)
-    if action:
-        query = query.where(AuditLog.action == action)
-    if user_id:
-        query = query.where(AuditLog.user_id == user_id)
+) -> list[AuditLogOut]:
+    """The tenant's audit log (plan 7.3): sign-ins, views and exports of footage, reports
+    and event lists, and changes to settings, users, devices, staff and consent."""
+    query = filters.query().limit(limit)
     if before_id:
         query = query.where(AuditLog.id < before_id)
-    return list(ctx.db.scalars(query))
+    return _entries(ctx.db, query)
+
+
+@router.get(
+    "/audit-logs/export",
+    response_class=Response,
+    responses={200: {"content": {"text/csv": {}}, "description": "Matching entries as CSV"}},
+)
+def export_audit_logs(ctx: TenantAdmin, filters: AuditQuery, request: Request) -> Response:
+    """The matching entries as CSV, newest first (up to `event_export_max_rows`). The export
+    itself is written to the audit log."""
+    entries = _entries(ctx.db, filters.query().limit(get_settings().event_export_max_rows))
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(AUDIT_COLUMNS)
+    for e in entries:
+        writer.writerow(
+            [
+                csv_cell(value)
+                for value in (
+                    e.id,
+                    e.at.isoformat(),
+                    e.user_name,
+                    e.user_email,
+                    e.user_id,
+                    e.action,
+                    e.target_type,
+                    e.target_id,
+                    e.ip,
+                    json.dumps(e.details, ensure_ascii=False, sort_keys=True),
+                    e.user_agent,
+                )
+            ]
+        )
+    record(
+        ctx.db,
+        ctx.principal,
+        AuditAction.EXPORT_AUDIT,
+        "audit_logs",
+        None,
+        request,
+        {"rows": len(entries), "filters": filters.used()},
+    )
+    name = f"audit-log-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}.csv"
+    return Response(
+        "﻿" + out.getvalue(),  # BOM: Excel reads the file as UTF-8
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{name}"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+AUDIT_COLUMNS = [
+    "id",
+    "at",
+    "user_name",
+    "user_email",
+    "user_id",
+    "action",
+    "target_type",
+    "target_id",
+    "ip",
+    "details",
+    "user_agent",
+]
+
+
+@router.get("/platform/audit-logs", response_model=list[AuditLogOut], tags=["platform"])
+def list_platform_audit_logs(
+    principal: Annotated[Principal, Depends(require_platform)],
+    filters: AuditQuery,
+    before_id: int | None = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+) -> list[AuditLogOut]:
+    """Entries without a tenant (super-admin sign-ins). What a super-admin does for a
+    client is in that client's own audit log."""
+    query = filters.query().where(AuditLog.tenant_id.is_(None)).limit(limit)
+    if before_id:
+        query = query.where(AuditLog.id < before_id)
+    with tenant_session(None, principal.user_id) as db:
+        return _entries(db, query)

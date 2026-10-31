@@ -134,9 +134,31 @@ export interface paths {
         };
         /**
          * List Audit Logs
-         * @description Newest first; page with `before_id` = the last id of the previous page.
+         * @description The tenant's audit log (plan 7.3): sign-ins, views and exports of footage, reports
+         *     and event lists, and changes to settings, users, devices, staff and consent.
          */
         get: operations["list_audit_logs_v1_audit_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/audit-logs/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Audit Logs
+         * @description The matching entries as CSV, newest first (up to `event_export_max_rows`). The export
+         *     itself is written to the audit log.
+         */
+        get: operations["export_audit_logs_v1_audit_logs_export_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -801,6 +823,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/edge/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate Token
+         * @description A new device token (plan 7.1). The token used for this call keeps working for a
+         *     short grace period, so a box that restarts before saving the new one isn't locked out.
+         *     Calling again with that old token (within the grace period) replaces the new one.
+         */
+        post: operations["rotate_token_v1_edge_token_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/events": {
         parameters: {
             query?: never;
@@ -1116,6 +1160,27 @@ export interface paths {
         post?: never;
         /** Delete Nvr */
         delete: operations["delete_nvr_v1_nvrs__nvr_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Platform Audit Logs
+         * @description Entries without a tenant (super-admin sign-ins). What a super-admin does for a
+         *     client is in that client's own audit log.
+         */
+        get: operations["list_platform_audit_logs_v1_platform_audit_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1675,6 +1740,11 @@ export interface components {
          * @enum {string}
          */
         AttendanceStatus: "on_time" | "late" | "absent" | "day_off";
+        /**
+         * AuditAction
+         * @enum {string}
+         */
+        AuditAction: "login" | "login_failed" | "view_snapshot" | "view_clip" | "export_snapshot" | "export_clip" | "review_event" | "settings_change" | "user_change" | "device_change" | "api_key_change" | "view_live" | "view_playback" | "view_frame" | "export_events" | "staff_change" | "consent_change" | "face_enrol" | "face_delete" | "attendance_change" | "export_report" | "export_audit";
         /** AuditLogOut */
         AuditLogOut: {
             /** Action */
@@ -1698,8 +1768,12 @@ export interface components {
             target_type: string | null;
             /** User Agent */
             user_agent: string | null;
+            /** User Email */
+            user_email?: string | null;
             /** User Id */
             user_id: string | null;
+            /** User Name */
+            user_name?: string | null;
         };
         /**
          * BatchResult
@@ -2458,6 +2532,12 @@ export interface components {
         HeartbeatResponse: {
             /** Latest Config Version */
             latest_config_version: number;
+            /**
+             * Rotate Token
+             * @description The device token is due for rotation: POST /token
+             * @default false
+             */
+            rotate_token: boolean;
             /**
              * Server Time
              * Format: date-time
@@ -3355,6 +3435,15 @@ export interface components {
             /** Token */
             token: string;
         };
+        /**
+         * TokenResponse
+         * @description A new device token (rotation). The token the request was made with keeps working
+         *     for a short grace period; store the new one before using it.
+         */
+        TokenResponse: {
+            /** Device Token */
+            device_token: string;
+        };
         /** Totals */
         Totals: {
             /**
@@ -3930,10 +4019,14 @@ export interface operations {
     list_audit_logs_v1_audit_logs_get: {
         parameters: {
             query?: {
-                action?: string | null;
-                user_id?: string | null;
                 before_id?: number | null;
                 limit?: number;
+                action?: components["schemas"]["AuditAction"][] | null;
+                user_id?: string | null;
+                target_type?: string | null;
+                target_id?: string | null;
+                since?: string | null;
+                until?: string | null;
             };
             header?: {
                 "X-API-Key"?: string | null;
@@ -3951,6 +4044,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditLogOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_audit_logs_v1_audit_logs_export_get: {
+        parameters: {
+            query?: {
+                action?: components["schemas"]["AuditAction"][] | null;
+                user_id?: string | null;
+                target_type?: string | null;
+                target_id?: string | null;
+                since?: string | null;
+                until?: string | null;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Matching entries as CSV */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
                 };
             };
             /** @description Validation Error */
@@ -5483,6 +5615,26 @@ export interface operations {
             };
         };
     };
+    rotate_token_v1_edge_token_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenResponse"];
+                };
+            };
+        };
+    };
     search_events_v1_events_get: {
         parameters: {
             query?: {
@@ -6277,6 +6429,47 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_platform_audit_logs_v1_platform_audit_logs_get: {
+        parameters: {
+            query?: {
+                before_id?: number | null;
+                limit?: number;
+                action?: components["schemas"]["AuditAction"][] | null;
+                user_id?: string | null;
+                target_type?: string | null;
+                target_id?: string | null;
+                since?: string | null;
+                until?: string | null;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditLogOut"][];
+                };
             };
             /** @description Validation Error */
             422: {

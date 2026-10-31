@@ -8,7 +8,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from cctv_cloud.db.models import FaceTemplate
-from cctv_cloud.security import decrypt_face_embedding
+from cctv_cloud.services.face_keys import open_embedding
 from tests.conftest import login
 from tests.test_edge_api import pair_device
 from tests.test_live import FakeEdge, heartbeat
@@ -137,9 +137,12 @@ def test_face_enrolment_needs_consent_and_stores_only_the_encrypted_embedding(
         assert len(box.requests[0]["request"]["images_base64"]) == 2
 
     [template] = stored_templates(owner_engine)
-    assert template.key_id == "app-secret:v1"
+    assert template.key_id == "app-secret:v2"  # no CCTV_FACE_KEY in tests
     assert JPEG not in template.embedding_encrypted
-    assert decrypt_face_embedding(template.embedding_encrypted) == pytest.approx(EMBEDDING)
+    opened = open_embedding(
+        template.embedding_encrypted, template.key_id, template.tenant_id, template.staff_id
+    )
+    assert opened == pytest.approx(EMBEDDING)
     actions = [a["action"] for a in client.get("/v1/audit-logs", headers=owner).json()]
     assert "face_enrol" in actions and "consent_change" in actions
 

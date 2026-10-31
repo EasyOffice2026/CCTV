@@ -1,5 +1,7 @@
+import os
 from functools import lru_cache
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -8,6 +10,9 @@ DEV_SECRET = "dev-only-insecure-secret-key-change-me"  # noqa: S105 - rejected o
 
 
 class Settings(BaseSettings):
+    """From CCTV_* environment variables, a .env file, or one file per secret in
+    CCTV_SECRETS_DIR (Docker/Kubernetes secrets, e.g. a file named `cctv_secret_key`)."""
+
     model_config = SettingsConfigDict(env_prefix="CCTV_", env_file=".env", extra="ignore")
 
     environment: Literal["dev", "test", "staging", "production"] = "dev"
@@ -46,6 +51,24 @@ class Settings(BaseSettings):
     # Edge devices: pairing codes expire; a device is offline after missing heartbeats.
     pairing_code_hours: int = 24
     device_offline_seconds: int = 120
+    # Device tokens are replaced this often (the heartbeat reply tells the box to ask for
+    # a new one). The old token keeps working for the grace period, in case the box
+    # restarts before it has saved the new one.
+    device_token_days: int = 30
+    device_token_grace_minutes: int = 10
+
+    # Face templates (plan 7.2) are encrypted with this key: "aws-kms:<key ARN or alias>"
+    # (envelope encryption, one data key per template) or "local:<id>" with the key in
+    # face_keys ({"<id>": "<base64 of 32 bytes>"}; `python -m cctv_cloud.cli face-key`).
+    # Empty: a key derived from secret_key (dev and test only). Keep old local keys in
+    # face_keys until `python -m cctv_cloud.cli rotate-face-keys` has re-encrypted.
+    face_key: str = ""
+    face_keys: dict[str, SecretStr] = {}
+    kms_region: str | None = None
+
+    # Audit entries are kept this long (plan §6: 1 year or more; the database refuses to
+    # delete entries younger than 365 days).
+    audit_retention_days: int = 730
 
     # Live view, playback, frames and face enrolment go through the branch's edge box;
     # the browser's request waits this long for the box to answer.
@@ -101,9 +124,18 @@ class Settings(BaseSettings):
             secret = self.secret_key.get_secret_value()
             if secret == DEV_SECRET or len(secret) < 32:
                 raise ValueError("set CCTV_SECRET_KEY to at least 32 random characters")
+            # Tokens, cookies and pre-signed media links must never travel in clear text.
+            for name in ("web_url", "s3_endpoint_url"):
+                url = getattr(self, name)
+                if url and urlsplit(url).scheme != "https":
+                    raise ValueError(f"CCTV_{name.upper()} must be an https:// URL")
+        if self.environment == "production" and not self.face_key:
+            raise ValueError("set CCTV_FACE_KEY (a KMS key, or a local key in CCTV_FACE_KEYS)")
+        if self.face_key.startswith("local:") and self.face_key[6:] not in self.face_keys:
+            raise ValueError(f"CCTV_FACE_KEYS has no key {self.face_key[6:]!r}")
         return self
 
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    return Settings(_secrets_dir=os.environ.get("CCTV_SECRETS_DIR") or None)

@@ -115,7 +115,8 @@ class PushSubscription(UUIDPk, CreatedAt, TenantScoped, Base):
 
 
 class AuditLog(Base):
-    """Who viewed or exported what (plan §7.3). The app role may only insert and read."""
+    """Who viewed or exported what (plan §7.3). The app role may only insert and read;
+    entries older than the retention are removed by the `audit_purge` function."""
 
     __tablename__ = "audit_logs"
 
@@ -131,4 +132,7 @@ class AuditLog(Base):
     details: Mapped[dict[str, Any]] = mapped_column(server_default=text("'{}'::jsonb"))
     at: Mapped[datetime] = mapped_column(server_default=func.now())
 
-    __table_args__ = (Index("ix_audit_logs_tenant_at", "tenant_id", text("at DESC")),)
+    __table_args__ = (
+        Index("ix_audit_logs_tenant_at", "tenant_id", text("at DESC")),
+        Index("ix_audit_logs_target", "tenant_id", "target_type", "target_id"),
+    )

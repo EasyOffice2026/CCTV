@@ -16,6 +16,9 @@ server {
 
     add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: ${MEDIA_ORIGIN}; media-src 'self' blob: ${MEDIA_ORIGIN}; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'" always;
     add_header X-Content-Type-Options "nosniff" always;
+    # The site is only served over TLS (plan 7.1; the load balancer in front ends TLS).
+    # Browsers ignore this header on plain-http responses, e.g. the local dev stack.
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     # Pre-signed media URLs must not leak to other sites.
     add_header Referrer-Policy "no-referrer" always;
     add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;

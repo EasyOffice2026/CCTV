@@ -195,9 +195,38 @@ def _mfa_claims(token: str) -> tuple[uuid.UUID, uuid.UUID | None, dict]:
         raise unauthorized("invalid or expired 2FA token") from exc
 
 
+def _check_locked(user: User) -> None:
+    if user.locked_until and user.locked_until > _now():
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS, "too many failed logins; try again later"
+        )
+
+
+def _count_failure(user: User) -> None:
+    """A wrong password or 2FA code; too many in a row lock the account for a while."""
+    settings = get_settings()
+    user.failed_logins += 1
+    if user.failed_logins >= settings.login_max_failures:
+        user.locked_until = _now() + timedelta(minutes=settings.login_lockout_minutes)
+        user.failed_logins = 0
+
+
+def _audit_login(
+    db: Session,
+    action: AuditAction,
+    tenant_id: uuid.UUID | None,
+    user_id: uuid.UUID,
+    request: Request,
+    details: dict[str, str] | None = None,
+) -> None:
+    """Sign-ins of super-admins (no tenant) go to the platform audit log."""
+    record(
+        db, None, action, "user", user_id, request, details, tenant_id=tenant_id, user_id=user_id
+    )
+
+
 @router.post("/login", response_model=TokenPair | MfaChallenge)
 def login(body: LoginRequest, request: Request, response: Response) -> TokenPair | MfaChallenge:
-    settings = get_settings()
     found = _find_user(body.email)
     if found is None:
         verify_password(None, body.password)  # same timing as a real account
@@ -207,30 +236,13 @@ def login(body: LoginRequest, request: Request, response: Response) -> TokenPair
     result: TokenPair | MfaChallenge | None = None
     with tenant_session(tenant_id, user_id) as db:
         user = db.get_one(User, user_id)
-        now = _now()
-        if user.locked_until and user.locked_until > now:
-            raise HTTPException(
-                status.HTTP_429_TOO_MANY_REQUESTS, "too many failed logins; try again later"
-            )
+        _check_locked(user)
         if not user.is_active or not verify_password(user.password_hash, body.password):
-            user.failed_logins += 1
-            if user.failed_logins >= settings.login_max_failures:
-                user.locked_until = now + timedelta(minutes=settings.login_lockout_minutes)
-                user.failed_logins = 0
-            if tenant_id is not None:
-                record(
-                    db,
-                    None,
-                    AuditAction.LOGIN_FAILED,
-                    "user",
-                    user_id,
-                    request,
-                    tenant_id=tenant_id,
-                    user_id=user_id,
-                )
+            _count_failure(user)
+            _audit_login(db, AuditAction.LOGIN_FAILED, tenant_id, user_id, request)
         else:
-            user.failed_logins = 0
-            user.locked_until = None
+            # The failure count is only reset once fully signed in (after 2FA), so a
+            # password doesn't buy more guesses at the code.
             role = UserRole(user.role)
             if user.totp_secret_encrypted is not None or role in MFA_REQUIRED_ROLES:
                 stage = "verify" if user.totp_secret_encrypted is not None else "setup"
@@ -245,17 +257,8 @@ def login(body: LoginRequest, request: Request, response: Response) -> TokenPair
                 )
                 result = MfaChallenge(mfa_required=stage, mfa_token=token)
             else:
-                if tenant_id is not None:
-                    record(
-                        db,
-                        None,
-                        AuditAction.LOGIN,
-                        "user",
-                        user_id,
-                        request,
-                        tenant_id=tenant_id,
-                        user_id=user_id,
-                    )
+                user.failed_logins = 0
+                _audit_login(db, AuditAction.LOGIN, tenant_id, user_id, request)
                 result = _issue_tokens(db, user, request)
     if result is None:  # raised after the block so the failure count is committed
         raise unauthorized("wrong email or password")
@@ -301,6 +304,8 @@ def mfa_enable(body: MfaCode, request: Request, response: Response) -> TokenPair
             raise unauthorized("2FA is already set up")
         user.totp_secret_encrypted = encrypted
         user.totp_last_step = step
+        user.failed_logins = 0
+        _audit_login(db, AuditAction.LOGIN, tenant_id, user_id, request, {"mfa": "enabled"})
         return _set_refresh_cookie(response, _issue_tokens(db, user, request))
 
 
@@ -309,27 +314,28 @@ def mfa_verify(body: MfaCode, request: Request, response: Response) -> TokenPair
     user_id, tenant_id, claims = _mfa_claims(body.token)
     if claims.get("stage") != "verify":
         raise unauthorized("invalid 2FA token")
+    result: TokenPair | None = None
     with tenant_session(tenant_id, user_id) as db:
         user = db.get_one(User, user_id)
         if not user.is_active or user.totp_secret_encrypted is None:
             raise unauthorized()
+        _check_locked(user)
         secret = decrypt_totp_secret(user.totp_secret_encrypted)
         step = verify_totp(secret, body.code, user.totp_last_step)
         if not step:
-            raise unauthorized("wrong or already used code")
-        user.totp_last_step = step
-        if tenant_id is not None:
-            record(
-                db,
-                None,
-                AuditAction.LOGIN,
-                "user",
-                user_id,
-                request,
-                tenant_id=tenant_id,
-                user_id=user_id,
+            # Wrong codes count like wrong passwords, so codes can't be guessed.
+            _count_failure(user)
+            _audit_login(
+                db, AuditAction.LOGIN_FAILED, tenant_id, user_id, request, {"stage": "2fa"}
             )
-        return _set_refresh_cookie(response, _issue_tokens(db, user, request))
+        else:
+            user.failed_logins = 0
+            user.totp_last_step = step
+            _audit_login(db, AuditAction.LOGIN, tenant_id, user_id, request)
+            result = _issue_tokens(db, user, request)
+    if result is None:  # raised after the block so the failure count is committed
+        raise unauthorized("wrong or already used code")
+    return _set_refresh_cookie(response, result)
 
 
 @router.post("/refresh", response_model=TokenPair)

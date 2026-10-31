@@ -35,3 +35,6 @@ class HeartbeatResponse(ContractModel):
     # The edge compares server_time with its own clock to detect drift.
     server_time: UtcDatetime
     latest_config_version: int = Field(ge=0)
+    rotate_token: bool = Field(
+        default=False, description="The device token is due for rotation: POST /token"
+    )

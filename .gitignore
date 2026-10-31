@@ -4,6 +4,10 @@
 !.env.example
 *.pem
 *.key
+credentials.json
+device_token
+secrets/
+.edge-data/
 
 # Python
 __pycache__/

@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -11,7 +12,10 @@ class EdgeSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="CCTV_EDGE_", env_file=".env", extra="ignore")
 
+    # https:// (plan 7.1); plain http only to this machine, or with allow_insecure_cloud
+    # for a development cloud elsewhere on the LAN.
     cloud_url: str = "http://localhost:8000"
+    allow_insecure_cloud: bool = False
     device_token: SecretStr = SecretStr("")
     http_timeout_seconds: float = 10
 
@@ -73,6 +77,19 @@ class EdgeSettings(BaseSettings):
         if self.ring_seconds < self.max_event_seconds + 100:
             raise ValueError("ring_seconds must be at least max_event_seconds + 100")
         return self
+
+    @model_validator(mode="after")
+    def _check_tls(self) -> "EdgeSettings":
+        # The device token and every event travel on this connection.
+        url = urlsplit(self.cloud_url)
+        local = url.hostname in ("localhost", "127.0.0.1", "::1")
+        if url.scheme != "https" and not (local or self.allow_insecure_cloud):
+            raise ValueError("cloud_url must be https:// (or set allow_insecure_cloud in dev)")
+        return self
+
+    @property
+    def token_path(self) -> Path:
+        return self.data_dir / "device_token"
 
     @property
     def media_dir(self) -> Path:

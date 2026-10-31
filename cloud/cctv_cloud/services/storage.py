@@ -80,6 +80,18 @@ class S3Storage:
             params["ResponseContentDisposition"] = f'attachment; filename="{download_name}"'
         return self._client.generate_presigned_url("get_object", Params=params, ExpiresIn=expires)
 
+    def default_encryption(self) -> str | None:
+        """The bucket's default server-side encryption ("AES256", "aws:kms", ...), or None
+        when there is none (plan 7.2: every clip and snapshot is encrypted at rest)."""
+        try:
+            config = self._client.get_bucket_encryption(Bucket=self.bucket)
+        except ClientError as exc:
+            if "ServerSideEncryptionConfiguration" in exc.response.get("Error", {}).get("Code", ""):
+                return None
+            raise
+        rules = config["ServerSideEncryptionConfiguration"]["Rules"]
+        return rules[0]["ApplyServerSideEncryptionByDefault"]["SSEAlgorithm"] if rules else None
+
     def delete(self, keys: Iterable[str]) -> None:
         batch = [{"Key": k} for k in keys]
         for start in range(0, len(batch), 1000):  # S3 limit per request

@@ -15,7 +15,8 @@ The token identifies the tenant and branch, so they are never sent in request bo
 | `POST /pair` | `PairRequest` → `PairResponse` | Once per new box, **no token**: swap the one-time pairing code for the device token |
 | `POST /media/upload-urls` | `UploadUrlRequest` → `UploadUrlResponse` | Get a pre-signed URL, then `PUT` the snapshot/clip there |
 | `POST /events` | `EventBatch` → `EventBatchResponse` | Send up to 100 events; per-event accept/reject |
-| `POST /heartbeat` | `Heartbeat` → `HeartbeatResponse` | Every 30 s: camera health, system stats, outbox size |
+| `POST /heartbeat` | `Heartbeat` → `HeartbeatResponse` | Every 30 s: camera health, system stats, outbox size. The reply has the latest config version, the server time and `rotate_token` |
+| `POST /token` | → `TokenResponse` | Token rotation, when the heartbeat says `rotate_token`: save the new token, then use it. The old one works for a few more minutes |
 | `GET /config` | → `EdgeConfig` (or `304`) | Resolved config; `If-None-Match: <version>` |
 | `GET /remote?wait=25` | → `RemoteRequest` (or `204`) | Long poll for requests only the box can serve: live view and playback (WebRTC offer → answer via go2rtc), the NVR's recordings, a camera frame, face embeddings |
 | `POST /remote/{id}/reply` | `RemoteReply` → `204` | Answer a request once; `404` if it expired or was sent to another box |

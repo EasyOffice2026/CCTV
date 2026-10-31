@@ -199,8 +199,9 @@ clock and time zone must be right (NTP, Asia/Kuwait).
 
 | Variable | Default | |
 |---|---|---|
-| `CCTV_EDGE_CLOUD_URL` | `http://localhost:8000` | |
-| `CCTV_EDGE_DEVICE_TOKEN` | (required) | Identifies the tenant and branch |
+| `CCTV_EDGE_CLOUD_URL` | `http://localhost:8000` | Must be `https://` except to this machine |
+| `CCTV_EDGE_ALLOW_INSECURE_CLOUD` | `false` | Allow plain http to another machine (dev only) |
+| `CCTV_EDGE_DEVICE_TOKEN` | (required) | From pairing; identifies the tenant and branch. Rotated tokens are saved in `<data dir>/device_token` |
 | `CCTV_EDGE_DATA_DIR` | `/var/lib/cctv-edge` | Outbox, media, ring buffer, last config |
 | `CCTV_EDGE_CREDENTIALS_FILE` | `/etc/cctv-edge/credentials.json` | NVR/camera passwords |
 | `CCTV_EDGE_FFMPEG` | `ffmpeg` | |
@@ -223,7 +224,13 @@ box looks it up in the credentials file:
 {"nvr-main": {"username": "ai-reader", "password": "..."}}
 ```
 
-Use a read-only NVR user, created for this purpose.
+Use a read-only NVR user, created for this purpose. The file must be readable by the
+service user only (`chmod 600`); the service warns at start-up when it isn't.
+
+**Device token.** The cloud asks for a new token every 30 days (in the heartbeat reply).
+The box saves it to `<data dir>/device_token` (mode 600, with a hash of the paired token
+it replaced) before using it, and loads it at start-up. If the box is paired again (a new
+`CCTV_EDGE_DEVICE_TOKEN`), the saved file no longer matches and is ignored.
 
 ## Install on a Jetson
 
@@ -234,6 +241,11 @@ sudo NVME_DEVICE=/dev/nvme0n1 FORMAT_NVME=yes TAILSCALE_AUTHKEY=tskey-... infra/
 This installs Docker and NTP, mounts the NVMe drive, sets up the hardware watchdog, the VPN
 and the boot service, then starts the container from `infra/edge/docker-compose.yml`. The
 service exits if one of its loops hangs, and Docker restarts it.
+
+Add `ENCRYPT_NVME=yes` (with `FORMAT_NVME=yes`, on a new drive) to encrypt the drive with
+LUKS2 before formatting it (plan 7.2). The key is kept on the internal eMMC, so a removed or
+discarded NVMe can't be read; protecting a stolen box as a whole needs Jetson disk
+encryption at flash time (see [docs/security.md](../docs/security.md)).
 
 ## Offline evaluation (replay)
 

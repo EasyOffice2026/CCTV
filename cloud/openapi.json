@@ -688,6 +688,34 @@
         "title": "AttendanceStatus",
         "type": "string"
       },
+      "AuditAction": {
+        "enum": [
+          "login",
+          "login_failed",
+          "view_snapshot",
+          "view_clip",
+          "export_snapshot",
+          "export_clip",
+          "review_event",
+          "settings_change",
+          "user_change",
+          "device_change",
+          "api_key_change",
+          "view_live",
+          "view_playback",
+          "view_frame",
+          "export_events",
+          "staff_change",
+          "consent_change",
+          "face_enrol",
+          "face_delete",
+          "attendance_change",
+          "export_report",
+          "export_audit"
+        ],
+        "title": "AuditAction",
+        "type": "string"
+      },
       "AuditLogOut": {
         "properties": {
           "action": {
@@ -752,6 +780,17 @@
             ],
             "title": "User Agent"
           },
+          "user_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Email"
+          },
           "user_id": {
             "anyOf": [
               {
@@ -763,6 +802,17 @@
               }
             ],
             "title": "User Id"
+          },
+          "user_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Name"
           }
         },
         "required": [
@@ -2729,6 +2779,12 @@
             "minimum": 0.0,
             "title": "Latest Config Version",
             "type": "integer"
+          },
+          "rotate_token": {
+            "default": false,
+            "description": "The device token is due for rotation: POST /token",
+            "title": "Rotate Token",
+            "type": "boolean"
           },
           "server_time": {
             "format": "date-time",
@@ -4737,6 +4793,20 @@
         "title": "TokenRequest",
         "type": "object"
       },
+      "TokenResponse": {
+        "description": "A new device token (rotation). The token the request was made with keeps working\nfor a short grace period; store the new one before using it.",
+        "properties": {
+          "device_token": {
+            "title": "Device Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device_token"
+        ],
+        "title": "TokenResponse",
+        "type": "object"
+      },
       "Totals": {
         "properties": {
           "absent": {
@@ -6051,9 +6121,37 @@
     },
     "/v1/audit-logs": {
       "get": {
-        "description": "Newest first; page with `before_id` = the last id of the previous page.",
+        "description": "The tenant's audit log (plan 7.3): sign-ins, views and exports of footage, reports\nand event lists, and changes to settings, users, devices, staff and consent.",
         "operationId": "list_audit_logs_v1_audit_logs_get",
         "parameters": [
+          {
+            "in": "query",
+            "name": "before_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
           {
             "in": "query",
             "name": "action",
@@ -6061,7 +6159,10 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "items": {
+                    "$ref": "#/components/schemas/AuditAction"
+                  },
+                  "type": "array"
                 },
                 {
                   "type": "null"
@@ -6089,30 +6190,70 @@
           },
           {
             "in": "query",
-            "name": "before_id",
+            "name": "target_type",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "type": "integer"
+                  "maxLength": 50,
+                  "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "title": "Before Id"
+              "title": "Target Type"
             }
           },
           {
             "in": "query",
-            "name": "limit",
+            "name": "target_id",
             "required": false,
             "schema": {
-              "default": 100,
-              "maximum": 500,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until"
             }
           },
           {
@@ -6181,6 +6322,178 @@
           }
         ],
         "summary": "List Audit Logs",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/v1/audit-logs/export": {
+      "get": {
+        "description": "The matching entries as CSV, newest first (up to `event_export_max_rows`). The export\nitself is written to the audit log.",
+        "operationId": "export_audit_logs_v1_audit_logs_export_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/AuditAction"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Action"
+            }
+          },
+          {
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 50,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {}
+            },
+            "description": "Matching entries as CSV"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Export Audit Logs",
         "tags": [
           "integrations"
         ]
@@ -9304,6 +9617,33 @@
         ]
       }
     },
+    "/v1/edge/token": {
+      "post": {
+        "description": "A new device token (plan 7.1). The token used for this call keeps working for a\nshort grace period, so a box that restarts before saving the new one isn't locked out.\nCalling again with that old token (within the grace period) replaces the new one.",
+        "operationId": "rotate_token_v1_edge_token_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Rotate Token",
+        "tags": [
+          "edge"
+        ]
+      }
+    },
     "/v1/events": {
       "get": {
         "description": "Newest first. Results only include branches the caller can access.",
@@ -11525,6 +11865,215 @@
         "summary": "Delete Nvr",
         "tags": [
           "devices"
+        ]
+      }
+    },
+    "/v1/platform/audit-logs": {
+      "get": {
+        "description": "Entries without a tenant (super-admin sign-ins). What a super-admin does for a\nclient is in that client's own audit log.",
+        "operationId": "list_platform_audit_logs_v1_platform_audit_logs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "before_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/AuditAction"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Action"
+            }
+          },
+          {
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 50,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AuditLogOut"
+                  },
+                  "title": "Response List Platform Audit Logs V1 Platform Audit Logs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Platform Audit Logs",
+        "tags": [
+          "integrations",
+          "platform"
         ]
       }
     },

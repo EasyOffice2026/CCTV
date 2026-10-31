@@ -6,6 +6,7 @@ Endpoints (all under API_PREFIX, authenticated with the device token except /pai
     POST {API_PREFIX}/events              EventBatch          -> EventBatchResponse
     POST {API_PREFIX}/media/upload-urls   UploadUrlRequest    -> UploadUrlResponse
     POST {API_PREFIX}/heartbeat           Heartbeat           -> HeartbeatResponse
+    POST {API_PREFIX}/token               (no body)           -> TokenResponse (rotation)
     GET  {API_PREFIX}/config              (If-None-Match: version) -> EdgeConfig | 304
     GET  {API_PREFIX}/remote?wait=25      (long poll)         -> RemoteRequest | 204
     POST {API_PREFIX}/remote/{id}/reply   RemoteReply         -> 204
@@ -43,7 +44,7 @@ from cctv_contracts.v1.events import (
 )
 from cctv_contracts.v1.heartbeat import CameraStatus, Heartbeat, HeartbeatResponse, SystemStats
 from cctv_contracts.v1.media import UploadUrlRequest, UploadUrlResponse
-from cctv_contracts.v1.pairing import PairRequest, PairResponse
+from cctv_contracts.v1.pairing import PairRequest, PairResponse, TokenResponse
 from cctv_contracts.v1.remote import (
     FaceEmbeddingRequest,
     FrameRequest,
@@ -68,6 +69,7 @@ SCHEMA_MODELS: dict[str, type[ContractModel]] = {
     "edge_config": EdgeConfig,
     "pair_request": PairRequest,
     "pair_response": PairResponse,
+    "token_response": TokenResponse,
     "remote_request": RemoteRequest,
     "remote_reply": RemoteReply,
     "face_template_list": FaceTemplateList,
@@ -115,6 +117,7 @@ __all__ = [
     "SightingBatch",
     "StaffSighting",
     "SystemStats",
+    "TokenResponse",
     "UploadUrlRequest",
     "UploadUrlResponse",
     "UtcDatetime",

@@ -38,6 +38,7 @@ and talks to the API through its own proxy.
 | Attendance | `staff_manage` | A day's check-in/out per person; correct and undo |
 | Reports | `reports_view` | Daily, weekly and monthly branch reports; make or update one; PDF and Excel in the current language. `?report=<id>` opens one (links in report messages) |
 | Alerts | `events_view` | The user's alert rules, WhatsApp number and consent, message language, report links, browser notifications, test messages |
+| Audit log | `tenant_admin` | Who signed in, viewed or exported footage, reports and event lists, and changed settings, users, devices, staff or consent; filters, CSV export. Super-admins also see the platform log (their team's sign-ins) |
 | Clients, Branches, Cameras & NVRs, Edge devices, Users | `platform_admin`, `tenant_admin`, `devices_manage` | Administration |
 
 The UI hides what a role can't use; the API enforces it.

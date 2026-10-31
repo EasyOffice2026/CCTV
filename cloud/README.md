@@ -15,6 +15,10 @@ authentication, and pairing. These use narrow database functions (`auth_find_use
 `auth_find_device`, `auth_find_api_key`, `auth_find_pairing`) that return only ids. See
 migration `0002`.
 
+Security and privacy controls (TLS, encryption, secrets, audit log, consent, the pen-test
+checklist) are described in [docs/security.md](../docs/security.md) and
+[docs/privacy/](../docs/privacy/README.md).
+
 ## Signing in
 
 | Who | How |
@@ -28,13 +32,15 @@ migration `0002`.
 Sessions end after 8 hours without use and after 7 days in any case. Each refresh replaces
 the refresh token; reusing an old one ends the session (stolen-token protection).
 Changing or resetting the password signs out all other sessions. Accounts lock for 15
-minutes after 5 wrong passwords.
+minutes after 5 wrong passwords or 2FA codes in a row (the count only resets after a full
+sign-in, so a known password doesn't give more guesses at the code). Sign-ins and failed
+sign-ins are in the audit log; a super-admin's go to the platform audit log.
 
 ## Roles
 
 | Permission | Owner | Branch manager | Reviewer | Installer |
 |---|:-:|:-:|:-:|:-:|
-| Users, tenant settings, branches, API keys, audit log | ✓ | | | |
+| Users, tenant settings, branches, API keys, audit log (view, export) | ✓ | | | |
 | Working hours | ✓ | ✓ | | |
 | Feature on/off and thresholds (branch, camera) | ✓ | ✓ | | |
 | Feature on/off for the whole tenant | ✓ | | | |
@@ -57,7 +63,7 @@ in other branches returns 404. Super-admins (our team) can do everything, in any
 | Area | Paths |
 |---|---|
 | Auth | `/v1/auth/login`, `/mfa/*`, `/refresh`, `/logout`, `/me`, `/password/*` |
-| Platform (super-admin) | `/v1/platform/tenants` |
+| Platform (super-admin) | `/v1/platform/tenants`, `/v1/platform/audit-logs` (super-admin sign-ins) |
 | Organisation | `/v1/tenant`, `/v1/branches`, `/v1/branches/{id}/working-hours`, `/v1/users` |
 | Devices | `/v1/nvrs`, `/v1/cameras`, `/v1/cameras/{id}/zones`, `/v1/zones/{id}`, `/v1/edge-devices` |
 | Features | `/v1/features`, `/v1/feature-settings`, `/v1/cameras/{id}/features` (resolved) |
@@ -69,8 +75,9 @@ in other branches returns 404. Super-admins (our team) can do everything, in any
 | Reports | `/v1/reports` (list, make), `/v1/reports/{id}`, `/v1/reports/{id}/file?format=pdf\|xlsx&lang=en\|ar` |
 | Realtime | WebSocket `/v1/ws` (live event feed, in-app alerts) |
 | Webhooks | `/v1/webhooks/whatsapp` (delivery reports from Meta; signed) |
-| Integrations | `/v1/api-keys`, `/v1/audit-logs` |
-| Edge | `/v1/edge/pair`, `/config`, `/heartbeat`, `/media/upload-urls`, `/events`, `/remote` (long poll), `/remote/{id}/reply`, `/face-templates`, `/attendance`, `/counts` |
+| Integrations | `/v1/api-keys` |
+| Audit log | `/v1/audit-logs` (filters: action, user, target, since/until), `/v1/audit-logs/export` (CSV, itself audited) |
+| Edge | `/v1/edge/pair`, `/token` (rotation), `/config`, `/heartbeat`, `/media/upload-urls`, `/events`, `/remote` (long poll), `/remote/{id}/reply`, `/face-templates`, `/attendance`, `/counts` |
 
 **Feature settings** resolve camera → branch → tenant → default; `params` merge in the same
 order. Any change that affects a branch's edge config bumps the branch's
@@ -189,6 +196,9 @@ work with a single API process.
 ```bash
 python -m cctv_cloud.cli create-superadmin --email you@example.com --name "Your Name"
 python -m cctv_cloud.cli vapid-keys      # key for browser notifications
+python -m cctv_cloud.cli face-key        # a local key for face templates (when not using KMS)
+python -m cctv_cloud.cli rotate-face-keys  # re-encrypt templates after changing CCTV_FACE_KEY
+python -m cctv_cloud.cli security-check --online  # settings, TLS, keys, bucket encryption
 python -m cctv_cloud.worker run          # alert retries every 5 s; offline devices,
                                          # absences and reports every 5 min; retention hourly
 ```
@@ -196,6 +206,27 @@ python -m cctv_cloud.worker run          # alert retries every 5 s; offline devi
 The **retention** job deletes clips and snapshots older than the tenant's
 `retention_media_days` (default 90), then event records older than
 `retention_event_days` (default 365), together with count buckets and attendance days. Configure an object-storage lifecycle rule as a
-backstop; the dev stack sets 400 days.
+backstop; the dev stack sets 400 days. Audit entries older than
+`CCTV_AUDIT_RETENTION_DAYS` (730) are removed through the `audit_purge` database function,
+which never deletes anything younger than a year; the app role can't delete them itself.
+
+**Secrets** come from environment variables or, better, from files: set `CCTV_SECRETS_DIR`
+to a mounted secrets folder (Docker or Kubernetes secrets) holding one file per setting,
+named like the variable in lower case (`cctv_secret_key`, `cctv_s3_secret_key`,
+`cctv_whatsapp_token`, ...). In staging and production the API refuses to start with the
+dev secret key or with plain-http `CCTV_WEB_URL` / `CCTV_S3_ENDPOINT_URL`, and in
+production without `CCTV_FACE_KEY`.
+
+**Face templates** are encrypted with AES-256-GCM, bound to the tenant and staff member,
+under the key named by `CCTV_FACE_KEY`: `aws-kms:<key ARN or alias>` (a KMS data key per
+template; the API role needs `kms:GenerateDataKey` and `kms:Decrypt` on that key, with the
+encryption context `purpose=cctv-face-template`) or `local:<id>` with the key in
+`CCTV_FACE_KEYS`. To rotate: add the new key, point `CCTV_FACE_KEY` at it, run
+`rotate-face-keys`, then remove the old key.
+
+**Device tokens** are rotated every `CCTV_DEVICE_TOKEN_DAYS` (30): the heartbeat reply says
+`rotate_token`, the box calls `POST /v1/edge/token`, saves the new token and uses it. The
+old one keeps working for `CCTV_DEVICE_TOKEN_GRACE_MINUTES` (10). Pairing again or retiring
+the box ends all its tokens.
 
 **Email** (password reset, invitations) is written to the log until a provider is chosen.

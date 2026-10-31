@@ -39,6 +39,30 @@ export const FEATURES: FeatureKey[] = [
   "heatmap",
   "object_left_removed",
 ];
+export const AUDIT_ACTIONS: Schemas["AuditAction"][] = [
+  "login",
+  "login_failed",
+  "view_snapshot",
+  "view_clip",
+  "view_live",
+  "view_playback",
+  "view_frame",
+  "export_snapshot",
+  "export_clip",
+  "export_events",
+  "export_report",
+  "export_audit",
+  "review_event",
+  "settings_change",
+  "user_change",
+  "device_change",
+  "api_key_change",
+  "staff_change",
+  "consent_change",
+  "face_enrol",
+  "face_delete",
+  "attendance_change",
+];
 export const SEVERITIES: Schemas["Severity"][] = ["critical", "warning", "info"];
 export const REVIEW_STATUSES: Schemas["ReviewStatus"][] = ["new", "valid", "false_alarm", "reviewed"];
 export const ZONE_TYPES: Schemas["ZoneType"][] = [
@@ -103,4 +127,6 @@ export const key = {
   health: (v: string) => `health.${v}` as MessageKey,
   deviceStatus: (v: string) => `deviceStatus.${v}` as MessageKey,
   weekday: (v: number) => `weekday.${v}` as MessageKey,
+  auditAction: (v: string) => `auditAction.${v}` as MessageKey,
+  auditTarget: (v: string) => `auditTarget.${v}` as MessageKey,
 };

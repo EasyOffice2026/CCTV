@@ -6,10 +6,14 @@ passing it through `redact` first.
 """
 
 import json
+import logging
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import quote
+
+log = logging.getLogger(__name__)
 
 _USERINFO = re.compile(r"(rtsps?://)[^/@\s]*@", re.IGNORECASE)
 
@@ -26,6 +30,9 @@ class Credential:
 def load_credentials(path: Path) -> dict[str, Credential]:
     if not path.exists():
         return {}
+    if os.name == "posix" and path.stat().st_mode & 0o077:
+        # Camera passwords (plan 7.4): only the service user should read this file.
+        log.warning("%s is readable by other users; run: chmod 600 %s", path, path)
     raw = json.loads(path.read_text(encoding="utf-8"))
     return {ref: Credential(item["username"], item["password"]) for ref, item in raw.items()}
 

@@ -23,6 +23,7 @@ from cctv_contracts.v1 import (
     RemoteReply,
     RemoteRequest,
     SightingBatch,
+    TokenResponse,
     UploadUrlRequest,
     UploadUrlResponse,
 )
@@ -128,6 +129,14 @@ class CloudClient:
 
     def heartbeat(self, heartbeat: Heartbeat) -> HeartbeatResponse:
         return self._post("/heartbeat", heartbeat, HeartbeatResponse)
+
+    def new_token(self) -> str:
+        """Ask for a new device token. The current one keeps working for a few minutes:
+        store the new one, then `use_token` it."""
+        return _parse(TokenResponse, self._call(self._api, "POST", "/token")).device_token
+
+    def use_token(self, device_token: str) -> None:
+        self._api.headers["Authorization"] = f"Bearer {device_token}"
 
     def next_remote_request(self, wait_seconds: int) -> RemoteRequest | None:
         """Long poll for a request from the cloud (live view, playback, ...); None when

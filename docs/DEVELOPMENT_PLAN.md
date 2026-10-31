@@ -265,13 +265,15 @@ For **each** feature follow the same loop: **label → train/configure → offli
 
 ### Phase 7 — Security, privacy & compliance (Week 3–13, alongside the work above; finish by Week 13)
 
-- [ ] 7.1 TLS everywhere; edge↔cloud with per-device credentials (mTLS or device tokens), rotated.
-- [ ] 7.2 Encryption at rest: DB (managed encryption), object storage (SSE), edge NVMe (LUKS), face embeddings encrypted at the application level with KMS.
-- [ ] 7.3 Audit log UI (who viewed/exported what, when) for owners and super-admin.
-- [ ] 7.4 Secrets: no NVR or camera passwords in git or the DB in plain text (use a secrets manager).
-- [ ] 7.5 Consent workflow: no face enrolment without recorded consent; delete a staff member's biometric data when they leave.
-- [ ] 7.6 Pen-test checklist (OWASP Top 10, tenant-isolation tests, IDOR on clip URLs).
-- [ ] 7.7 Privacy documentation: data-flow diagram, retention table, consent form, signage text.
+- [x] 7.1 TLS everywhere; edge↔cloud with per-device credentials (mTLS or device tokens), rotated. *Device tokens (not mTLS): rotated every 30 days by the box on the heartbeat's request, 10-minute grace period, ended by re-pairing or retirement. The box refuses a plain-http cloud URL; the API refuses plain-http dashboard and storage URLs in staging/production; HSTS and security headers on every response. TLS termination itself is the load balancer's (Terraform, 1.4).*
+- [x] 7.2 Encryption at rest: DB (managed encryption), object storage (SSE), edge NVMe (LUKS), face embeddings encrypted at the application level with KMS. *Face templates: AES-256-GCM bound to tenant and person, with an AWS KMS data key per template (`CCTV_FACE_KEY=aws-kms:…`) or a local key; rotation command. `security-check --online` fails without bucket encryption. `ENCRYPT_NVME=yes` in the provisioning script (LUKS2, key on the eMMC). Database encryption is a setting of the managed service (Terraform, 1.4). Not yet run against real KMS.*
+- [x] 7.3 Audit log UI (who viewed/exported what, when) for owners and super-admin. *Audit log page: names, filters (action, person, target, dates), event links, CSV export (itself logged); platform log for super-admin sign-ins; entries kept 2 years, never less than 1, append-only for the app.*
+- [x] 7.4 Secrets: no NVR or camera passwords in git or the DB in plain text (use a secrets manager). *Camera passwords only on the box (600, warned if wider); database and API reject RTSP URLs with credentials; cloud secrets from `CCTV_SECRETS_DIR` files (secrets-manager mounts); gitleaks in CI and pre-commit; `.gitignore` for credential and token files.*
+- [x] 7.5 Consent workflow: no face enrolment without recorded consent; delete a staff member's biometric data when they leave. *API and database trigger; deletion on "left" or withdrawal, box drops the template within a minute; consent form text in `docs/privacy/`.*
+- [x] 7.6 Pen-test checklist (OWASP Top 10, tenant-isolation tests, IDOR on clip URLs). *`docs/security.md`: automated sweeps in CI (every route needs credentials; every id-taking route tried across tenants and across branches with valid bodies; RLS; 2FA lockout; token rotation; template tampering) plus the manual list for before go-live.*
+- [x] 7.7 Privacy documentation: data-flow diagram, retention table, consent form, signage text. *`docs/privacy/` (English and Arabic for the form and signs); for the client's counsel to confirm (Law 61/2015 retention, biometric consent).*
+
+*Status: 17 new cloud tests and 5 edge tests pass (token rotation end to end with the real edge client, KMS with a stand-in, audit log API and purge, 2FA lockout, the route sweeps). Still open: Terraform (1.4) is where RDS encryption, the KMS key, the bucket policy and the secrets mounts are defined; Jetson flash-time disk encryption (Phase 9); a `rotate-secret-key` command; the manual pen-test before the pilot.*
 
 ### Phase 8 — Mudawara operational system integration (Week 11–13)
 

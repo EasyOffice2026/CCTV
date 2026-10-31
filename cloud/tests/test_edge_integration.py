@@ -13,7 +13,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from cctv_cloud.db.models import FaceTemplate
-from cctv_cloud.security import encrypt_face_embedding
+from cctv_cloud.services.face_keys import seal_embedding
 from tests.conftest import login
 
 cctv_edge = pytest.importorskip("cctv_edge")
@@ -148,13 +148,14 @@ def test_attendance_counts_and_templates_through_the_edge_client(client, org, ow
     ).json()
     signed = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
     client.put(f"/v1/staff/{staff['id']}/consent", json={"signed_at": signed}, headers=owner)
+    sealed, key_id = seal_embedding([0.125] * 128, org.ids["a"], uuid.UUID(staff["id"]))
     with Session(owner_engine) as s, s.begin():
         s.add(
             FaceTemplate(
                 tenant_id=org.ids["a"],
                 staff_id=uuid.UUID(staff["id"]),
-                embedding_encrypted=encrypt_face_embedding([0.125] * 128),
-                key_id="test",
+                embedding_encrypted=sealed,
+                key_id=key_id,
                 model_version="sface-test",
             )
         )

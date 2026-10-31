@@ -27,9 +27,9 @@ from cctv_cloud.db.enums import StaffStatus
 from cctv_cloud.db.models import FaceTemplate, Shift, Staff
 from cctv_cloud.db.session import tenant_session
 from cctv_cloud.rbac import Permission, Principal
-from cctv_cloud.security import FACE_KEY_ID, encrypt_face_embedding
 from cctv_cloud.services.audit import AuditAction, record
 from cctv_cloud.services.edge_config import bump_config_version
+from cctv_cloud.services.face_keys import seal_embedding
 from cctv_cloud.services.relay import EdgeRelay, get_relay
 from cctv_contracts.v1 import FaceEmbeddingRequest
 
@@ -343,12 +343,13 @@ def _store_template(
         if staff is None or staff.consent_signed_at is None:
             raise HTTPException(status.HTTP_409_CONFLICT, "consent was withdrawn")
         db.execute(delete(FaceTemplate).where(FaceTemplate.staff_id == staff_id))
+        sealed, key_id = seal_embedding(embedding, staff.tenant_id, staff_id)
         db.add(
             FaceTemplate(
                 tenant_id=staff.tenant_id,
                 staff_id=staff_id,
-                embedding_encrypted=encrypt_face_embedding(embedding),
-                key_id=FACE_KEY_ID,
+                embedding_encrypted=sealed,
+                key_id=key_id,
                 model_version=model_version,
             )
         )

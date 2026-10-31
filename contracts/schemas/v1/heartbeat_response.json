@@ -5,6 +5,12 @@
       "title": "Latest Config Version",
       "type": "integer"
     },
+    "rotate_token": {
+      "default": false,
+      "description": "The device token is due for rotation: POST /token",
+      "title": "Rotate Token",
+      "type": "boolean"
+    },
     "server_time": {
       "format": "date-time",
       "title": "Server Time",

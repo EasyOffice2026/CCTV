@@ -87,6 +87,9 @@ Without those variables the database tests are skipped. What the cloud tests che
 - face templates are refused without staff consent and deleted when staff leave
 - RTSP URLs with embedded passwords are rejected
 - models and migrations are in sync, and the migration downgrades and upgrades cleanly
+- security (plan 7): every route needs credentials; no route with an id reaches another
+  tenant's or another branch's rows; device token rotation; face template encryption (local
+  and KMS); the audit log API, export and retention; 2FA lockout; security headers
 - the API: login, 2FA, session rotation, password reset, every role's permissions, branch
   scoping, tenant isolation, API keys, edge pairing/config/ingest, search, audited media
   links, retention

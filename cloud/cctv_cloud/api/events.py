@@ -223,7 +223,7 @@ EXPORT_COLUMNS = [
 _FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
 
 
-def _cell(value: object) -> str:
+def csv_cell(value: object) -> str:
     """Text for a CSV cell. A leading = + - @ would run as a formula in Excel."""
     text = "" if value is None else str(value)
     return f"'{text}" if text.startswith(_FORMULA_START) else text
@@ -252,7 +252,7 @@ def export_events(ctx: Exporter, filters: Filters, request: Request) -> Response
     for event, branch, camera, zone in rows:
         writer.writerow(
             [
-                _cell(value)
+                csv_cell(value)
                 for value in (
                     event.id,
                     event.started_at.isoformat(),

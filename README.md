@@ -9,6 +9,8 @@ Pilot site: Mudawara. Built as a multi-tenant product for later client rollout.
 - Edge service: [edge/README.md](edge/README.md)
 - Cloud API: [cloud/README.md](cloud/README.md)
 - Web dashboard: [web/README.md](web/README.md)
+- Security (TLS, encryption, secrets, pen-test checklist): [docs/security.md](docs/security.md)
+- Privacy (data flow, retention, consent form, signage): [docs/privacy/](docs/privacy/README.md)
 
 ## Repository layout
 
@@ -25,4 +27,5 @@ Pilot site: Mudawara. Built as a multi-tenant product for later client rollout.
 ## Data rules
 
 - Do **not** commit camera footage, face images, model weights, NVR passwords or `.env` files.
+  CI and the pre-commit hook scan for secrets (gitleaks, `.gitleaks.toml`).
 - Client documents (briefs, site screenshots) stay outside this repository.

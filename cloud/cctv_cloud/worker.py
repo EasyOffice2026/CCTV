@@ -1,5 +1,5 @@
-"""Background jobs: retention and offline devices (plan 3.8), absences (plan 5.4), alerts
-and reports (plan 6).
+"""Background jobs: retention and offline devices (plan 3.8; old audit entries too),
+absences (plan 5.4), alerts and reports (plan 6).
 
     python -m cctv_cloud.worker retention   # once
     python -m cctv_cloud.worker devices     # once
@@ -49,6 +49,7 @@ class RetentionReport:
     media_cleared: int = 0
     objects_deleted: int = 0
     events_deleted: int = 0
+    audit_deleted: int = 0
     failed_tenants: list[uuid.UUID] = field(default_factory=list)
 
 
@@ -72,7 +73,18 @@ def apply_retention(
         except Exception:
             log.exception("retention failed for tenant %s", tenant_id)
             report.failed_tenants.append(tenant_id)
+    if tenants is None:
+        report.audit_deleted = purge_audit_logs()
     return report
+
+
+def purge_audit_logs() -> int:
+    """Audit entries older than `audit_retention_days`, for every tenant. The database
+    function keeps at least a year whatever the setting says."""
+    with tenant_session(None) as db:
+        return db.scalar(
+            text("SELECT audit_purge(:days)"), {"days": get_settings().audit_retention_days}
+        )
 
 
 def _retain_tenant(

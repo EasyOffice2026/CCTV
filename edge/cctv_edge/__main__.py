@@ -13,6 +13,7 @@ from cctv_edge.credentials import load_credentials
 from cctv_edge.outbox import Outbox
 from cctv_edge.service import EdgeService
 from cctv_edge.settings import get_settings
+from cctv_edge.token_store import TokenStore
 
 log = logging.getLogger("cctv_edge")
 
@@ -46,10 +47,15 @@ def main(argv: list[str] | None = None) -> int:
         log.error("CCTV_EDGE_DEVICE_TOKEN is not set")
         return 2
 
-    client = CloudClient(settings.cloud_url, token, settings.http_timeout_seconds)
+    tokens = TokenStore(settings.token_path, token)
+    client = CloudClient(settings.cloud_url, tokens.load(), settings.http_timeout_seconds)
     outbox = Outbox(settings.outbox_path)
     service = EdgeService(
-        settings, client, outbox, credentials=load_credentials(settings.credentials_file)
+        settings,
+        client,
+        outbox,
+        credentials=load_credentials(settings.credentials_file),
+        tokens=tokens,
     )
     stop = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: stop.set())

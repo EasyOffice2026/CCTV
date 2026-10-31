@@ -41,6 +41,7 @@ from cctv_edge.schedule import BranchSchedule
 from cctv_edge.settings import EdgeSettings
 from cctv_edge.streams import FrameReader, StreamHealth
 from cctv_edge.sync import Syncer
+from cctv_edge.token_store import TokenStore
 
 log = logging.getLogger(__name__)
 
@@ -176,9 +177,11 @@ class EdgeService:
         models: ModelRegistry | None = None,
         classifier_factories: Mapping[ModelTask, ClassifierFactory] | None = None,
         face_analyzer: FaceAnalyzer | None = None,
+        tokens: TokenStore | None = None,
     ) -> None:
         self.settings = settings
         self.client = client
+        self.tokens = tokens
         self.outbox = outbox
         self.syncer = Syncer(outbox, client)
         self.store = ConfigStore(settings.config_path)
@@ -443,6 +446,24 @@ class EdgeService:
             self._config_wanted.set()
             # The cloud also bumps the version when enrolled faces change.
             self._templates_wanted.set()
+        if response.rotate_token:
+            self.rotate_token()
+
+    def rotate_token(self) -> None:
+        """Swap the device token for a new one (plan 7.1). The new token is saved before
+        it is used; if saving fails, the old token is used again within the cloud's grace
+        period and the next heartbeat retries."""
+        if self.tokens is None or not self.tokens.writable():
+            log.warning("device token is due for rotation but can't be saved; skipping")
+            return
+        token = self.client.new_token()
+        try:
+            self.tokens.save(token)
+        except OSError:
+            log.exception("saving the new device token failed")
+            return
+        self.client.use_token(token)
+        log.info("device token rotated")
 
     def remote_once(self, now: float) -> None:
         """Wait for one request from the cloud and hand it to a worker thread."""

@@ -426,6 +426,7 @@ def retire_device(device_id: uuid.UUID, ctx: DeviceAdmin, request: Request) -> N
     device = _device(ctx, device_id)
     device.status = DeviceStatus.RETIRED.value
     device.token_hash = None
+    device.previous_token_hash = None
     device.pairing_code_hash = None
     record(
         ctx.db,

@@ -46,6 +46,7 @@ class AuditAction(str, Enum):
     FACE_DELETE = "face_delete"
     ATTENDANCE_CHANGE = "attendance_change"
     EXPORT_REPORT = "export_report"
+    EXPORT_AUDIT = "export_audit"
 
 
 def record(

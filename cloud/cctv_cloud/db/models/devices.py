@@ -22,6 +22,10 @@ class EdgeDevice(UUIDPk, CreatedAt, TenantScoped, Base):
     last_seen_at: Mapped[datetime | None]
     # SHA-256 of the device token; the token itself is returned once, at pairing.
     token_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
+    # Tokens are rotated (plan 7.1); the replaced one works until previous_token_expires_at.
+    token_issued_at: Mapped[datetime | None]
+    previous_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
+    previous_token_expires_at: Mapped[datetime | None]
     # One-time pairing code shown in the admin panel and typed in on the box.
     pairing_code_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
     pairing_expires_at: Mapped[datetime | None]

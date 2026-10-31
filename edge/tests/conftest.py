@@ -76,6 +76,9 @@ class FakeCloud:
         self.templates: list[dict] = []
         self.templates_etag = '"t1"'
         self.template_requests: list[str | None] = []
+        self.tokens = {"test-token"}  # accepted device tokens
+        self.rotate = False  # heartbeat asks for a new token
+        self.issued: list[str] = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         if self.down:
@@ -85,7 +88,13 @@ class FakeCloud:
             assert "authorization" not in request.headers  # device token must not leak
             self.objects[path.lstrip("/")] = request.content
             return httpx.Response(200)
-        assert request.headers["authorization"] == "Bearer test-token"
+        assert request.headers["authorization"].removeprefix("Bearer ") in self.tokens
+        if path == "/v1/edge/token":
+            token = f"token-{len(self.issued) + 1}"
+            self.issued.append(token)
+            self.tokens.add(token)
+            self.rotate = False
+            return httpx.Response(200, json={"device_token": token})
         if path == "/v1/edge/media/upload-urls":
             body = json.loads(request.content)
             ext = "jpg" if body["kind"] == "snapshot" else "mp4"
@@ -121,6 +130,7 @@ class FakeCloud:
                 json={
                     "server_time": datetime.now(timezone.utc).isoformat(),
                     "latest_config_version": self.config.version if self.config else 0,
+                    "rotate_token": self.rotate,
                 },
             )
         if path == "/v1/edge/remote":

@@ -1,0 +1,17 @@
+# Secret scanning (plan 7.4): CI runs gitleaks over the whole git history, and the
+# pre-commit hook over each commit. Allow only values that are known placeholders.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Dev-only placeholders and test fixtures, never real secrets"
+paths = [
+  '''(^|/)package-lock\.json$''',
+]
+regexes = [
+  # A deliberately malformed bearer token in cloud/tests/test_auth.py.
+  '''eyJhbGciOiJIUzI1NiJ9\.eyJzdWIiOiIxIn0\.c2lnbmF0dXJl''',
+  # Local dev stack defaults (rejected by the API outside dev/test).
+  '''dev-only-insecure-secret-key-change-me''',
+  '''cctv-dev-secret''',
+]

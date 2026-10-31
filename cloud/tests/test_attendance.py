@@ -10,8 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from cctv_cloud.db.models import AuditLog, Branch, FaceTemplate
-from cctv_cloud.security import encrypt_face_embedding
 from cctv_cloud.services.attendance import ShiftTimes, status_for, work_date_for
+from cctv_cloud.services.face_keys import seal_embedding
 from cctv_cloud.worker import mark_absent_staff
 from tests.conftest import login
 from tests.test_edge_api import pair_device
@@ -54,13 +54,15 @@ def enrolled_staff(client, headers, org, code, owner_engine=None, **extra) -> di
     staff = add_staff(client, headers, org, code=code, **extra)
     assert consent(client, headers, staff["id"]).status_code == 200
     if owner_engine is not None:  # a face template, as if enrolled 10 days ago
+        staff_id = uuid.UUID(staff["id"])
+        sealed, key_id = seal_embedding(EMBEDDING, org.ids["a"], staff_id)
         with Session(owner_engine) as s, s.begin():
             s.add(
                 FaceTemplate(
                     tenant_id=org.ids["a"],
-                    staff_id=uuid.UUID(staff["id"]),
-                    embedding_encrypted=encrypt_face_embedding(EMBEDDING),
-                    key_id="test",
+                    staff_id=staff_id,
+                    embedding_encrypted=sealed,
+                    key_id=key_id,
                     model_version="sface-test",
                     created_at=datetime.now(timezone.utc) - timedelta(days=10),
                 )

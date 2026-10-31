@@ -4,7 +4,6 @@ import base64
 import hashlib
 import hmac
 import secrets
-import struct
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -156,23 +155,3 @@ def verify_totp(secret: str, code: str, last_step: int | None, now: float | None
         if hmac.compare_digest(totp.generate_otp(step), code):
             return step if last_step is None or step > last_step else 0
     return 0
-
-
-# --- face templates -----------------------------------------------------------------
-
-# Names the key that encrypted a face template. Moving to a KMS key (plan 7.2) means a new
-# id and re-encrypting old templates.
-FACE_KEY_ID = "app-secret:v1"
-
-
-def encrypt_face_embedding(embedding: list[float]) -> bytes:
-    """Face embeddings are biometric data: stored only encrypted (float32, little-endian)."""
-    return _fernet(b"face-template").encrypt(struct.pack(f"<{len(embedding)}f", *embedding))
-
-
-def decrypt_face_embedding(encrypted: bytes) -> list[float]:
-    try:
-        raw = _fernet(b"face-template").decrypt(encrypted)
-    except InvalidToken as exc:
-        raise InvalidTokenError("face template cannot be decrypted (key changed?)") from exc
-    return list(struct.unpack(f"<{len(raw) // 4}f", raw))

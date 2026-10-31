@@ -13,6 +13,9 @@
 #   CCTV_EDGE_STUN_URL     STUN server go2rtc uses for live view (default: Google's public one)
 #   NVME_DEVICE            e.g. /dev/nvme0n1, mounted at /var/lib/cctv-edge for footage
 #   FORMAT_NVME=yes        format NVME_DEVICE as ext4 if it has no filesystem yet
+#   ENCRYPT_NVME=yes       with FORMAT_NVME: encrypt it first (LUKS2, plan 7.2); the key is
+#                          kept on the internal eMMC (/etc/cctv-edge/luks.key), so a removed
+#                          or discarded NVMe can't be read (see docs/security.md)
 #   TAILSCALE_AUTHKEY      join the support VPN (tailnet) for remote maintenance
 #   MODELS_SOURCE          folder of model folders (each with model.json) to install to
 #                          /opt/cctv-edge/models; never from git (see edge/README.md "Models")
@@ -70,14 +73,34 @@ EOF
 systemctl daemon-reexec
 
 mkdir -p "$DATA_DIR"
+install -d -m 700 "$CONF_DIR"
 if [[ -n ${NVME_DEVICE:-} ]]; then
     log "Storage: $NVME_DEVICE -> $DATA_DIR"
     [[ -b $NVME_DEVICE ]] || die "$NVME_DEVICE is not a block device"
+    data_device="$NVME_DEVICE"
     if ! blkid "$NVME_DEVICE" >/dev/null 2>&1; then
         [[ ${FORMAT_NVME:-} == yes ]] || die "$NVME_DEVICE has no filesystem; set FORMAT_NVME=yes to format it"
-        mkfs.ext4 -L cctv-data "$NVME_DEVICE"
+        if [[ ${ENCRYPT_NVME:-} == yes ]]; then
+            apt-get install -y -q cryptsetup
+            ( umask 077 && head -c 64 /dev/urandom > "$CONF_DIR/luks.key" )
+            chmod 400 "$CONF_DIR/luks.key"
+            cryptsetup luksFormat --type luks2 --batch-mode --key-file "$CONF_DIR/luks.key" "$NVME_DEVICE"
+            cryptsetup open --key-file "$CONF_DIR/luks.key" "$NVME_DEVICE" cctv-data
+            mkfs.ext4 -L cctv-data /dev/mapper/cctv-data
+        else
+            mkfs.ext4 -L cctv-data "$NVME_DEVICE"
+        fi
     fi
-    uuid="$(blkid -s UUID -o value "$NVME_DEVICE")"
+    if [[ $(blkid -s TYPE -o value "$NVME_DEVICE") == crypto_LUKS ]]; then
+        [[ -f $CONF_DIR/luks.key ]] || die "$NVME_DEVICE is encrypted but $CONF_DIR/luks.key is missing"
+        luks_uuid="$(blkid -s UUID -o value "$NVME_DEVICE")"
+        grep -q "^cctv-data " /etc/crypttab 2>/dev/null \
+            || echo "cctv-data UUID=$luks_uuid $CONF_DIR/luks.key luks,discard,nofail" >> /etc/crypttab
+        [[ -e /dev/mapper/cctv-data ]] \
+            || cryptsetup open --key-file "$CONF_DIR/luks.key" "$NVME_DEVICE" cctv-data
+        data_device=/dev/mapper/cctv-data
+    fi
+    uuid="$(blkid -s UUID -o value "$data_device")"
     if ! grep -q "$uuid" /etc/fstab; then
         echo "UUID=$uuid $DATA_DIR ext4 defaults,noatime,nofail 0 2" >> /etc/fstab
     fi

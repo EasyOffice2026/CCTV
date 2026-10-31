@@ -20,3 +20,10 @@ class PairResponse(ContractModel):
     tenant_id: UUID
     branch_id: UUID
     device_token: str
+
+
+class TokenResponse(ContractModel):
+    """A new device token (rotation). The token the request was made with keeps working
+    for a short grace period; store the new one before using it."""
+
+    device_token: str

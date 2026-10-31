@@ -49,6 +49,7 @@ const NAV: { group: MessageKey; items: NavItem[] }[] = [
       { href: "/admin/cameras/", label: "nav.cameras", anyOf: ["devices_manage"] },
       { href: "/admin/devices/", label: "nav.devices", anyOf: ["devices_manage"] },
       { href: "/admin/users/", label: "nav.users", anyOf: ["tenant_admin"] },
+      { href: "/audit/", label: "nav.audit", anyOf: ["tenant_admin"] },
     ],
   },
 ];

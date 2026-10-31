@@ -32,16 +32,12 @@ from cctv_cloud.config import get_settings
 from cctv_cloud.db.enums import DeviceStatus, StaffStatus
 from cctv_cloud.db.models import Branch, Camera, EdgeDevice, Event, FaceTemplate, Staff, Zone
 from cctv_cloud.db.session import tenant_session
-from cctv_cloud.security import (
-    decrypt_face_embedding,
-    new_secret,
-    normalise_pairing_code,
-    sha256_hex,
-)
+from cctv_cloud.security import new_secret, normalise_pairing_code, sha256_hex
 from cctv_cloud.services.alerts import Change, Senders, dispatch, get_senders, route_event
 from cctv_cloud.services.attendance import apply_sightings
 from cctv_cloud.services.counts import apply_counts
 from cctv_cloud.services.edge_config import build_edge_config
+from cctv_cloud.services.face_keys import open_embedding
 from cctv_cloud.services.relay import EdgeRelay, get_relay
 from cctv_cloud.services.storage import ObjectStorage, get_storage, key_belongs_to, media_key
 from cctv_contracts.enums import EventStatus, MediaKind
@@ -62,6 +58,7 @@ from cctv_contracts.v1 import (
     RemoteReply,
     RemoteRequest,
     SightingBatch,
+    TokenResponse,
     UploadUrlRequest,
     UploadUrlResponse,
 )
@@ -77,6 +74,7 @@ _bearer = HTTPBearer(auto_error=False)
 class DeviceContext:
     device: EdgeDevice
     db: Session
+    token_hash: str  # of the token this request came with
 
 
 def _find_device(
@@ -95,15 +93,28 @@ def _find_device(
     return found.device_id, found.tenant_id, token_hash
 
 
+def _token_valid(device: EdgeDevice | None, token_hash: str) -> bool:
+    """The current token, or the one it replaced while the grace period lasts."""
+    if device is None or device.status == DeviceStatus.RETIRED.value:
+        return False
+    if device.token_hash == token_hash:
+        return True
+    return (
+        device.previous_token_hash == token_hash
+        and device.previous_token_expires_at is not None
+        and device.previous_token_expires_at > datetime.now(timezone.utc)
+    )
+
+
 def device_context(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
 ) -> Iterator[DeviceContext]:
     device_id, tenant_id, token_hash = _find_device(credentials)
     with tenant_session(tenant_id) as db:
         device = db.get(EdgeDevice, device_id)
-        if device is None or device.token_hash != token_hash:
+        if not _token_valid(device, token_hash):
             raise unauthorized("unknown or retired device")
-        yield DeviceContext(device, db)
+        yield DeviceContext(device, db, token_hash)
 
 
 def device_id(
@@ -112,7 +123,7 @@ def device_id(
     """Authenticates the device without holding a database session (for long polls)."""
     found_id, tenant_id, token_hash = _find_device(credentials)
     with tenant_session(tenant_id) as db:
-        if db.scalar(select(EdgeDevice.token_hash).where(EdgeDevice.id == found_id)) != token_hash:
+        if not _token_valid(db.get(EdgeDevice, found_id), token_hash):
             raise unauthorized("unknown or retired device")
     return found_id
 
@@ -138,6 +149,9 @@ def pair(body: PairRequest) -> PairResponse:
         if body.serial and body.serial != device.serial:
             raise HTTPException(status.HTTP_409_CONFLICT, "this code belongs to another serial")
         device.token_hash = sha256_hex(token)
+        device.token_issued_at = datetime.now(timezone.utc)
+        device.previous_token_hash = None  # a replaced box stops working
+        device.previous_token_expires_at = None
         device.pairing_code_hash = None  # single use
         device.pairing_expires_at = None
         device.software_version = body.software_version or device.software_version
@@ -182,7 +196,31 @@ def heartbeat(body: Heartbeat, ctx: Device) -> HeartbeatResponse:
             )
         )
     version = ctx.db.scalar(select(Branch.config_version).where(Branch.id == device.branch_id))
-    return HeartbeatResponse(server_time=now, latest_config_version=version or 0)
+    max_age = timedelta(days=get_settings().device_token_days)
+    return HeartbeatResponse(
+        server_time=now,
+        latest_config_version=version or 0,
+        rotate_token=device.token_issued_at is None or device.token_issued_at < now - max_age,
+    )
+
+
+@router.post("/token", response_model=TokenResponse)
+def rotate_token(ctx: Device) -> TokenResponse:
+    """A new device token (plan 7.1). The token used for this call keeps working for a
+    short grace period, so a box that restarts before saving the new one isn't locked out.
+    Calling again with that old token (within the grace period) replaces the new one."""
+    now = datetime.now(timezone.utc)
+    device = ctx.device
+    token = f"cctv_dev_{new_secret()}"
+    if ctx.token_hash == device.token_hash:
+        device.previous_token_hash = device.token_hash
+        device.previous_token_expires_at = now + timedelta(
+            minutes=get_settings().device_token_grace_minutes
+        )
+    device.token_hash = sha256_hex(token)
+    device.token_issued_at = now
+    log.info("device %s rotated its token", device.id)
+    return TokenResponse(device_token=token)
 
 
 @router.post("/media/upload-urls", response_model=UploadUrlResponse)
@@ -375,19 +413,25 @@ def face_templates(
         return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers={"ETag": etag})
     response.headers["ETag"] = etag
     response.headers["Cache-Control"] = "no-store"
-    encrypted = dict(
-        ctx.db.execute(
-            select(FaceTemplate.id, FaceTemplate.embedding_encrypted).where(
+    encrypted = {
+        r.id: r
+        for r in ctx.db.execute(
+            select(FaceTemplate.id, FaceTemplate.embedding_encrypted, FaceTemplate.key_id).where(
                 FaceTemplate.id.in_([r.id for r in rows])
             )
-        ).all()
-    )
+        )
+    }
     return FaceTemplateList(
         templates=[
             EdgeFaceTemplate(
                 staff_id=r.staff_id,
                 model_version=r.model_version,
-                embedding=decrypt_face_embedding(encrypted[r.id]),
+                embedding=open_embedding(
+                    encrypted[r.id].embedding_encrypted,
+                    encrypted[r.id].key_id,
+                    ctx.device.tenant_id,
+                    r.staff_id,
+                ),
             )
             for r in rows
         ]

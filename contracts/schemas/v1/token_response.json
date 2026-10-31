@@ -1,0 +1,14 @@
+{
+  "description": "A new device token (rotation). The token the request was made with keeps working\nfor a short grace period; store the new one before using it.",
+  "properties": {
+    "device_token": {
+      "title": "Device Token",
+      "type": "string"
+    }
+  },
+  "required": [
+    "device_token"
+  ],
+  "title": "TokenResponse",
+  "type": "object"
+}
