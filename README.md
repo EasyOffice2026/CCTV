@@ -14,7 +14,7 @@ Pilot site: Mudawara. Built as a multi-tenant product for later client rollout.
 |---|---|
 | `contracts/` | Shared edge ↔ cloud API models (v1) and JSON Schemas |
 | `edge/` | Edge AI service (`cctv_edge`, Jetson): stream ingest, ring buffer, detection, rules, clips, offline outbox, cloud sync |
-| `cloud/` | Cloud platform: FastAPI API (`cctv_cloud`), database models, Alembic migrations |
+| `cloud/` | Cloud platform: FastAPI API (`cctv_cloud`), database models, Alembic migrations, worker ([README](cloud/README.md)) |
 | `web/` | Web dashboard and admin panel (Next.js) |
 | `ml/` | Dataset tools, labelling exports, training and evaluation scripts |
 | `infra/` | docker-compose dev stack, simulated cameras, Postgres init, Jetson provisioning (`infra/edge/`), (later) Terraform |

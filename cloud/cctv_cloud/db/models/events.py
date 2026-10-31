@@ -71,6 +71,7 @@ class Event(TenantScoped, Base):
             "ix_events_tenant_feature_started", "tenant_id", "feature_key", text("started_at DESC")
         ),
         Index("ix_events_tenant_camera_started", "tenant_id", "camera_id", text("started_at DESC")),
+        Index("ix_events_tenant_branch_started", "tenant_id", "branch_id", text("started_at DESC")),
         Index(
             "ix_events_tenant_staff_started",
             "tenant_id",

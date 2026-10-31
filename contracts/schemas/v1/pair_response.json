@@ -1,0 +1,32 @@
+{
+  "description": "`device_token` is returned only here; the cloud keeps just its hash.",
+  "properties": {
+    "branch_id": {
+      "format": "uuid",
+      "title": "Branch Id",
+      "type": "string"
+    },
+    "device_id": {
+      "format": "uuid",
+      "title": "Device Id",
+      "type": "string"
+    },
+    "device_token": {
+      "title": "Device Token",
+      "type": "string"
+    },
+    "tenant_id": {
+      "format": "uuid",
+      "title": "Tenant Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "device_id",
+    "tenant_id",
+    "branch_id",
+    "device_token"
+  ],
+  "title": "PairResponse",
+  "type": "object"
+}

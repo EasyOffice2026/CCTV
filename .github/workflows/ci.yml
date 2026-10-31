@@ -75,7 +75,8 @@ jobs:
         run: >-
           PGPASSWORD=cctv_owner psql -h localhost -U cctv_owner -d cctv_test
           -c "CREATE ROLE cctv_app LOGIN PASSWORD 'cctv_app' NOSUPERUSER NOBYPASSRLS"
-      - run: pip install -e contracts -e "cloud[test]"
+      # The edge package too: one test runs the real edge client against the API.
+      - run: pip install -e contracts -e edge -e "cloud[test]"
       - run: pytest
         working-directory: cloud
 

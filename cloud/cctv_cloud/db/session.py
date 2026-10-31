@@ -26,17 +26,21 @@ def get_sessionmaker() -> sessionmaker[Session]:
 
 
 @contextmanager
-def tenant_session(tenant_id: UUID) -> Iterator[Session]:
+def tenant_session(tenant_id: UUID | None, user_id: UUID | None = None) -> Iterator[Session]:
     """One transaction that can only see and write rows of `tenant_id`.
 
-    Row-level-security policies read `app.tenant_id`. It is set transaction-locally,
-    so a pooled connection never carries it into the next request. The block commits
-    on success; don't call session.commit() inside it (a new transaction would start
-    without the tenant set and see nothing).
+    Row-level-security policies read `app.tenant_id` (and `app.user_id`, which lets a user
+    see their own user row and sessions). Both are set transaction-locally, so a pooled
+    connection never carries them into the next request. The block commits on success;
+    don't call session.commit() inside it (a new transaction would start without the
+    tenant set and see nothing).
     """
     with get_sessionmaker()() as session, session.begin():
         session.execute(
-            text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
-            {"tenant_id": str(tenant_id)},
+            text(
+                "SELECT set_config('app.tenant_id', :tenant_id, true),"
+                " set_config('app.user_id', :user_id, true)"
+            ),
+            {"tenant_id": str(tenant_id or ""), "user_id": str(user_id or "")},
         )
         yield session

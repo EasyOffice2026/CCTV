@@ -5,7 +5,10 @@
 #
 # Optional environment variables:
 #   CCTV_EDGE_CLOUD_URL    cloud API URL (prompted if unset)
-#   CCTV_EDGE_DEVICE_TOKEN device token from the admin panel (prompted if unset, not echoed)
+#   CCTV_EDGE_PAIRING_CODE one-time code from the admin panel (Edge devices > Register);
+#                          prompted if unset. The box swaps it for its device token.
+#   CCTV_EDGE_SERIAL       optional: the serial registered in the admin panel, checked at pairing
+#   CCTV_EDGE_DEVICE_TOKEN use an existing device token instead of pairing
 #   CCTV_EDGE_IMAGE        edge image to run (default: see docker-compose.yml)
 #   NVME_DEVICE            e.g. /dev/nvme0n1, mounted at /var/lib/cctv-edge for footage
 #   FORMAT_NVME=yes        format NVME_DEVICE as ext4 if it has no filesystem yet
@@ -84,8 +87,19 @@ if [[ ! -f $CONF_DIR/edge.env ]]; then
     cloud_url="${CCTV_EDGE_CLOUD_URL:-}"
     token="${CCTV_EDGE_DEVICE_TOKEN:-}"
     [[ -n $cloud_url ]] || read -rp "Cloud URL: " cloud_url
-    [[ -n $token ]] || { read -rsp "Device token: " token; echo; }
-    [[ -n $cloud_url && -n $token ]] || die "cloud URL and device token are required"
+    [[ -n $cloud_url ]] || die "the cloud URL is required"
+    if [[ -z $token ]]; then
+        code="${CCTV_EDGE_PAIRING_CODE:-}"
+        [[ -n $code ]] || read -rp "Pairing code (XXXX-XXXX): " code
+        # With CCTV_EDGE_SERIAL set, the cloud also checks it matches the registered serial.
+        body="$(jq -n --arg c "$code" --arg s "${CCTV_EDGE_SERIAL:-}" \
+            '{pairing_code: $c} + (if $s == "" then {} else {serial: $s} end)')"
+        response="$(curl -fsS -X POST "${cloud_url%/}/v1/edge/pair" \
+            -H 'Content-Type: application/json' -d "$body")" \
+            || die "pairing failed: check the code (it works once and expires)"
+        token="$(jq -r .device_token <<<"$response")"
+        echo "Paired as device $(jq -r .device_id <<<"$response")"
+    fi
     umask 077
     cat > "$CONF_DIR/edge.env" <<EOF
 CCTV_EDGE_CLOUD_URL=$cloud_url

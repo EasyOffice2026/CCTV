@@ -1,7 +1,8 @@
 """Edge <-> cloud API, version 1.
 
-Endpoints (all under API_PREFIX, authenticated with the device token):
+Endpoints (all under API_PREFIX, authenticated with the device token except /pair):
 
+    POST {API_PREFIX}/pair                PairRequest         -> PairResponse
     POST {API_PREFIX}/events              EventBatch          -> EventBatchResponse
     POST {API_PREFIX}/media/upload-urls   UploadUrlRequest    -> UploadUrlResponse
     POST {API_PREFIX}/heartbeat           Heartbeat           -> HeartbeatResponse
@@ -26,6 +27,7 @@ from cctv_contracts.v1.events import (
 )
 from cctv_contracts.v1.heartbeat import CameraStatus, Heartbeat, HeartbeatResponse, SystemStats
 from cctv_contracts.v1.media import UploadUrlRequest, UploadUrlResponse
+from cctv_contracts.v1.pairing import PairRequest, PairResponse
 
 API_PREFIX = "/v1/edge"
 
@@ -38,6 +40,8 @@ SCHEMA_MODELS: dict[str, type[ContractModel]] = {
     "heartbeat": Heartbeat,
     "heartbeat_response": HeartbeatResponse,
     "edge_config": EdgeConfig,
+    "pair_request": PairRequest,
+    "pair_response": PairResponse,
 }
 
 __all__ = [
@@ -57,6 +61,8 @@ __all__ = [
     "Heartbeat",
     "HeartbeatResponse",
     "MediaKey",
+    "PairRequest",
+    "PairResponse",
     "SystemStats",
     "UploadUrlRequest",
     "UploadUrlResponse",

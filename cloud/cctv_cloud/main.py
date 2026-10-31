@@ -1,12 +1,53 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError
 
 from cctv_cloud import __version__
-from cctv_cloud.api import health
+from cctv_cloud.api import (
+    admin,
+    auth,
+    devices,
+    edge,
+    events,
+    features,
+    health,
+    integrations,
+    platform,
+)
+from cctv_cloud.config import get_settings
+
+DESCRIPTION = """
+Multi-tenant API for the AI CCTV system.
+
+* **Users** sign in at `/v1/auth/login` and send `Authorization: Bearer <access token>`.
+  Owners and super-admins must use two-factor authentication.
+* **Super-admins** pick the tenant to act on with the `X-Tenant-Id` header.
+* **Integrations** (POS, HRM) send `X-API-Key: <key>` (created under `/v1/api-keys`).
+* **Edge devices** use `/v1/edge/*` with their device token (see contracts/README.md).
+"""
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="AI CCTV Cloud API", version=__version__)
-    app.include_router(health.router)
+    settings = get_settings()
+    app = FastAPI(title="AI CCTV Cloud API", version=__version__, description=DESCRIPTION)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[settings.web_url],
+        allow_methods=["*"],
+        allow_headers=["Authorization", "Content-Type", "X-Tenant-Id"],
+    )
+
+    @app.exception_handler(IntegrityError)
+    def _conflict(_request: Request, _exc: IntegrityError) -> JSONResponse:
+        # Constraint violations not handled by an endpoint: report, don't leak SQL.
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": "conflicts with existing data"},
+        )
+
+    for module in (health, auth, platform, admin, devices, features, events, integrations, edge):
+        app.include_router(module.router)
     return app
 
 

@@ -1,0 +1,42 @@
+{
+  "description": "Sent once by a new box, with the code shown in the admin panel (no token yet).",
+  "properties": {
+    "pairing_code": {
+      "maxLength": 20,
+      "minLength": 8,
+      "title": "Pairing Code",
+      "type": "string"
+    },
+    "serial": {
+      "anyOf": [
+        {
+          "maxLength": 100,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Serial"
+    },
+    "software_version": {
+      "anyOf": [
+        {
+          "maxLength": 50,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Software Version"
+    }
+  },
+  "required": [
+    "pairing_code"
+  ],
+  "title": "PairRequest",
+  "type": "object"
+}

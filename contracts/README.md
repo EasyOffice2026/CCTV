@@ -6,11 +6,13 @@ JSON Schemas for other languages are in [`schemas/v1/`](schemas/v1/) (regenerate
 
 ## Endpoints
 
-All under `/v1/edge`, authenticated with the device token (`Authorization: Bearer …`).
+All under `/v1/edge`, authenticated with the device token (`Authorization: Bearer …`),
+except `/pair`, which is how a box gets its token.
 The token identifies the tenant and branch, so they are never sent in request bodies.
 
 | Method & path | Body → response | Purpose |
 |---|---|---|
+| `POST /pair` | `PairRequest` → `PairResponse` | Once per new box, **no token**: swap the one-time pairing code for the device token |
 | `POST /media/upload-urls` | `UploadUrlRequest` → `UploadUrlResponse` | Get a pre-signed URL, then `PUT` the snapshot/clip there |
 | `POST /events` | `EventBatch` → `EventBatchResponse` | Send up to 100 events; per-event accept/reject |
 | `POST /heartbeat` | `Heartbeat` → `HeartbeatResponse` | Every 30 s: camera health, system stats, outbox size |

@@ -2,14 +2,17 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    BigInteger,
     CheckConstraint,
     ForeignKey,
     Index,
     LargeBinary,
+    SmallInteger,
     String,
     UniqueConstraint,
     text,
 )
+from sqlalchemy.dialects.postgresql import ARRAY, INET
 from sqlalchemy.orm import Mapped, mapped_column
 
 from cctv_cloud.db.base import Base, CreatedAt, TenantScoped, UUIDPk, check_in, tenant_fk
@@ -59,8 +62,15 @@ class User(UUIDPk, CreatedAt, Base):
     role: Mapped[str] = mapped_column(String(20))
     password_hash: Mapped[str | None] = mapped_column(String(255))
     totp_secret_encrypted: Mapped[bytes | None] = mapped_column(LargeBinary)
+    # Last accepted TOTP time step, so a code can't be used twice.
+    totp_last_step: Mapped[int | None] = mapped_column(BigInteger)
     is_active: Mapped[bool] = mapped_column(server_default=text("true"))
     last_login_at: Mapped[datetime | None]
+    # Login lockout after repeated wrong passwords.
+    failed_logins: Mapped[int] = mapped_column(SmallInteger, server_default="0")
+    locked_until: Mapped[datetime | None]
+    # Password-reset links embed this, so they stop working once the password changes.
+    password_changed_at: Mapped[datetime | None]
 
     __table_args__ = (
         UniqueConstraint("id", "tenant_id"),
@@ -80,3 +90,36 @@ class UserBranchAccess(TenantScoped, Base):
         tenant_fk("user_id", "users", ondelete="CASCADE"),
         tenant_fk("branch_id", "branches", ondelete="CASCADE"),
     )
+
+
+class UserSession(UUIDPk, CreatedAt, Base):
+    """A login. The refresh token names the session and its current `refresh_jti`;
+    each refresh rotates the jti, and reusing an old one revokes the session."""
+
+    __tablename__ = "user_sessions"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    refresh_jti: Mapped[str] = mapped_column(String(64))
+    last_used_at: Mapped[datetime]
+    expires_at: Mapped[datetime]
+    revoked_at: Mapped[datetime | None]
+    ip: Mapped[str | None] = mapped_column(INET)
+    user_agent: Mapped[str | None] = mapped_column(String(500))
+
+    __table_args__ = (Index("ix_user_sessions_user", "user_id"),)
+
+
+class ApiKey(UUIDPk, CreatedAt, TenantScoped, Base):
+    """Key for integrations (POS, HRM). Shown once; only a hash is stored."""
+
+    __tablename__ = "api_keys"
+
+    name: Mapped[str] = mapped_column(String(100))
+    prefix: Mapped[str] = mapped_column(String(16), unique=True)
+    key_hash: Mapped[str] = mapped_column(String(64))
+    scopes: Mapped[list[str]] = mapped_column(ARRAY(String(40)))
+    created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    last_used_at: Mapped[datetime | None]
+    revoked_at: Mapped[datetime | None]
+
+    __table_args__ = (UniqueConstraint("id", "tenant_id"),)

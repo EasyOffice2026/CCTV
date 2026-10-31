@@ -20,8 +20,11 @@ class EdgeDevice(UUIDPk, CreatedAt, TenantScoped, Base):
     software_version: Mapped[str | None] = mapped_column(String(50))
     config_version_applied: Mapped[int | None]
     last_seen_at: Mapped[datetime | None]
-    # Hash of the device token; the token itself is shown once at pairing.
-    token_hash: Mapped[str | None] = mapped_column(String(128))
+    # SHA-256 of the device token; the token itself is returned once, at pairing.
+    token_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
+    # One-time pairing code shown in the admin panel and typed in on the box.
+    pairing_code_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
+    pairing_expires_at: Mapped[datetime | None]
 
     __table_args__ = (
         tenant_fk("branch_id", "branches"),

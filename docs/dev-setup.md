@@ -23,7 +23,8 @@ docker compose -f infra/docker-compose.yml up -d
 
 | Service | URL | Notes |
 |---|---|---|
-| API | http://localhost:8000/docs | Runs migrations on start |
+| API | http://localhost:8000/docs | Runs migrations on start ([cloud/README.md](../cloud/README.md)) |
+| Worker | — | Retention and offline-device jobs |
 | Postgres | localhost:5432 | `cctv` (app) and `cctv_test` (tests) databases |
 | MinIO | http://localhost:9001 | user `cctv`, password `cctv-dev-secret` |
 | MQTT | localhost:1883 | anonymous (dev only) |
@@ -34,6 +35,13 @@ Database roles:
 - `cctv_owner`: owns the tables; used for migrations and system jobs.
 - `cctv_app`: used by the API; **cannot bypass row-level security**, so it only sees the tenant
   set by `tenant_session(tenant_id)`.
+
+First user: create a super-admin, open the printed link to set a password, then sign in
+(2FA is set up at the first login). Create tenants under `/v1/platform/tenants`.
+
+```bash
+docker compose -f infra/docker-compose.yml exec api python -m cctv_cloud.cli create-superadmin --email you@example.com --name "You"
+```
 
 ## 3. Simulated cameras
 
@@ -68,6 +76,9 @@ Without those variables the database tests are skipped. What the cloud tests che
 - face templates are refused without staff consent and deleted when staff leave
 - RTSP URLs with embedded passwords are rejected
 - models and migrations are in sync, and the migration downgrades and upgrades cleanly
+- the API: login, 2FA, session rotation, password reset, every role's permissions, branch
+  scoping, tenant isolation, API keys, edge pairing/config/ingest, search, audited media
+  links, retention
 
 ## 5. Database changes
 

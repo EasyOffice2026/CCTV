@@ -50,19 +50,46 @@ services:
       - ./mediamtx/mediamtx.yml:/mediamtx.yml:ro
       - ../ml/data/footage:/footage:ro
 
+  # Creates the media bucket once. Objects expire after 400 days as a backstop to the
+  # retention worker (tenants can keep media for at most 365 days by default).
+  minio-init:
+    image: minio/mc:latest
+    depends_on: [minio]
+    entrypoint: >-
+      sh -c "until mc alias set local http://minio:9000 cctv cctv-dev-secret; do sleep 1; done
+      && mc mb --ignore-existing local/cctv-media
+      && mc ilm rule add --expire-days 400 local/cctv-media || true"
+
   api:
     build:
       context: ..
       dockerfile: cloud/Dockerfile
-    environment:
+    environment: &cloud-env
       CCTV_ENVIRONMENT: dev
       CCTV_DATABASE_URL: postgresql+psycopg://cctv_app:cctv_app@postgres:5432/cctv
       CCTV_MIGRATION_DATABASE_URL: postgresql+psycopg://cctv_owner:cctv_owner@postgres:5432/cctv
+      CCTV_REDIS_URL: redis://redis:6379/0
+      # Pre-signed URLs are opened by browsers and edge devices on the host, so they must
+      # name the host's address for MinIO (signing doesn't contact MinIO).
+      CCTV_S3_ENDPOINT_URL: http://localhost:9000
     command: ["sh", "-c", "alembic upgrade head && uvicorn cctv_cloud.main:app --host 0.0.0.0 --port 8000"]
     ports: ["8000:8000"]
     depends_on:
       postgres:
         condition: service_healthy
+
+  # Retention and offline-device jobs.
+  worker:
+    build:
+      context: ..
+      dockerfile: cloud/Dockerfile
+    environment:
+      <<: *cloud-env
+      CCTV_S3_ENDPOINT_URL: http://minio:9000  # deletes objects, so it talks to MinIO itself
+    command: ["python", "-m", "cctv_cloud.worker", "run"]
+    depends_on:
+      api:
+        condition: service_started
 
 volumes:
   pgdata:

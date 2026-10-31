@@ -106,7 +106,7 @@ CCTV/
 ## 3. Core data model (first version)
 
 ```
-tenants(id, name, plan, retention_footage_days=30, retention_event_days=90)
+tenants(id, name, plan, retention_media_days=90, retention_event_days=365)
 branches(id, tenant_id, name, timezone='Asia/Kuwait', address)
 working_hours(id, branch_id, weekday, open_time, close_time)
 edge_devices(id, tenant_id, branch_id, serial, version, last_seen_at, status)
@@ -188,17 +188,18 @@ Assumes about **2 developers** (1 backend/frontend, 1 CV/edge). One developer al
 
 ### Phase 3 — Cloud platform core (Week 4–7)
 
-- [ ] 3.1 Auth: login, JWT + refresh, **TOTP 2FA** (required for owner/admin), password reset, session timeout.
-- [ ] 3.2 RBAC: roles from §1 #2, branch-level access, checks on every endpoint (plus RLS as a second safety layer).
-- [ ] 3.3 Admin API: tenants, branches, cameras, edge devices (register with a one-time pairing token), users.
-- [ ] 3.4 Settings API: feature on/off per tenant/branch/camera, zones (polygons), working hours, thresholds. Push changes to the edge immediately (MQTT/WebSocket notify → edge pulls).
-- [ ] 3.5 Event ingest API: idempotent (`dedup_key`), validates tenant/device, stores media keys, publishes to Redis.
-- [ ] 3.6 **Search API:** filter by date range, branch, camera, zone, event type, staff, review status; paginated; indexes on `(tenant_id, started_at)`, `(tenant_id, feature_key, started_at)`, `(tenant_id, staff_id, started_at)`.
-- [ ] 3.7 Media access: short-lived pre-signed URLs; **every view/export written to `audit_logs`**.
-- [ ] 3.8 Retention worker: delete events/media older than each tenant's policy; object-storage lifecycle rules as a backstop.
-- [ ] 3.9 OpenAPI docs + API keys for future POS/HRM integrations.
+- [x] 3.1 Auth: login, JWT + refresh (rotated, reuse ends the session), **TOTP 2FA** (required for owner/admin, replay-protected), password reset, idle and absolute session timeout, lockout after 5 failures. *Emails go to the log until an email provider is chosen.*
+- [x] 3.2 RBAC: roles from §1 #2, branch-level access, checks on every endpoint (plus RLS as a second safety layer). *The role matrix is in `cloud/README.md`; confirm it with the client (§1 #2).*
+- [x] 3.3 Admin API: tenants, branches, cameras, NVRs, zones, edge devices (register with a one-time pairing code; `infra/edge/provision.sh` pairs the box), users (invited by email).
+- [x] 3.4 Settings API: feature on/off per tenant/branch/camera, zones (polygons), working hours, thresholds (`params`). Changes bump a per-branch config version and publish on Redis; the edge also sees it in the next heartbeat. *An MQTT bridge for instant push is still to do; today the edge picks changes up within 30 s.*
+- [x] 3.5 Event ingest API: idempotent by `event_id`, validates every camera/zone/staff/media key against the device's branch, stores media keys, publishes to Redis.
+- [x] 3.6 **Search API:** filter by date range, branch, camera, zone, event type, severity, status, staff, review status; cursor-paginated; indexes per §3 plus `(tenant_id, branch_id, started_at)`.
+- [x] 3.7 Media access: 5-minute pre-signed URLs; **every view/export written to `audit_logs`**; downloading needs export rights.
+- [x] 3.8 Retention worker: media older than the tenant's media retention, then event records older than its event retention; offline-device detection. Lifecycle rule (400 days) as a backstop in the dev stack. *Defaults changed to match §6: media 90 days, events 365 days.*
+- [x] 3.9 OpenAPI docs (`/docs`) + API keys with scopes for POS/HRM integrations.
 
 **Exit:** API test suite green, including tenant-isolation and permission tests.
+*Status: 69 cloud tests pass against PostgreSQL 16 (object storage, Redis and email replaced by fakes). Not yet run against real MinIO/Redis because Docker isn't available on the dev machine used.*
 
 ### Phase 4 — Web dashboard v1 (Week 6–9)
 
