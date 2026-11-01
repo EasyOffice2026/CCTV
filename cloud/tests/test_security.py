@@ -518,6 +518,13 @@ def _victim_rows(client, org, headers, branch: str, serial: str) -> dict[str, ob
             ),
             "webhook",
         ),
+        "note_id": made(
+            client.post(
+                "/v1/pilot/log",
+                json={"noted_on": str(date.today()), "kind": "feedback", "body": serial},
+                headers=headers,
+            )
+        ),
         # Set up by our team only; owners are refused before any lookup.
         "integration_id": uuid.uuid4(),
         "work_date": date.today(),
@@ -549,6 +556,7 @@ BODIES = {
     ("PUT", "/v1/me/alert-rules/{rule_id}"): {"channels": ["web"]},
     ("PATCH", "/v1/sso-integrations/{integration_id}"): {"name": "Taken"},
     ("PUT", "/v1/branches/{branch_id}/shadow"): {"until": None},
+    ("PUT", "/v1/branches/{branch_id}/pilot"): {"started_on": None},
     ("PATCH", "/v1/webhooks/{webhook_id}"): {"name": "Taken"},
     ("PATCH", "/v1/shifts/{shift_id}"): {"name": "Taken"},
     ("PATCH", "/v1/staff/{staff_id}"): {"full_name": "Taken"},

@@ -23,7 +23,7 @@ from cctv_cloud.db.models.people import (
     UserBranchAccess,
     UserSession,
 )
-from cctv_cloud.db.models.reports import Report
+from cctv_cloud.db.models.reports import PilotNote, Report
 from cctv_cloud.db.models.tenancy import Branch, Shift, Tenant, WorkingHours
 
 __all__ = [
@@ -42,6 +42,7 @@ __all__ = [
     "Feature",
     "FeatureSetting",
     "Nvr",
+    "PilotNote",
     "PushSubscription",
     "Report",
     "Shift",

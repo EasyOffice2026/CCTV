@@ -99,3 +99,13 @@ class WebhookTopic(str, Enum):
     EVENT_NEW = "event.new"
     EVENT_CLOSED = "event.closed"
     REPORT_READY = "report.ready"
+
+
+class PilotNoteKind(str, Enum):
+    """Pilot log entries (plan 10.4)."""
+
+    CHECK_IN = "check_in"  # weekly meeting with the owner
+    FEEDBACK = "feedback"  # what the client said
+    CHANGE = "change"  # a tuning or set-up change, and why
+    ISSUE = "issue"  # something wrong on site (camera moved, internet down, ...)
+    DECISION = "decision"  # e.g. a feature passes, or its pilot is extended

@@ -371,6 +371,8 @@ class EdgeService:
         snapshot = self.settings.media_dir / str(event.event_id) / "snapshot.jpg"
         save_snapshot(frame, event.boxes, snapshot)
         attributes = dict(event.rule.attributes)
+        if event.rule.min_count > 1:
+            attributes["people"] = len(event.boxes)  # in the zone when the event opened
         if event.continues:
             attributes["continues"] = str(event.continues)
         payload = {

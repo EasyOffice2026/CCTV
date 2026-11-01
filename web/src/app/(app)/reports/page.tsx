@@ -92,6 +92,14 @@ function ReportView({ report }: { report: Report }) {
         <Kpi label={t("reports.kpi.customers")} value={num(totals.customers_in)} />
         <Kpi label={t("reports.kpi.peakHour")} value={totals.peak_hour == null ? "—" : `${String(totals.peak_hour).padStart(2, "0")}:00`} />
         <Kpi label={t("reports.kpi.counterStaffed")} value={pct(totals.counter_staffed_pct)} />
+        {totals.queue_peak != null && (
+          <>
+            <Kpi label={t("overview.queuePeak")} value={num(totals.queue_peak)} />
+            <Kpi label={t("overview.queueWaitAvg")} value={totals.queue_wait_avg_s == null ? "—" : `${Math.round(totals.queue_wait_avg_s / 6) / 10} min`} />
+            <Kpi label={t("overview.queueWaitMax")} value={totals.queue_wait_max_s == null ? "—" : `${Math.round(totals.queue_wait_max_s / 6) / 10} min`} />
+          </>
+        )}
+        {totals.staff_crossings != null && <Kpi label={t("reports.kpi.staffLeftOut")} value={num(totals.staff_crossings)} />}
         <Kpi
           label={t("reports.kpi.alertP95")}
           value={seconds(data.alerts.p95_ms)}

@@ -97,6 +97,9 @@ Without those variables the database tests are skipped. What the cloud tests che
   frame / face enrolment through a simulated edge box (only the addressed box can answer),
   the relay on Redis (fakeredis) and in-process, staff consent rules, CSV export, the
   refresh cookie
+- the pilot (plan 10): queue and staff figures in the overview and reports, the pilot
+  figures against the success criteria (precision, false alarms, alert p95, uptime, day
+  count), who may read and write the pilot log
 - install and shadow mode (plan 9): health per minute from heartbeats (restart counting,
   other branches' cameras ignored), the setup test (pass, drops, missing minutes, running
   window, default start), shadow mode (alerts only to the support team, no webhooks, only

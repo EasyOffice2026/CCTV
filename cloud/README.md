@@ -78,6 +78,7 @@ in other branches returns 404. Super-admins (our team) can do everything, in any
 | Reports | `/v1/reports` (list, make), `/v1/reports/{id}`, `/v1/reports/{id}/file?format=pdf\|xlsx&lang=en\|ar` |
 | Realtime | WebSocket `/v1/ws` (live event feed, in-app alerts) |
 | Webhooks | `/v1/webhooks/whatsapp` (delivery reports from Meta; signed) |
+| Pilot (plan 10) | `/v1/pilot/kpis` (figures against the success criteria), `/v1/pilot/log` (+ `/{id}`), `/v1/branches/{id}/pilot` (day 1, super-admin) |
 | Install, shadow mode (plan 9) | `/v1/branches/{id}/stream-test` (48-hour setup test), `/v1/branches/{id}/shadow` (super-admin), `/v1/review-summary` (review results for tuning) |
 | Overview, KPIs | `/v1/overview` (per branch, today so far or a past day; follows the feature switches) |
 | Integrations | `/v1/api-keys`, `/v1/webhooks` (+ `/{id}/test`, `/{id}/deliveries`), `/v1/sso-integrations` (super-admin creates; owners see) |
@@ -236,6 +237,8 @@ encryption context `purpose=cctv-face-template`) or `local:<id>` with the key in
 `rotate_token`, the box calls `POST /v1/edge/token`, saves the new token and uses it. The
 old one keeps working for `CCTV_DEVICE_TOKEN_GRACE_MINUTES` (10). Pairing again or retiring
 the box ends all its tokens.
+
+**The pilot** (plan 10). `GET /v1/pilot/kpis` works out, per branch from `pilot_started_on`, events and review results per day and feature (precision once 20 events of a feature are reviewed), false alarms per day, alert p95 (`alert_deliveries.latency_ms`), and camera and box uptime from `camera_health_minutes`, with each success criterion met, not met or not decidable yet. Count buckets also carry staff crossings left out and queue waits (count, total, longest); reports and the overview show queue figures when the queue feature is on.
 
 **Install and shadow mode** (plan 9). Each heartbeat adds a sample to
 `camera_health_minutes` (per camera and minute: samples, degraded, offline, new stream

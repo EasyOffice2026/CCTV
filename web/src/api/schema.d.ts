@@ -399,6 +399,27 @@ export interface paths {
         patch: operations["update_branch_v1_branches__branch_id__patch"];
         trace?: never;
     };
+    "/v1/branches/{branch_id}/pilot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Pilot Start
+         * @description Day 1 of the branch's official pilot (plan 10), set by our team when shadow mode
+         *     ends; the pilot figures and the 30-day check count from it.
+         */
+        put: operations["set_pilot_start_v1_branches__branch_id__pilot_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/branches/{branch_id}/shadow": {
         parameters: {
             query?: never;
@@ -1252,6 +1273,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/pilot/kpis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Pilot Kpis
+         * @description The pilot's figures per day and in total against the success criteria (plan 10.3,
+         *     10.5). Default: from the pilot start (or the last 30 days) to today.
+         */
+        get: operations["get_pilot_kpis_v1_pilot_kpis_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pilot/log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Pilot Notes
+         * @description The pilot log (plan 10.4), newest first: weekly check-ins, the owner's feedback,
+         *     changes made, issues and decisions. With `branch_id`: that branch and client-wide
+         *     entries.
+         */
+        get: operations["list_pilot_notes_v1_pilot_log_get"];
+        put?: never;
+        /** Add Pilot Note */
+        post: operations["add_pilot_note_v1_pilot_log_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pilot/log/{note_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Pilot Note
+         * @description Only the author (or our team) removes an entry.
+         */
+        delete: operations["delete_pilot_note_v1_pilot_log__note_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/platform/audit-logs": {
         parameters: {
             query?: never;
@@ -2064,6 +2149,11 @@ export interface components {
             /** Name */
             name: string;
             /**
+             * Pilot Started On
+             * @description Day 1 of the pilot
+             */
+            pilot_started_on?: string | null;
+            /**
              * Shadow Until
              * @description Shadow mode: alerts go only to the support team until then
              */
@@ -2103,6 +2193,7 @@ export interface components {
             kitchen_compliance: number | null;
             /** Partial */
             partial: boolean;
+            queue: components["schemas"]["QueueKpis"] | null;
             /** Recent Events */
             recent_events: components["schemas"]["EventOut"][] | null;
             /** Reports */
@@ -2309,6 +2400,17 @@ export interface components {
             /** New Password */
             new_password: string;
         };
+        /** Check */
+        Check: {
+            /** Key */
+            key: string;
+            /** Met */
+            met: boolean | null;
+            /** Target */
+            target: number;
+            /** Value */
+            value: number | null;
+        };
         /** ClipSettings */
         ClipSettings: {
             /**
@@ -2367,6 +2469,14 @@ export interface components {
              * @default 0
              */
             out_count: number;
+            /** Staff Crossings */
+            staff_crossings?: number | null;
+            /** Wait Max Seconds */
+            wait_max_seconds?: number | null;
+            /** Wait Total Seconds */
+            wait_total_seconds?: number | null;
+            /** Waits */
+            waits?: number | null;
             /** Zone Id */
             zone_id?: string | null;
         };
@@ -2405,6 +2515,49 @@ export interface components {
             peak_hour: number | null;
             /** Peak Occupancy */
             peak_occupancy: number | null;
+        };
+        /** DayKpis */
+        DayKpis: {
+            /** Alert P95 Ms */
+            alert_p95_ms?: number | null;
+            /**
+             * Alerts Sent
+             * @default 0
+             */
+            alerts_sent: number;
+            /** Box Uptime Pct */
+            box_uptime_pct?: number | null;
+            /** Camera Uptime Pct */
+            camera_uptime_pct?: number | null;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Events
+             * @default 0
+             */
+            events: number;
+            /**
+             * False Alarm
+             * @default 0
+             */
+            false_alarm: number;
+            /** False Alarms Per Day */
+            false_alarms_per_day?: number | null;
+            /** Precision */
+            precision?: number | null;
+            /**
+             * Reviewed
+             * @default 0
+             */
+            reviewed: number;
+            /**
+             * Valid
+             * @default 0
+             */
+            valid: number;
         };
         /** DayReview */
         DayReview: {
@@ -2793,6 +2946,37 @@ export interface components {
          * @enum {string}
          */
         FeatureKey: "attendance" | "staff_activity" | "kitchen_compliance" | "cashier" | "customer_count" | "queue" | "security" | "heatmap" | "object_left_removed";
+        /** FeatureKpis */
+        FeatureKpis: {
+            /**
+             * Events
+             * @default 0
+             */
+            events: number;
+            /**
+             * False Alarm
+             * @default 0
+             */
+            false_alarm: number;
+            /** False Alarms Per Day */
+            false_alarms_per_day?: number | null;
+            /** Feature */
+            feature: string;
+            /** Meets Target */
+            meets_target?: boolean | null;
+            /** Precision */
+            precision?: number | null;
+            /**
+             * Reviewed
+             * @default 0
+             */
+            reviewed: number;
+            /**
+             * Valid
+             * @default 0
+             */
+            valid: number;
+        };
         /** FeatureOut */
         FeatureOut: {
             /** Availability */
@@ -3201,6 +3385,89 @@ export interface components {
              */
             pairing_code: string;
         };
+        /** PilotKpis */
+        PilotKpis: {
+            /**
+             * Branch Id
+             * Format: uuid
+             */
+            branch_id: string;
+            /** Checks */
+            checks: components["schemas"]["Check"][];
+            /** Days */
+            days: components["schemas"]["DayKpis"][];
+            /** Features */
+            features: components["schemas"]["FeatureKpis"][];
+            /** Pilot Day */
+            pilot_day: number | null;
+            /** Pilot Started On */
+            pilot_started_on: string | null;
+            /**
+             * Since
+             * Format: date
+             */
+            since: string;
+            summary: components["schemas"]["DayKpis"];
+            /**
+             * Until
+             * Format: date
+             */
+            until: string;
+        };
+        /** PilotNoteIn */
+        PilotNoteIn: {
+            /** Body */
+            body: string;
+            /** Branch Id */
+            branch_id?: string | null;
+            kind: components["schemas"]["PilotNoteKind"];
+            /**
+             * Noted On
+             * Format: date
+             */
+            noted_on: string;
+        };
+        /**
+         * PilotNoteKind
+         * @description Pilot log entries (plan 10.4).
+         * @enum {string}
+         */
+        PilotNoteKind: "check_in" | "feedback" | "change" | "issue" | "decision";
+        /** PilotNoteOut */
+        PilotNoteOut: {
+            /** Author Id */
+            author_id: string | null;
+            /** Author Name */
+            author_name: string | null;
+            /** Body */
+            body: string;
+            /** Branch Id */
+            branch_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["PilotNoteKind"];
+            /**
+             * Noted On
+             * Format: date
+             */
+            noted_on: string;
+        };
+        /** PilotStartIn */
+        PilotStartIn: {
+            /**
+             * Started On
+             * @description Day 1 of the official pilot; null clears it
+             */
+            started_on: string | null;
+        };
         /** PlaybackIn */
         PlaybackIn: {
             /**
@@ -3259,6 +3526,19 @@ export interface components {
             /** Endpoint */
             endpoint: string;
             keys: components["schemas"]["PushKeys"];
+        };
+        /** QueueKpis */
+        QueueKpis: {
+            /** Long Queues */
+            long_queues: number;
+            /** Peak */
+            peak: number | null;
+            /** Wait Avg S */
+            wait_avg_s: number | null;
+            /** Wait Max S */
+            wait_max_s: number | null;
+            /** Waits */
+            waits: number | null;
         };
         /** RecordingSpan */
         RecordingSpan: {
@@ -4089,11 +4369,21 @@ export interface components {
             peak_occupancy?: number | null;
             /** Punctuality Pct */
             punctuality_pct?: number | null;
+            /** Queue Peak */
+            queue_peak?: number | null;
+            /** Queue Wait Avg S */
+            queue_wait_avg_s?: number | null;
+            /** Queue Wait Max S */
+            queue_wait_max_s?: number | null;
+            /** Queue Waits */
+            queue_waits?: number | null;
             /**
              * Security
              * @default 0
              */
             security: number;
+            /** Staff Crossings */
+            staff_crossings?: number | null;
             /**
              * Unreviewed
              * @default 0
@@ -5321,6 +5611,44 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["BranchUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BranchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_pilot_start_v1_branches__branch_id__pilot_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path: {
+                branch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PilotStartIn"];
             };
         };
         responses: {
@@ -7290,6 +7618,145 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["BranchOverview"][];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pilot_kpis_v1_pilot_kpis_get: {
+        parameters: {
+            query: {
+                branch_id: string;
+                since?: string | null;
+                until?: string | null;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PilotKpis"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_pilot_notes_v1_pilot_log_get: {
+        parameters: {
+            query?: {
+                branch_id?: string | null;
+                limit?: number;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PilotNoteOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_pilot_note_v1_pilot_log_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PilotNoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PilotNoteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_pilot_note_v1_pilot_log__note_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

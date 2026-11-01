@@ -77,6 +77,12 @@ class Totals(BaseModel):
     peak_hour: int | None = None  # branch-time hour with the most customers in
     peak_occupancy: int | None = None
     counter_staffed_pct: float | None = None
+    # Plan 10.2: entrance crossings left out as staff; queues (None: no queue zone).
+    staff_crossings: int | None = None
+    queue_peak: int | None = None
+    queue_waits: int | None = None
+    queue_wait_avg_s: int | None = None
+    queue_wait_max_s: int | None = None
 
 
 class DayRow(BaseModel):
@@ -324,6 +330,10 @@ def build_report(
             CountBucket.in_count,
             CountBucket.max_occupancy,
             CountBucket.occupied_seconds,
+            CountBucket.staff_crossings,
+            CountBucket.waits,
+            CountBucket.wait_total_seconds,
+            CountBucket.wait_max_seconds,
             Zone.zone_type,
         )
         .join(Camera, Camera.id == CountBucket.camera_id)
@@ -336,11 +346,20 @@ def build_report(
     ).all()
     hours: list[int] | None = None
     staffed = watched = 0
+    wait_total = 0
     for b in buckets:
         local = b.bucket_start.astimezone(tz)
+        if b.zone_type == ZoneType.QUEUE.value and b.max_occupancy is not None:
+            totals.queue_peak = max(totals.queue_peak or 0, b.max_occupancy)
+            if b.waits is not None:
+                totals.queue_waits = (totals.queue_waits or 0) + b.waits
+                wait_total += b.wait_total_seconds or 0
+                totals.queue_wait_max_s = max(totals.queue_wait_max_s or 0, b.wait_max_seconds or 0)
         if b.zone_type == ZoneType.ENTRANCE_LINE.value:
             hours = hours or [0] * 24
             hours[local.hour] += b.in_count
+            if b.staff_crossings is not None:
+                totals.staff_crossings = (totals.staff_crossings or 0) + b.staff_crossings
             totals.customers_in = (totals.customers_in or 0) + b.in_count
             row = days.get(local.date())
             if row is not None:
@@ -352,6 +371,8 @@ def build_report(
             watched += b.bucket_seconds
     if hours and any(hours):
         totals.peak_hour = max(range(24), key=lambda h: hours[h])
+    if totals.queue_waits:
+        totals.queue_wait_avg_s = round(wait_total / totals.queue_waits)
     totals.counter_staffed_pct = _pct(staffed, watched)
 
     # Alert times (plan 6.7).

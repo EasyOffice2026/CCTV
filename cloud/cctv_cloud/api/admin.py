@@ -1,7 +1,7 @@
 """Tenant, branches, working hours and users (plan 3.3)."""
 
 import uuid
-from datetime import datetime, time
+from datetime import date, datetime, time
 from typing import Annotated
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -117,6 +117,7 @@ class BranchOut(ORMModel):
     shadow_until: datetime | None = Field(
         default=None, description="Shadow mode: alerts go only to the support team until then"
     )
+    pilot_started_on: date | None = Field(default=None, description="Day 1 of the pilot")
 
 
 @router.get("/branches", response_model=list[BranchOut])

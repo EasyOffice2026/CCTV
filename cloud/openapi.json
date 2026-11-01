@@ -986,6 +986,19 @@
             "title": "Name",
             "type": "string"
           },
+          "pilot_started_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Day 1 of the pilot",
+            "title": "Pilot Started On"
+          },
           "shadow_until": {
             "anyOf": [
               {
@@ -1094,6 +1107,16 @@
             "title": "Partial",
             "type": "boolean"
           },
+          "queue": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QueueKpis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "recent_events": {
             "anyOf": [
               {
@@ -1155,6 +1178,7 @@
           "cashier",
           "security",
           "customers",
+          "queue",
           "alerts",
           "system",
           "recent_events",
@@ -1813,6 +1837,48 @@
         "title": "ChangePasswordRequest",
         "type": "object"
       },
+      "Check": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "met": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Met"
+          },
+          "target": {
+            "title": "Target",
+            "type": "number"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "key",
+          "value",
+          "target",
+          "met"
+        ],
+        "title": "Check",
+        "type": "object"
+      },
       "ClipSettings": {
         "properties": {
           "post_seconds": {
@@ -1920,6 +1986,54 @@
             "minimum": 0.0,
             "title": "Out Count",
             "type": "integer"
+          },
+          "staff_crossings": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff Crossings"
+          },
+          "wait_max_seconds": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wait Max Seconds"
+          },
+          "wait_total_seconds": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wait Total Seconds"
+          },
+          "waits": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waits"
           },
           "zone_id": {
             "anyOf": [
@@ -2070,6 +2184,100 @@
           "hours"
         ],
         "title": "CustomerKpis",
+        "type": "object"
+      },
+      "DayKpis": {
+        "properties": {
+          "alert_p95_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alert P95 Ms"
+          },
+          "alerts_sent": {
+            "default": 0,
+            "title": "Alerts Sent",
+            "type": "integer"
+          },
+          "box_uptime_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Box Uptime Pct"
+          },
+          "camera_uptime_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Camera Uptime Pct"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "events": {
+            "default": 0,
+            "title": "Events",
+            "type": "integer"
+          },
+          "false_alarm": {
+            "default": 0,
+            "title": "False Alarm",
+            "type": "integer"
+          },
+          "false_alarms_per_day": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "False Alarms Per Day"
+          },
+          "precision": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Precision"
+          },
+          "reviewed": {
+            "default": 0,
+            "title": "Reviewed",
+            "type": "integer"
+          },
+          "valid": {
+            "default": 0,
+            "title": "Valid",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date"
+        ],
+        "title": "DayKpis",
         "type": "object"
       },
       "DayReview": {
@@ -3000,6 +3208,72 @@
         ],
         "title": "FeatureKey",
         "type": "string"
+      },
+      "FeatureKpis": {
+        "properties": {
+          "events": {
+            "default": 0,
+            "title": "Events",
+            "type": "integer"
+          },
+          "false_alarm": {
+            "default": 0,
+            "title": "False Alarm",
+            "type": "integer"
+          },
+          "false_alarms_per_day": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "False Alarms Per Day"
+          },
+          "feature": {
+            "title": "Feature",
+            "type": "string"
+          },
+          "meets_target": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meets Target"
+          },
+          "precision": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Precision"
+          },
+          "reviewed": {
+            "default": 0,
+            "title": "Reviewed",
+            "type": "integer"
+          },
+          "valid": {
+            "default": 0,
+            "title": "Valid",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "feature"
+        ],
+        "title": "FeatureKpis",
+        "type": "object"
       },
       "FeatureOut": {
         "properties": {
@@ -3947,6 +4221,229 @@
         "title": "PairingCode",
         "type": "object"
       },
+      "PilotKpis": {
+        "properties": {
+          "branch_id": {
+            "format": "uuid",
+            "title": "Branch Id",
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/Check"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/DayKpis"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "features": {
+            "items": {
+              "$ref": "#/components/schemas/FeatureKpis"
+            },
+            "title": "Features",
+            "type": "array"
+          },
+          "pilot_day": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pilot Day"
+          },
+          "pilot_started_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pilot Started On"
+          },
+          "since": {
+            "format": "date",
+            "title": "Since",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/DayKpis"
+          },
+          "until": {
+            "format": "date",
+            "title": "Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "branch_id",
+          "pilot_started_on",
+          "pilot_day",
+          "since",
+          "until",
+          "summary",
+          "features",
+          "days",
+          "checks"
+        ],
+        "title": "PilotKpis",
+        "type": "object"
+      },
+      "PilotNoteIn": {
+        "properties": {
+          "body": {
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "branch_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PilotNoteKind"
+          },
+          "noted_on": {
+            "format": "date",
+            "title": "Noted On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "noted_on",
+          "kind",
+          "body"
+        ],
+        "title": "PilotNoteIn",
+        "type": "object"
+      },
+      "PilotNoteKind": {
+        "description": "Pilot log entries (plan 10.4).",
+        "enum": [
+          "check_in",
+          "feedback",
+          "change",
+          "issue",
+          "decision"
+        ],
+        "title": "PilotNoteKind",
+        "type": "string"
+      },
+      "PilotNoteOut": {
+        "properties": {
+          "author_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Id"
+          },
+          "author_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Name"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "branch_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PilotNoteKind"
+          },
+          "noted_on": {
+            "format": "date",
+            "title": "Noted On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "branch_id",
+          "noted_on",
+          "kind",
+          "body",
+          "author_id",
+          "author_name",
+          "created_at"
+        ],
+        "title": "PilotNoteOut",
+        "type": "object"
+      },
+      "PilotStartIn": {
+        "properties": {
+          "started_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Day 1 of the official pilot; null clears it",
+            "title": "Started On"
+          }
+        },
+        "required": [
+          "started_on"
+        ],
+        "title": "PilotStartIn",
+        "type": "object"
+      },
       "PlaybackIn": {
         "properties": {
           "end": {
@@ -4053,6 +4550,67 @@
           "keys"
         ],
         "title": "PushSubscriptionIn",
+        "type": "object"
+      },
+      "QueueKpis": {
+        "properties": {
+          "long_queues": {
+            "title": "Long Queues",
+            "type": "integer"
+          },
+          "peak": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak"
+          },
+          "wait_avg_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wait Avg S"
+          },
+          "wait_max_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wait Max S"
+          },
+          "waits": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waits"
+          }
+        },
+        "required": [
+          "peak",
+          "waits",
+          "wait_avg_s",
+          "wait_max_s",
+          "long_queues"
+        ],
+        "title": "QueueKpis",
         "type": "object"
       },
       "RecordingSpan": {
@@ -5940,10 +6498,65 @@
             ],
             "title": "Punctuality Pct"
           },
+          "queue_peak": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue Peak"
+          },
+          "queue_wait_avg_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue Wait Avg S"
+          },
+          "queue_wait_max_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue Wait Max S"
+          },
+          "queue_waits": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue Waits"
+          },
           "security": {
             "default": 0,
             "title": "Security",
             "type": "integer"
+          },
+          "staff_crossings": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff Crossings"
           },
           "unreviewed": {
             "default": 0,
@@ -8896,6 +9509,98 @@
         "summary": "Update Branch",
         "tags": [
           "admin"
+        ]
+      }
+    },
+    "/v1/branches/{branch_id}/pilot": {
+      "put": {
+        "description": "Day 1 of the branch's official pilot (plan 10), set by our team when shadow mode\nends; the pilot figures and the 30-day check count from it.",
+        "operationId": "set_pilot_start_v1_branches__branch_id__pilot_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "branch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Branch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PilotStartIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BranchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set Pilot Start",
+        "tags": [
+          "pilot"
         ]
       }
     },
@@ -13673,6 +14378,381 @@
         "summary": "Get Overview",
         "tags": [
           "overview"
+        ]
+      }
+    },
+    "/v1/pilot/kpis": {
+      "get": {
+        "description": "The pilot's figures per day and in total against the success criteria (plan 10.3,\n10.5). Default: from the pilot start (or the last 30 days) to today.",
+        "operationId": "get_pilot_kpis_v1_pilot_kpis_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "branch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Branch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PilotKpis"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Pilot Kpis",
+        "tags": [
+          "pilot"
+        ]
+      }
+    },
+    "/v1/pilot/log": {
+      "get": {
+        "description": "The pilot log (plan 10.4), newest first: weekly check-ins, the owner's feedback,\nchanges made, issues and decisions. With `branch_id`: that branch and client-wide\nentries.",
+        "operationId": "list_pilot_notes_v1_pilot_log_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "branch_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Branch Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PilotNoteOut"
+                  },
+                  "title": "Response List Pilot Notes V1 Pilot Log Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Pilot Notes",
+        "tags": [
+          "pilot"
+        ]
+      },
+      "post": {
+        "operationId": "add_pilot_note_v1_pilot_log_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PilotNoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PilotNoteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Add Pilot Note",
+        "tags": [
+          "pilot"
+        ]
+      }
+    },
+    "/v1/pilot/log/{note_id}": {
+      "delete": {
+        "description": "Only the author (or our team) removes an entry.",
+        "operationId": "delete_pilot_note_v1_pilot_log__note_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Pilot Note",
+        "tags": [
+          "pilot"
         ]
       }
     },

@@ -92,7 +92,7 @@ faces. The drawer and PPE classifiers are trained on Mudawara footage (see `ml/`
 Only enabled features run, and only their models. Every rule can be tuned per tenant,
 branch or camera in the feature's `params` with the event type as key, e.g.
 `{"after_hours_person": {"min_duration_s": 5, "cooldown_s": 600}, "after_hours_motion": {"enabled": false}}`.
-Rule keys: `enabled`, `min_duration_s`, `max_gap_s`, `cooldown_s`, `min_confidence`,
+Rule keys: `enabled`, `min_duration_s`, `max_gap_s`, `cooldown_s`, `min_confidence`, `min_count`,
 `severity`. Feature-wide settings sit next to them (below). Unknown keys are logged and
 ignored.
 
@@ -167,8 +167,29 @@ reporting through ISAPI, is a later add-on that would feed the same sightings.
 ### Customer count
 
 With the feature on, people crossing `entrance_line` zones are counted in and out per
-5-minute bucket (`POST /v1/edge/counts`). Occupancy of `queue` zones is counted when the
-queue feature is on. Staff are not excluded yet (plan 10.2).
+5-minute bucket (`POST /v1/edge/counts`), and the most people at once in `dining` zones.
+
+| Event | Fires when | Defaults |
+|---|---|---|
+| `occupancy_high` | a `dining` zone holds at least `min_count` people | 30 people, 2 min, 30 min cooldown, info |
+
+**Staff are left out** (plan 10.2): a track seen in a `staff_area`, `kitchen` or `counter`
+zone of the same camera is staff from then on (forgotten 10 minutes after it was last
+seen) and isn't counted at entrance lines or in dining and queue zones; crossings left out
+are sent as `staff_crossings`. Staff never seen in such a zone are still counted.
+
+### Queue
+
+With the feature on, `queue` zones report the most people at once and how long each
+person's track stayed in the zone (a wait ends 3 s after leaving; under 5 s is passing
+through): `waits`, `wait_total_seconds`, `wait_max_seconds` per bucket. A lost and re-found
+track splits a wait, so waits are on the low side.
+
+| Event | Fires when | Defaults |
+|---|---|---|
+| `queue_long` | a `queue` zone holds at least `min_count` people | 5 people, 60 s, 10 min cooldown |
+
+Events of rules with `min_count` carry `people` (how many were in the zone when it opened).
 
 ## Live view, playback and other requests from the cloud
 

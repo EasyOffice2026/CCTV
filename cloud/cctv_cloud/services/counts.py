@@ -11,6 +11,8 @@ from cctv_cloud.db.models import Camera, CountBucket, Zone
 from cctv_contracts.v1 import BatchResult, CountBucketIn, RejectedItem
 
 _UNIQUE = "uq_count_buckets_camera_id_zone_id_bucket_start"
+# Plan 10.2: staff left out of customer counts, queue waits.
+ADDED = ("staff_crossings", "waits", "wait_total_seconds", "wait_max_seconds")
 
 
 def apply_counts(
@@ -46,6 +48,7 @@ def apply_counts(
                     "out_count",
                     "max_occupancy",
                     "occupied_seconds",
+                    *ADDED,
                 }
             ),
         }
@@ -62,6 +65,7 @@ def apply_counts(
                         "out_count",
                         "max_occupancy",
                         "occupied_seconds",
+                        *ADDED,
                     )
                 },
             )

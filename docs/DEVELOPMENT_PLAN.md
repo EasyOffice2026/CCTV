@@ -297,12 +297,14 @@ For **each** feature follow the same loop: **label → train/configure → offli
 
 ### Phase 10 — Official 30-day pilot (Week 14–18+)
 
-- [ ] 10.1 Turn on wave-1 alerts for the client: attendance, kitchen compliance, cashier, after-hours security.
+- [ ] 10.1 Turn on wave-1 alerts for the client: attendance, kitchen compliance, cashier, after-hours security. *Day-1 checklist in `docs/pilot/README.md` (end shadow mode, set pilot day 1, features and thresholds from shadow mode, alert rules and test messages). Waiting on: the end of shadow mode.*
 - [ ] 10.2 **Wave 2 once wave 1 is stable (~week 2 of the pilot):**
   - **Customer count:** entrance line crossing (in/out), occupancy, busy hours. Exclude staff (staff-zone heuristics, uniform classifier, or face-matched staff).
   - **Queue detection:** people in the queue zone over time; wait time ≈ time in queue (tracking) or queue length ÷ service rate; alert above a threshold.
-- [ ] 10.3 Daily KPI dashboard for the pilot itself: accuracy (from review labels), false alarms/day, alert latency, uptime.
-- [ ] 10.4 Weekly check-in with the owner; keep a feedback log.
+
+  *Software ready: people seen in a staff area, kitchen or counter zone of the camera are left out of entrance counts and of queue and dining occupancy (crossings left out are reported); dining occupancy is counted and `occupancy_high` fires at `min_count` people (default 30, per camera); `queue_long` fires at `min_count` people (5) for 60 s; each person's time in a queue zone gives average and longest waits per bucket; figures in the overview, reports and the KPI API. Known limit: staff never seen in a staff zone are still counted (a uniform classifier would catch them). Waiting on: wave 1 stable, zones drawn, a manual count to check against.*
+- [x] 10.3 Daily KPI dashboard for the pilot itself: accuracy (from review labels), false alarms/day, alert latency, uptime. *Pilot page (and `GET /v1/pilot/kpis`): from pilot day 1, per day and in total: events, reviewed, precision per feature (judged from 20 reviewed events), false alarms per day, alert p95, camera and edge-box uptime from the heartbeats, pilot day; the success criteria with met / not met / not enough data. Recall comes from the offline test-set report.*
+- [ ] 10.4 Weekly check-in with the owner; keep a feedback log. *Pilot log on the Pilot page (check-ins, feedback, changes, issues, decisions; per branch or client-wide; owners and our team write, managers read their branches); weekly agenda in `docs/pilot/README.md`. Waiting on: the pilot.*
 - [ ] 10.5 **Success criteria sign-off** (brief §Testing):
 
 | Check | Target | How we measure |
@@ -316,6 +318,8 @@ For **each** feature follow the same loop: **label → train/configure → offli
 | Feedback | Owner confirms usefulness | Sign-off form |
 
 If a feature misses its target, extend the pilot for that feature only. Don't hold back the features that passed.
+
+*Sign-off form (English and Arabic) with the search test procedure: `docs/pilot/sign-off.md`. Status of Phase 10: wave-2 software, the pilot figures and the log are built and tested (edge counting and rules, cloud figures against PostgreSQL, the Pilot page in a browser); the pilot itself hasn't run.*
 
 ### Phase 11 — Productisation & handover (Week 18–20)
 

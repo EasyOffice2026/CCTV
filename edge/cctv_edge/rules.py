@@ -8,7 +8,8 @@ a new event for the same rule and zone (or the same person, for `cooldown_by=TRA
 one intruder pacing in and out of view does not produce a stream of alerts.
 
 An `absent` rule holds the other way round: for each zone of its types that has *no*
-matching observation (an unattended counter).
+matching observation (an unattended counter). A rule with `min_count` holds for a zone
+only while at least that many matching objects are in it (a long queue, a full room).
 
 Feature parameters (`FeatureConfig.params`) hold per-rule overrides keyed by event type,
 and feature-wide settings (thresholds for the classifiers) listed in `FEATURE_DEFAULTS`.
@@ -63,6 +64,7 @@ class RuleSpec:
     absent: bool = False  # holds while a zone has NO matching observation
     cooldown_by: GroupBy = GroupBy.ZONE  # TRACK: per person, so others still alert
     min_confidence: float = 0.0  # observations below this are ignored
+    min_count: float = 1  # zone rules: at least this many matching objects in the zone
     attributes: tuple[tuple[str, object], ...] = ()  # added to the event's attributes
 
     @property
@@ -142,10 +144,36 @@ DEFAULT_RULES: dict[FeatureKey, tuple[RuleSpec, ...]] = {
         _ppe_rule(EventType.MISSING_GLOVES, NO_GLOVES, "gloves"),
         _ppe_rule(EventType.MISSING_HAIR_CAP, NO_HAIR_CAP, "hair_cap"),
     ),
+    # Wave 2 (plan 10.2). The thresholds depend on the branch: set them per camera.
+    FeatureKey.QUEUE: (
+        RuleSpec(
+            EventType.QUEUE_LONG,
+            frozenset({PERSON}),
+            zone_types=frozenset({ZoneType.QUEUE}),
+            group_by=GroupBy.ZONE,
+            min_count=5,
+            min_duration_s=60,
+            max_gap_s=10,  # a queue that is briefly shorter is still the same queue
+            cooldown_s=600,
+        ),
+    ),
+    FeatureKey.CUSTOMER_COUNT: (
+        RuleSpec(
+            EventType.OCCUPANCY_HIGH,
+            frozenset({PERSON}),
+            zone_types=frozenset({ZoneType.DINING}),
+            group_by=GroupBy.ZONE,
+            min_count=30,
+            min_duration_s=120,
+            max_gap_s=30,
+            cooldown_s=1800,
+            severity=Severity.INFO,
+        ),
+    ),
 }
 
 # Features that run without rules (other stages of the pipeline).
-NO_RULES = frozenset({FeatureKey.ATTENDANCE, FeatureKey.CUSTOMER_COUNT})
+NO_RULES = frozenset({FeatureKey.ATTENDANCE})
 
 # Feature-wide settings and their defaults; override in the feature's params, e.g.
 # {"min_crop_height_px": 120}. See edge/README.md for what each one does.
@@ -167,7 +195,7 @@ FEATURE_DEFAULTS: dict[FeatureKey, dict[str, float]] = {
     },
 }
 
-_TUNABLE = ("min_duration_s", "max_gap_s", "cooldown_s", "min_confidence")
+_TUNABLE = ("min_duration_s", "max_gap_s", "cooldown_s", "min_confidence", "min_count")
 
 
 def _event_keys(feature: FeatureKey) -> set[str]:
@@ -396,6 +424,8 @@ class RuleEngine:
             for zone_id in zone_ids:
                 confidence, boxes = seen.get((track, zone_id), (0.0, ()))
                 seen[(track, zone_id)] = (max(confidence, obs.confidence), (*boxes, obs.box))
+        if rule.min_count > 1:
+            seen = {k: v for k, v in seen.items() if len(v[1]) >= rule.min_count}
         return seen
 
     def _advance(self, rs: _RuleState, key: _Key, state: _State, ts: float) -> list[RuleOutput]:

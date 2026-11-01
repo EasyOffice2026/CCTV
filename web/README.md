@@ -28,6 +28,7 @@ and talks to the API through its own proxy.
 | Page | Who (permission) | What |
 |---|---|---|
 | Overview | `kpis_view` | Each branch today: events, issues, attendance, customers, cameras and boxes, alert times, latest events, reports; sections follow the feature switches; refreshes every minute. Home page of owners and managers |
+| Pilot | `kpis_view` | The official pilot of the chosen branch: pilot day, the success criteria with met / not met, precision per feature, a table per day (false alarms, alert p95, camera and box uptime), and the pilot log (owners and our team write; super-admins set day 1) |
 | Daily review | `events_review` | The day's unreviewed events of the chosen branch, oldest first, with clip; keys V valid, F false alarm, R reviewed, S skip, B back. Below: review results of the last 7 days per event type, camera and zone (precision, false alarms/day) for tuning (plan 9.4, 9.5) |
 | Live events | `events_view` | Event cards that update live over the WebSocket; clip player; Valid / False alarm / Reviewed |
 | Search | `events_view` | Every filter of the search API; CSV export (`media_export`) |

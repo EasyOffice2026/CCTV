@@ -108,6 +108,15 @@ function BranchCard({ data, embedded, onOpen }: { data: BranchOverview; embedded
         </div>
       )}
 
+      {data.queue && (
+        <Section title={t("feature.queue")}>
+          <Kpi label={t("overview.queuePeak")} value={num(data.queue.peak)} />
+          <Kpi label={t("overview.queueWaitAvg")} value={data.queue.wait_avg_s == null ? "—" : `${Math.round(data.queue.wait_avg_s / 6) / 10} min`} />
+          <Kpi label={t("overview.queueWaitMax")} value={data.queue.wait_max_s == null ? "—" : `${Math.round(data.queue.wait_max_s / 6) / 10} min`} />
+          <Kpi label={t("overview.longQueues")} value={num(data.queue.long_queues)} tone={data.queue.long_queues ? "amber" : undefined} />
+        </Section>
+      )}
+
       <Section title={t("overview.system")}>
         <Kpi
           label={t("overview.devicesOnline")}

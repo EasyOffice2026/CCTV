@@ -20,6 +20,7 @@ const NAV: { group: MessageKey; items: NavItem[] }[] = [
     group: "nav.monitoring",
     items: [
       { href: "/overview/", label: "nav.overview", anyOf: ["kpis_view"] },
+      { href: "/pilot/", label: "nav.pilot", anyOf: ["kpis_view"] },
       { href: "/events/", label: "nav.events", anyOf: ["events_view"] },
       { href: "/review/", label: "nav.review", anyOf: ["events_review"] },
       { href: "/search/", label: "nav.search", anyOf: ["events_view"] },

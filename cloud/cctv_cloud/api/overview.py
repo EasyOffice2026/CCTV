@@ -60,6 +60,14 @@ class CustomerKpis(BaseModel):
     hours: list[int] | None  # customers in per branch-time hour (0-23)
 
 
+class QueueKpis(BaseModel):
+    peak: int | None  # most people in a queue zone at once
+    waits: int | None  # people who left the queue
+    wait_avg_s: int | None
+    wait_max_s: int | None
+    long_queues: int  # queue_long events, not dismissed as false alarms
+
+
 class SystemKpis(BaseModel):
     devices_online: int
     devices_offline: int
@@ -88,6 +96,7 @@ class BranchOverview(BaseModel):
     cashier: CashierKpis | None
     security: int | None
     customers: CustomerKpis | None
+    queue: QueueKpis | None
     alerts: AlertSummary
     system: SystemKpis
     recent_events: list[EventOut] | None
@@ -202,6 +211,17 @@ def branch_overview(ctx: Context, branch: Branch, day: date, recent: int) -> Bra
             hours=data.hours,
         )
         if on(FeatureKey.CUSTOMER_COUNT)
+        else None,
+        queue=QueueKpis(
+            peak=totals.queue_peak,
+            waits=totals.queue_waits,
+            wait_avg_s=totals.queue_wait_avg_s,
+            wait_max_s=totals.queue_wait_max_s,
+            long_queues=next(
+                (t.total - t.false_alarm for t in data.types if t.event_type == "queue_long"), 0
+            ),
+        )
+        if on(FeatureKey.QUEUE)
         else None,
         alerts=data.alerts,
         system=_system(ctx, branch),

@@ -144,6 +144,12 @@ class CountBucket(TenantScoped, Base):
     max_occupancy: Mapped[int | None]
     # Seconds with at least one person in the zone (e.g. the counter was staffed).
     occupied_seconds: Mapped[int | None]
+    # Plan 10.2: line crossings left out because the person is staff; queue waits ended
+    # in the bucket (how many, total and longest seconds).
+    staff_crossings: Mapped[int | None]
+    waits: Mapped[int | None]
+    wait_total_seconds: Mapped[int | None]
+    wait_max_seconds: Mapped[int | None]
 
     __table_args__ = (
         tenant_fk("camera_id", "cameras", ondelete="CASCADE"),

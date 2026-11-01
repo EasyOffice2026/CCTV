@@ -22,7 +22,7 @@ The token identifies the tenant and branch, so they are never sent in request bo
 | `POST /remote/{id}/reply` | `RemoteReply` → `204` | Answer a request once; `404` if it expired or was sent to another box |
 | `GET /face-templates` | → `FaceTemplateList` (or `304`) | Face templates of the branch's consenting staff; `If-None-Match: <etag>`. Keep in memory only |
 | `POST /attendance` | `SightingBatch` → `BatchResult` | Up to 500 face matches (staff, camera, time). Unmatched faces are never sent |
-| `POST /counts` | `CountBatch` → `BatchResult` | Up to 500 finished count buckets (line in/out, zone occupancy); resending replaces |
+| `POST /counts` | `CountBatch` → `BatchResult` | Up to 500 finished count buckets (line in/out without staff, staff crossings left out, zone occupancy, queue waits); resending replaces |
 
 ## Event flow
 

@@ -3,6 +3,11 @@
 - Entrance lines (`entrance_line` zones): `in_count` / `out_count`.
 - Area zones (counter, queue, ...): `max_occupancy` and `occupied_seconds` (time with at
   least one person in the zone), e.g. how long the counter was staffed.
+- Staff are left out of customer counts (entrance lines, queue and dining zones): people
+  seen in a staff area, kitchen or counter zone of the same camera. `staff_crossings` says
+  how many line crossings were left out for that reason.
+- Queue zones: `waits` people left the queue in the bucket, together `wait_total_seconds`
+  in it, the longest `wait_max_seconds` (time each person's track spent in the zone).
 
 The box sends each bucket once it is complete, with its totals; resending the same
 bucket replaces it, so retries are harmless.
@@ -26,6 +31,10 @@ class CountBucketIn(ContractModel):
     out_count: int = Field(default=0, ge=0)
     max_occupancy: int | None = Field(default=None, ge=0)
     occupied_seconds: int | None = Field(default=None, ge=0)
+    staff_crossings: int | None = Field(default=None, ge=0)
+    waits: int | None = Field(default=None, ge=0)
+    wait_total_seconds: int | None = Field(default=None, ge=0)
+    wait_max_seconds: int | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def _check_bucket(self) -> "CountBucketIn":

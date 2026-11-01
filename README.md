@@ -11,6 +11,7 @@ Pilot site: Mudawara. Built as a multi-tenant product for later client rollout.
 - Web dashboard: [web/README.md](web/README.md)
 - Security (TLS, encryption, secrets, pen-test checklist): [docs/security.md](docs/security.md)
 - Privacy (data flow, retention, consent form, signage): [docs/privacy/](docs/privacy/README.md)
+- Running the 30-day pilot and its sign-off form (EN/AR): [docs/pilot/](docs/pilot/README.md)
 - Install day and shadow mode (runbooks): [docs/runbooks/](docs/runbooks/install.md); owner and manager guide (EN/AR): [docs/training/](docs/training/owner-and-managers.md)
 - Connecting the client's operational system (sign-in, embedding, KPIs, webhooks): [docs/integration/ops-system.md](docs/integration/ops-system.md)
 

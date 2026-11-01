@@ -26,6 +26,24 @@ from uuid import UUID
 from cctv_contracts.enums import EventStatus, MediaKind
 from cctv_contracts.v1 import CountBucketIn, StaffSighting
 
+# Count columns added after the first release; older outboxes get them on start.
+COUNT_COLUMNS_ADDED = ("staff_crossings", "waits", "wait_total_seconds", "wait_max_seconds")
+
+
+def _merge_added(column: str) -> str:
+    """Merging a partial bucket: sums, except the longest wait."""
+    if column == "wait_max_seconds":
+        combined = f"MAX({column}, excluded.{column})"
+    else:
+        combined = f"{column} + excluded.{column}"
+    return (
+        f" {column} = CASE WHEN {column} IS NULL THEN excluded.{column}"
+        f" WHEN excluded.{column} IS NULL THEN {column} ELSE {combined} END,"
+    )
+
+
+_ADDED_UPDATE = "".join(_merge_added(c) for c in COUNT_COLUMNS_ADDED)
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS events (
     event_id        TEXT PRIMARY KEY,
@@ -71,6 +89,10 @@ CREATE TABLE IF NOT EXISTS counts (
     out_count        INTEGER NOT NULL DEFAULT 0,
     max_occupancy    INTEGER,
     occupied_seconds INTEGER,
+    staff_crossings  INTEGER,
+    waits            INTEGER,
+    wait_total_seconds INTEGER,
+    wait_max_seconds INTEGER,
     sent             INTEGER NOT NULL DEFAULT 0,
     attempts         INTEGER NOT NULL DEFAULT 0,
     next_attempt_at  REAL NOT NULL DEFAULT 0,
@@ -142,6 +164,11 @@ class Outbox:
             self._db.execute("PRAGMA synchronous=NORMAL")
             self._db.execute("PRAGMA foreign_keys=ON")
             self._db.executescript(_SCHEMA)
+            # Boxes installed before these columns existed (plan 10.2).
+            have = {row[1] for row in self._db.execute("PRAGMA table_info(counts)")}
+            for column in COUNT_COLUMNS_ADDED:
+                if column not in have:
+                    self._db.execute(f"ALTER TABLE counts ADD COLUMN {column} INTEGER")
 
     def close(self) -> None:
         with self._lock:
@@ -383,9 +410,11 @@ class Outbox:
         restart) is added to, and sent again with the combined totals."""
         self._tx(
             (
-                "INSERT INTO counts (camera_id, zone_id, bucket_start, bucket_seconds,"
-                " in_count, out_count, max_occupancy, occupied_seconds)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+                # Fixed column names only (_ADDED_UPDATE); values are parameters.
+                "INSERT INTO counts (camera_id, zone_id, bucket_start, bucket_seconds,"  # noqa: S608
+                " in_count, out_count, max_occupancy, occupied_seconds,"
+                " staff_crossings, waits, wait_total_seconds, wait_max_seconds)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
                 " ON CONFLICT (camera_id, zone_id, bucket_start) DO UPDATE SET"
                 " in_count = in_count + excluded.in_count,"
                 " out_count = out_count + excluded.out_count,"
@@ -396,7 +425,8 @@ class Outbox:
                 "   THEN excluded.occupied_seconds"
                 "   WHEN excluded.occupied_seconds IS NULL THEN occupied_seconds"
                 "   ELSE MIN(bucket_seconds, occupied_seconds + excluded.occupied_seconds) END,"
-                " sent = 0, attempts = 0, next_attempt_at = 0",
+                + _ADDED_UPDATE
+                + " sent = 0, attempts = 0, next_attempt_at = 0",
                 (
                     str(b.camera_id),
                     str(b.zone_id) if b.zone_id else "",
@@ -406,6 +436,10 @@ class Outbox:
                     b.out_count,
                     b.max_occupancy,
                     b.occupied_seconds,
+                    b.staff_crossings,
+                    b.waits,
+                    b.wait_total_seconds,
+                    b.wait_max_seconds,
                 ),
             )
             for b in buckets
@@ -429,6 +463,7 @@ class Outbox:
                     out_count=row["out_count"],
                     max_occupancy=row["max_occupancy"],
                     occupied_seconds=row["occupied_seconds"],
+                    **{c: row[c] for c in COUNT_COLUMNS_ADDED},
                 ),
             )
             for row in rows

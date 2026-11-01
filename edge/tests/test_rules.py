@@ -274,6 +274,7 @@ def test_new_feature_rules_and_settings(caplog):
         EventType.DRAWER_OPEN,
         EventType.MISSING_GLOVES,
         EventType.MISSING_HAIR_CAP,
+        EventType.OCCUPANCY_HIGH,  # customer count: a full dining room (wave 2)
     }
     assert by_type[EventType.COUNTER_UNATTENDED].absent
     assert by_type[EventType.COUNTER_UNATTENDED].when is When.OPEN_HOURS

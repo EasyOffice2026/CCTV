@@ -42,7 +42,15 @@ TRACKED_LABELS = frozenset({PERSON})
 # Features that need a sharper picture than the default analysis size (faces, gloves).
 DETAIL_FEATURES = frozenset({FeatureKey.KITCHEN_COMPLIANCE, FeatureKey.ATTENDANCE})
 # Area zones whose occupancy is counted, and the feature that turns it on.
-OCCUPANCY_ZONES = {FeatureKey.CASHIER: ZoneType.COUNTER, FeatureKey.QUEUE: ZoneType.QUEUE}
+OCCUPANCY_ZONES = {
+    FeatureKey.CASHIER: ZoneType.COUNTER,
+    FeatureKey.QUEUE: ZoneType.QUEUE,
+    FeatureKey.CUSTOMER_COUNT: ZoneType.DINING,
+}
+# Customer counts leave out people seen in these zones (staff), and these zones count
+# customers only.
+STAFF_ZONES = frozenset({ZoneType.STAFF_AREA, ZoneType.KITCHEN, ZoneType.COUNTER})
+CUSTOMER_ZONES = frozenset({ZoneType.QUEUE, ZoneType.DINING})
 
 
 @dataclass
@@ -97,7 +105,16 @@ class CameraPipeline:
             }
         area_types = {t for f, t in OCCUPANCY_ZONES.items() if f in features}
         areas = {z.id: z.points for z in camera.zones if z.type in area_types}
-        self.counts = CountAggregator(camera.id, lines, areas)
+        self.counts = CountAggregator(
+            camera.id,
+            lines,
+            areas,
+            customer_areas={
+                z.id for z in camera.zones if z.id in areas and z.type in CUSTOMER_ZONES
+            },
+            queue_areas={z.id for z in camera.zones if z.id in areas and z.type is ZoneType.QUEUE},
+            staff_areas=[z.points for z in camera.zones if z.type in STAFF_ZONES],
+        )
 
         needed = set(self.engine.labels)
         missing: set[str] = set()

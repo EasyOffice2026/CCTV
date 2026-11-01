@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, time
+from datetime import date, datetime, time
 
 from sqlalchemy import BigInteger, CheckConstraint, SmallInteger, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
@@ -38,6 +38,8 @@ class Branch(UUIDPk, CreatedAt, TenantScoped, Base):
     # Shadow mode (plan 9.4): until then, alerts go only to the support team's reviewers,
     # and no webhooks or report links go to the client.
     shadow_until: Mapped[datetime | None]
+    # The official pilot (plan 10): day 1, for the pilot figures and the 30-day check.
+    pilot_started_on: Mapped[date | None]
 
     __table_args__ = (
         UniqueConstraint("id", "tenant_id"),

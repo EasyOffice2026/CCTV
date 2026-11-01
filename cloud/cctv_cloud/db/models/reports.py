@@ -2,11 +2,20 @@ import uuid
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import CheckConstraint, Index, String, UniqueConstraint, func, text
+from sqlalchemy import (
+    CheckConstraint,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
-from cctv_cloud.db.base import Base, TenantScoped, UUIDPk, check_in, tenant_fk
-from cctv_cloud.db.enums import ReportPeriod
+from cctv_cloud.db.base import Base, CreatedAt, TenantScoped, UUIDPk, check_in, tenant_fk
+from cctv_cloud.db.enums import PilotNoteKind, ReportPeriod
 
 
 class Report(UUIDPk, TenantScoped, Base):
@@ -32,4 +41,23 @@ class Report(UUIDPk, TenantScoped, Base):
         Index(
             "ix_reports_tenant_branch_start", "tenant_id", "branch_id", text("period_start DESC")
         ),
+    )
+
+
+class PilotNote(UUIDPk, CreatedAt, TenantScoped, Base):
+    """The pilot log (plan 10.4): check-ins, feedback, changes, issues and decisions."""
+
+    __tablename__ = "pilot_notes"
+
+    branch_id: Mapped[uuid.UUID | None]  # NULL: the whole client
+    noted_on: Mapped[date]
+    kind: Mapped[str] = mapped_column(String(20))
+    body: Mapped[str] = mapped_column(Text)
+    author_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+
+    __table_args__ = (
+        tenant_fk("branch_id", "branches", ondelete="CASCADE"),
+        check_in("kind", PilotNoteKind),
+        CheckConstraint("length(body) BETWEEN 1 AND 5000", name="body_length"),
+        Index("ix_pilot_notes_tenant_noted", "tenant_id", text("noted_on DESC")),
     )
