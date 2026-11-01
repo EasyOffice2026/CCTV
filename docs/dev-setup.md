@@ -97,6 +97,9 @@ Without those variables the database tests are skipped. What the cloud tests che
   frame / face enrolment through a simulated edge box (only the addressed box can answer),
   the relay on Redis (fakeredis) and in-process, staff consent rules, CSV export, the
   refresh cookie
+- heatmaps: time per cell without staff and stream gaps, hourly buckets, merged after a
+  restart in the outbox, stored and added up in the cloud per camera with branch access,
+  through the real edge client
 - edge software updates (plan 2.10): releases and rollouts for super-admins only, the
   offer in heartbeats, failed updates not offered again until rolled out again, withdrawn
   releases; on the box the updater's switch, health watch and rollback, refused requests

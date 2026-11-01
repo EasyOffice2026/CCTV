@@ -74,6 +74,7 @@ in other branches returns 404. Super-admins (our team) can do everything, in any
 | Live view, playback | `/v1/live/ice-servers`, `/v1/cameras/{id}/live`, `/playback`, `/recordings`, `/frame` |
 | Staff | `/v1/staff`, `/v1/staff/{id}/consent`, `/v1/staff/{id}/face`, `/v1/shifts` |
 | Attendance, counts | `/v1/attendance`, `/v1/attendance/{staff_id}/{date}` (correct / undo), `/v1/counts` |
+| Heatmaps | `/v1/heatmaps?camera_id=&from=&to=` (the camera's grid added up over the period, up to 93 days; `null` without data) |
 | Alerts | `/v1/me/alert-rules`, `/v1/me/alert-profile`, `/v1/me/push-subscriptions`, `/v1/me/alert-test`, `/v1/events/{id}/alerts` (who was told, how fast) |
 | Reports | `/v1/reports` (list, make), `/v1/reports/{id}`, `/v1/reports/{id}/file?format=pdf\|xlsx&lang=en\|ar` |
 | Realtime | WebSocket `/v1/ws` (live event feed, in-app alerts) |
@@ -86,7 +87,7 @@ in other branches returns 404. Super-admins (our team) can do everything, in any
 | Overview, KPIs | `/v1/overview` (per branch, today so far or a past day; follows the feature switches) |
 | Integrations | `/v1/api-keys`, `/v1/webhooks` (+ `/{id}/test`, `/{id}/deliveries`), `/v1/sso-integrations` (super-admin creates; owners see) |
 | Audit log | `/v1/audit-logs` (filters: action, user, target, since/until), `/v1/audit-logs/export` (CSV, itself audited) |
-| Edge | `/v1/edge/pair`, `/token` (rotation), `/config`, `/heartbeat`, `/media/upload-urls`, `/events`, `/remote` (long poll), `/remote/{id}/reply`, `/face-templates`, `/attendance`, `/counts` |
+| Edge | `/v1/edge/pair`, `/token` (rotation), `/config`, `/heartbeat`, `/media/upload-urls`, `/events`, `/remote` (long poll), `/remote/{id}/reply`, `/face-templates`, `/attendance`, `/counts`, `/heatmaps` |
 
 **Feature settings** resolve camera → branch → tenant → default; `params` merge in the same
 order. Any change that affects a branch's edge config bumps the branch's
@@ -140,6 +141,11 @@ branch) bump the branch config version so the box reloads the templates.
 **Counts** (`POST /v1/edge/counts`): 5-minute buckets per camera and zone: entrance-line
 in/out and zone occupancy (`max_occupancy`, `occupied_seconds`, e.g. how long the counter
 was staffed). A bucket sent again replaces the stored one. Read with `GET /v1/counts`.
+
+**Heatmaps** (`POST /v1/edge/heatmaps`): one bucket per camera and hour, person-seconds per
+cell of a grid over the picture as `[cell index, seconds]` pairs (`heatmap_buckets`, kept
+as long as event records). `GET /v1/heatmaps` adds a camera's buckets up over a period;
+if the grid size changed within it, the most common size is used.
 
 **Alerts** (plan 6.1-6.5, 6.7). Each user keeps their own alert rules: feature (or all),
 branch (or all of theirs), minimum severity, channels (browser, WhatsApp, email), quiet

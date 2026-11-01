@@ -10,11 +10,13 @@ from cctv_contracts.enums import MediaKind
 from cctv_contracts.v1 import (
     MAX_BUCKETS_PER_BATCH,
     MAX_EVENTS_PER_BATCH,
+    MAX_HEATMAPS_PER_BATCH,
     MAX_SIGHTINGS_PER_BATCH,
     BatchResult,
     CountBatch,
     EventBatch,
     EventIn,
+    HeatmapBatch,
     SightingBatch,
     UploadUrlRequest,
 )
@@ -115,6 +117,26 @@ class Syncer:
         if result is not None:
             self._log_rejected("count bucket", result)
         self.outbox.mark_counts_sent(keys)  # rejected ones are not resent either
+        return result.accepted if result else 0
+
+    def sync_heatmaps(self, now: float) -> int:
+        """Send finished heatmap buckets; returns how many the cloud accepted."""
+        due = self.outbox.due_heatmaps(now, MAX_HEATMAPS_PER_BATCH)
+        if not due:
+            return 0
+        keys = [k for k, _ in due]
+        try:
+            result = self.client.send_heatmaps(HeatmapBatch(buckets=[b for _, b in due]))
+        except CloudError as exc:
+            if self._retry(exc):
+                log.warning("sending %d heatmap buckets failed: %s", len(due), exc)
+                self.outbox.retry_heatmaps(keys, now)
+                return 0
+            log.error("cloud refused %d heatmap buckets; dropped: %s", len(due), exc)
+            result = None
+        if result is not None:
+            self._log_rejected("heatmap bucket", result)
+        self.outbox.mark_heatmaps_sent(keys)
         return result.accepted if result else 0
 
     @staticmethod

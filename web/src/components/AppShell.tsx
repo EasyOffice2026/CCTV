@@ -24,6 +24,7 @@ const NAV: { group: MessageKey; items: NavItem[] }[] = [
       { href: "/events/", label: "nav.events", anyOf: ["events_view"] },
       { href: "/review/", label: "nav.review", anyOf: ["events_review"] },
       { href: "/search/", label: "nav.search", anyOf: ["events_view"] },
+      { href: "/heatmap/", label: "nav.heatmap", anyOf: ["events_view"] },
       { href: "/live/", label: "nav.live", anyOf: ["live_view"] },
       { href: "/playback/", label: "nav.playback", anyOf: ["live_view"] },
       { href: "/reports/", label: "nav.reports", anyOf: ["reports_view"] },

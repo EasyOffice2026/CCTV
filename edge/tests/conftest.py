@@ -72,6 +72,7 @@ class FakeCloud:
         self.remote_replies: dict[str, dict] = {}
         self.sightings: list[dict] = []
         self.counts: list[dict] = []
+        self.heatmaps: list[dict] = []
         self.reject_staff: set[str] = set()  # sightings for these are rejected
         self.templates: list[dict] = []
         self.templates_etag = '"t1"'
@@ -156,6 +157,10 @@ class FakeCloud:
         if path == "/v1/edge/counts":
             items = json.loads(request.content)["buckets"]
             self.counts += items
+            return httpx.Response(200, json={"accepted": len(items), "rejected": []})
+        if path == "/v1/edge/heatmaps":
+            items = json.loads(request.content)["buckets"]
+            self.heatmaps += items
             return httpx.Response(200, json={"accepted": len(items), "rejected": []})
         if path == "/v1/edge/face-templates":
             etag = request.headers.get("if-none-match")

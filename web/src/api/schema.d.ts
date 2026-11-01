@@ -855,6 +855,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/edge/heatmaps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report Heatmaps
+         * @description Finished heatmap buckets; a bucket sent again replaces the stored one.
+         */
+        post: operations["report_heatmaps_v1_edge_heatmaps_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/edge/media/upload-urls": {
         parameters: {
             query?: never;
@@ -1116,6 +1136,28 @@ export interface paths {
         };
         /** List Features */
         get: operations["list_features_v1_features_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/heatmaps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Heatmap
+         * @description Where people (not staff) stood in the camera's view between `from` and `to`, added
+         *     up hour by hour; null when the camera sent no heatmap for the period. Needs the Heatmap
+         *     feature on for the camera.
+         */
+        get: operations["get_heatmap_v1_heatmaps_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3306,6 +3348,66 @@ export interface components {
             server_time: string;
             /** @description Switch to this release; none: stay on the current one */
             update?: components["schemas"]["SoftwareUpdate"] | null;
+        };
+        /** HeatmapBatch */
+        HeatmapBatch: {
+            /** Buckets */
+            buckets: components["schemas"]["HeatmapBucketIn"][];
+        };
+        /** HeatmapBucketIn */
+        HeatmapBucketIn: {
+            /**
+             * Bucket Seconds
+             * @default 3600
+             */
+            bucket_seconds: number;
+            /**
+             * Bucket Start
+             * Format: date-time
+             */
+            bucket_start: string;
+            /**
+             * Camera Id
+             * Format: uuid
+             */
+            camera_id: string;
+            /** Cells */
+            cells?: [
+                number,
+                number
+            ][];
+            /**
+             * Columns
+             * @default 32
+             */
+            columns: number;
+            /**
+             * Rows
+             * @default 18
+             */
+            rows: number;
+        };
+        /** HeatmapOut */
+        HeatmapOut: {
+            /**
+             * Camera Id
+             * Format: uuid
+             */
+            camera_id: string;
+            /** Columns */
+            columns: number;
+            /**
+             * Hours
+             * @description Hours of data in the period (the box sends each hour)
+             */
+            hours: number;
+            /** Rows */
+            rows: number;
+            /**
+             * Seconds
+             * @description Person-seconds per cell, row by row from the top left (cell index = row * columns + column); staff left out
+             */
+            seconds: number[];
         };
         /** IceServers */
         IceServers: {
@@ -7042,6 +7144,39 @@ export interface operations {
             };
         };
     };
+    report_heatmaps_v1_edge_heatmaps_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HeatmapBatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     upload_url_v1_edge_media_upload_urls_post: {
         parameters: {
             query?: never;
@@ -7554,6 +7689,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FeatureOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_heatmap_v1_heatmaps_get: {
+        parameters: {
+            query: {
+                camera_id: string;
+                from: string;
+                to: string;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeatmapOut"] | null;
                 };
             };
             /** @description Validation Error */

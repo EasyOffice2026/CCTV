@@ -19,6 +19,7 @@ from cctv_contracts.v1 import (
     EdgeConfig,
     Heartbeat,
     HeartbeatResponse,
+    HeatmapBucketIn,
     StaffSighting,
     UpdateReport,
 )
@@ -130,7 +131,7 @@ class CameraWorker:
         with self.lock:
             result = self.pipeline.process(frame, ts)
         self.service.handle_outputs(self.camera, result.outputs, frame)
-        self.service.store_aggregates(result.counts, result.sightings)
+        self.service.store_aggregates(result.counts, result.sightings, result.heatmaps)
 
     def replace_pipeline(self, camera: CameraConfig, pipeline: CameraPipeline) -> None:
         """Apply new zones/features without restarting the stream. Open events are closed
@@ -138,9 +139,10 @@ class CameraWorker:
         with self.lock:
             outputs = self.pipeline.engine.close_all()
             counts = self.pipeline.flush_counts()
+            heatmaps = self.pipeline.flush_heatmaps()
             self.camera, self.pipeline = camera, pipeline
         self.service.handle_outputs(camera, outputs, None)
-        self.service.store_aggregates(counts, [])
+        self.service.store_aggregates(counts, [], heatmaps)
 
     def stop(self) -> None:
         self._stop.set()
@@ -153,8 +155,9 @@ class CameraWorker:
         with self.lock:
             outputs = self.pipeline.engine.close_all()
             counts = self.pipeline.flush_counts()
+            heatmaps = self.pipeline.flush_heatmaps()
         self.service.handle_outputs(self.camera, outputs, None)
-        self.service.store_aggregates(counts, [])
+        self.service.store_aggregates(counts, [], heatmaps)
 
     def status(self, now: float) -> CameraStatus:
         report = self.health.report(now)
@@ -355,12 +358,17 @@ class EdgeService:
                 log.exception("camera %s: could not record event %s", camera.name, output.event_id)
 
     def store_aggregates(
-        self, counts: Sequence[CountBucketIn], sightings: Sequence[StaffSighting]
+        self,
+        counts: Sequence[CountBucketIn],
+        sightings: Sequence[StaffSighting],
+        heatmaps: Sequence[HeatmapBucketIn] = (),
     ) -> None:
         now = time.time()
         try:
             if counts:
                 self.outbox.add_counts(counts)
+            if heatmaps:
+                self.outbox.add_heatmaps(heatmaps)
             if sightings:
                 self.outbox.add_sightings(sightings, now)
                 self._sync_wanted.set()
@@ -428,10 +436,12 @@ class EdgeService:
         return closed
 
     def sync_once(self, now: float) -> int:
-        """Send events, then sightings and counts. Returns how many events were accepted."""
+        """Send events, then sightings, counts and heatmaps. Returns how many events were
+        accepted."""
         accepted = self.syncer.sync_once(now)
         self.syncer.sync_sightings(now)
         self.syncer.sync_counts(now)
+        self.syncer.sync_heatmaps(now)
         return accepted
 
     # --- health -----------------------------------------------------------------------

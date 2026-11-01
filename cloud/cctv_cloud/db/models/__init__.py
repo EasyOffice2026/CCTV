@@ -15,7 +15,7 @@ from cctv_cloud.db.models.devices import (
     Nvr,
     Zone,
 )
-from cctv_cloud.db.models.events import AttendanceRecord, CountBucket, Event
+from cctv_cloud.db.models.events import AttendanceRecord, CountBucket, Event, HeatmapBucket
 from cctv_cloud.db.models.features import Feature, FeatureSetting
 from cctv_cloud.db.models.integrations import (
     SsoIntegration,
@@ -51,6 +51,7 @@ __all__ = [
     "Feature",
     "FeatureSetting",
     "HealthIncident",
+    "HeatmapBucket",
     "Nvr",
     "PilotNote",
     "PushSubscription",

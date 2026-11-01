@@ -191,6 +191,15 @@ track splits a wait, so waits are on the low side.
 
 Events of rules with `min_count` carry `people` (how many were in the zone when it opened).
 
+### Heatmap
+
+Where people stand (`cctv_edge/heatmap.py`), for cameras with the Heatmap feature: every
+frame, each person's foot point adds the time since the last frame to its cell of a 32 x 18
+grid over the picture. Staff (seen in a staff area, kitchen or counter zone of the camera)
+are left out, as in customer counts, and so are detections in ignore zones. One bucket per
+hour, sent like counts (`POST /v1/edge/heatmaps`); only totals leave the box. Gaps between
+frames over 2 s (a stream drop) add nothing.
+
 ## Live view, playback and other requests from the cloud
 
 The dashboard sometimes needs something only the box can reach on the branch LAN. The box

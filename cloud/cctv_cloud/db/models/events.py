@@ -15,6 +15,7 @@ from sqlalchemy import (
     func,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from cctv_cloud.db.base import Base, TenantScoped, UUIDPk, check_in, tenant_fk
@@ -163,4 +164,27 @@ class CountBucket(TenantScoped, Base):
             name="occupied_within_bucket",
         ),
         Index("ix_count_buckets_tenant_start", "tenant_id", "bucket_start"),
+    )
+
+
+class HeatmapBucket(TenantScoped, Base):
+    """Where people (not staff) stood in a camera's view per hour (later phase: heatmaps):
+    person-seconds per cell of a columns x rows grid over the picture, as [index, seconds]
+    pairs for the cells with time in them."""
+
+    __tablename__ = "heatmap_buckets"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"))
+    camera_id: Mapped[uuid.UUID]
+    bucket_start: Mapped[datetime]
+    bucket_seconds: Mapped[int] = mapped_column(SmallInteger, server_default="3600")
+    columns: Mapped[int] = mapped_column(SmallInteger)
+    rows: Mapped[int] = mapped_column(SmallInteger)
+    cells: Mapped[list[list[int]]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+
+    __table_args__ = (
+        tenant_fk("camera_id", "cameras", ondelete="CASCADE"),
+        UniqueConstraint("camera_id", "bucket_start"),
+        Index("ix_heatmap_buckets_tenant_start", "tenant_id", "bucket_start"),
     )

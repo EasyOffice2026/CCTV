@@ -20,6 +20,7 @@ from cctv_contracts.v1 import (
     FaceTemplateList,
     Heartbeat,
     HeartbeatResponse,
+    HeatmapBatch,
     RemoteReply,
     RemoteRequest,
     SightingBatch,
@@ -106,6 +107,9 @@ class CloudClient:
 
     def send_counts(self, batch: CountBatch) -> BatchResult:
         return self._post("/counts", batch, BatchResult)
+
+    def send_heatmaps(self, batch: HeatmapBatch) -> BatchResult:
+        return self._post("/heatmaps", batch, BatchResult)
 
     def fetch_face_templates(self, etag: str | None) -> tuple[FaceTemplateList, str | None] | None:
         """The branch's face templates and their ETag, or None when `etag` is current.

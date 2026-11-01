@@ -2,7 +2,8 @@
 
     frame ─► detectors ─► ignore zones ─► tracker ─► zone tests ─┬─► rules ─► events
                                              │                    ├─► PPE (kitchen zones)
-                                             └─► counts           └─► drawer (cash_drawer zones)
+                                             ├─► counts           └─► drawer (cash_drawer zones)
+                                             └─► heatmap
     frame ─► faces ─► match staff ─► sightings              (attendance cameras only)
 
 Only the stages the enabled features need are built, and only their models run.
@@ -15,12 +16,19 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from cctv_contracts.enums import LINE_ZONE_TYPES, FeatureKey, ZoneType
-from cctv_contracts.v1 import CameraConfig, CountBucketIn, FeatureConfig, StaffSighting
+from cctv_contracts.v1 import (
+    CameraConfig,
+    CountBucketIn,
+    FeatureConfig,
+    HeatmapBucketIn,
+    StaffSighting,
+)
 from cctv_edge.attendance import AttendanceSettings, AttendanceWatcher
 from cctv_edge.counts import CountAggregator
 from cctv_edge.detection import DRAWER_OPEN, PERSON, DetectorFactory
 from cctv_edge.face import FaceAnalyzer, FaceGallery
 from cctv_edge.geometry import Box, point_in_polygon
+from cctv_edge.heatmap import HeatmapAggregator
 from cctv_edge.imaging import crop
 from cctv_edge.models.classifier import Classifier, ClassifierFactory
 from cctv_edge.models.manifest import ModelTask
@@ -59,6 +67,7 @@ class FrameResult:
     observations: list[Observation]
     counts: list[CountBucketIn] = field(default_factory=list)
     sightings: list[StaffSighting] = field(default_factory=list)
+    heatmaps: list[HeatmapBucketIn] = field(default_factory=list)
 
 
 def _bounds(points) -> Box:
@@ -116,6 +125,13 @@ class CameraPipeline:
             staff_areas=[z.points for z in camera.zones if z.type in STAFF_ZONES],
         )
 
+        # Heatmap: where people (not staff) stand, in a grid over the picture.
+        self.heatmap: HeatmapAggregator | None = None
+        if FeatureKey.HEATMAP in features:
+            self.heatmap = HeatmapAggregator(
+                camera.id, staff_areas=[z.points for z in camera.zones if z.type in STAFF_ZONES]
+            )
+
         needed = set(self.engine.labels)
         missing: set[str] = set()
         # Drawer open/closed comes from a classifier on each cash drawer zone.
@@ -150,7 +166,7 @@ class CameraPipeline:
                 )
                 self.ppe = PpeChecker(factory(), items, settings)
                 needed.add(PERSON)
-        if self.counts.active:
+        if self.counts.active or self.heatmap is not None:
             needed.add(PERSON)
 
         # Only the detectors the enabled features need are created, so a feature that is
@@ -205,6 +221,7 @@ class CameraPipeline:
         untracked = [d for d in detections if d.label not in TRACKED_LABELS]
         tracks = self.tracker.update(tracked, ts)
         counts = self.counts.update(tracks, ts)
+        heatmaps = self.heatmap.update(tracks, ts) if self.heatmap is not None else []
 
         observations = [self._observe(t.label, t.box, t.confidence, t.id) for t in tracks] + [
             self._observe(d.label, d.box, d.confidence, None) for d in untracked
@@ -214,7 +231,9 @@ class CameraPipeline:
         if self.drawer is not None:
             observations += self._check_drawers(frame)
         sightings = self.attendance.process(frame, ts) if self.attendance else []
-        return FrameResult(self.engine.update(ts, observations), observations, counts, sightings)
+        return FrameResult(
+            self.engine.update(ts, observations), observations, counts, sightings, heatmaps
+        )
 
     def _check_ppe(
         self, frame: np.ndarray, tracks: list[Track], observations: list[Observation], ts: float
@@ -251,6 +270,10 @@ class CameraPipeline:
     def flush_counts(self) -> list[CountBucketIn]:
         """The partial count bucket, when the camera stops or its config changes."""
         return self.counts.flush()
+
+    def flush_heatmaps(self) -> list[HeatmapBucketIn]:
+        """The partial heatmap bucket, likewise."""
+        return self.heatmap.flush() if self.heatmap is not None else []
 
     def _observe(
         self, label: str, box: Box, confidence: float, track_id: int | None

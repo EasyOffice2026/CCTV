@@ -12,7 +12,7 @@ wording of the consent form and signage.
 
 | People | Data | Why |
 |---|---|---|
-| Customers and visitors | Appear in footage, snapshots and clips of events; counted at entrances and in queues (numbers only) | Security, service quality (customer count, queues), compliance evidence |
+| Customers and visitors | Appear in footage, snapshots and clips of events; counted at entrances and in queues, and where they stood (heatmaps) - numbers only | Security, service quality (customer count, queues, layout), compliance evidence |
 | Staff | Appear in footage; attendance from face recognition (consenting staff only); name, employee code, shift; compliance events (mask, gloves, hair cap) in the kitchen; attendance and compliance figures in reports | Attendance, food-safety compliance, security |
 | Dashboard users (owners, managers, reviewers) | Email, name, role, phone (if they chose WhatsApp alerts), sign-ins and actions in the audit log | Operating the system; accountability |
 
@@ -44,7 +44,8 @@ carry a link that needs a sign-in; WhatsApp and email get text only).
 
 What leaves the branch: event records (what, where, when, confidence, which staff member if
 recognised), one snapshot and one short clip per event (10 s before to 10 s after), attendance
-sightings (staff id, camera, time), count buckets (numbers), camera health. Continuous
+sightings (staff id, camera, time), count buckets and heatmaps (numbers: people per
+hour, seconds per area of the picture), camera health. Continuous
 footage never leaves the NVR; live view and playback stream on demand from the box to the
 viewer's browser and are logged.
 
@@ -67,7 +68,7 @@ services (encrypted notification payloads), the email provider (to be chosen), T
 | Event clips and snapshots | Edge box | 7 days after upload (upload buffer) | Deleted, oldest first |
 | Event clips and snapshots | Cloud storage | 90 days (`retention_media_days`, per client: 30/60/90/180) | Deleted by the retention job; lifecycle rule as backstop |
 | Event records (no media) | Cloud database | 1 year (`retention_event_days`) | Deleted with their count buckets and attendance days |
-| Attendance days, counts | Cloud database | 1 year | Deleted |
+| Attendance days, counts, heatmaps | Cloud database | 1 year | Deleted |
 | Reports (figures, incl. attendance per person) | Cloud database | 2 years (`CCTV_REPORT_RETENTION_DAYS`) | Deleted |
 | Face templates (encrypted embeddings, no photos) | Cloud database; in memory on the box | While employed and consenting | Deleted at once when the person leaves or withdraws consent |
 | Enrolment photos | Nowhere (processed in memory on the box) | — | — |

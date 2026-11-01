@@ -338,7 +338,7 @@ If a feature misses its target, extend the pilot for that feature only. Don't ho
 
 ### Later phase (after pilot)
 
-- Heatmaps (track positions are already available → aggregate into a floor-plan grid)
+- [x] Heatmaps (track positions are already available → aggregate into a floor-plan grid) *Built per camera, over the camera's own picture (32 x 18 cells), not yet on a floor plan: the box adds up the seconds people (not staff) stood in each cell and sends one bucket per hour (numbers only); Monitoring › Heatmap shows a camera over today, yesterday or the last 7, 30 or 90 days, on a current camera picture if the user may see one, with the busiest areas of the picture as a list. Turned on per camera with the Heatmap feature. A combined floor plan per branch (mapping each camera onto a drawing) and heatmaps in the reports are still to do.*
 - Object left / removed
 - POS integration (drawer vs sales), HRM integration (attendance → payroll)
 - Model retraining pipeline that uses reviewed "false alarm" labels automatically

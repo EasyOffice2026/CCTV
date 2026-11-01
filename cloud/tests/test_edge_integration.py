@@ -269,3 +269,39 @@ def test_software_update_round_trip(client, org, tmp_path):
     assert (row["software_version"], row["update_state"]) == ("1.1.0", "updated")
     [release] = client.get("/v1/platform/edge-releases", headers=admin).json()
     assert (release["running"], release["updating"]) == (1, 0)
+
+
+def test_heatmaps_through_the_edge_client(client, org, tmp_path):
+    """Later phase: the box's heatmap buckets, from its outbox to the dashboard's grid."""
+    from cctv_contracts.v1 import HeatmapBucketIn
+
+    owner = login(client, org, "owner_a")
+    device = client.post(
+        "/v1/edge-devices",
+        json={"branch_id": str(org.ids["a1"]), "name": "Hall box", "serial": "JETSON-4"},
+        headers=owner,
+    ).json()
+    paired = client.post("/v1/edge/pair", json={"pairing_code": device["pairing_code"]}).json()
+    edge = CloudClient(str(client.base_url), paired["device_token"], transport=client._transport)
+    outbox = Outbox(tmp_path / "outbox.sqlite3")
+    hour = datetime(2026, 10, 31, 9, tzinfo=timezone.utc)
+    try:
+        outbox.add_heatmaps(
+            [HeatmapBucketIn(camera_id=org.ids["cam_a1"], bucket_start=hour, cells=[(40, 300)])]
+        )
+        assert Syncer(outbox, edge).sync_heatmaps(time.time()) == 1
+    finally:
+        outbox.close()
+        edge.close()
+    params = {
+        "camera_id": str(org.ids["cam_a1"]),
+        "from": hour.isoformat(),
+        "to": (hour + timedelta(hours=1)).isoformat(),
+    }
+    grid = client.get("/v1/heatmaps", params=params, headers=owner).json()
+    assert (grid["columns"], grid["rows"], grid["seconds"][40], sum(grid["seconds"])) == (
+        32,
+        18,
+        300,
+        300,
+    )

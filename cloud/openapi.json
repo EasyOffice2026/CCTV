@@ -3812,6 +3812,124 @@
         "title": "HeartbeatResponse",
         "type": "object"
       },
+      "HeatmapBatch": {
+        "properties": {
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/HeatmapBucketIn"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Buckets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "buckets"
+        ],
+        "title": "HeatmapBatch",
+        "type": "object"
+      },
+      "HeatmapBucketIn": {
+        "properties": {
+          "bucket_seconds": {
+            "default": 3600,
+            "maximum": 3600.0,
+            "minimum": 300.0,
+            "title": "Bucket Seconds",
+            "type": "integer"
+          },
+          "bucket_start": {
+            "format": "date-time",
+            "title": "Bucket Start",
+            "type": "string"
+          },
+          "camera_id": {
+            "format": "uuid",
+            "title": "Camera Id",
+            "type": "string"
+          },
+          "cells": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "minimum": 0.0,
+                  "type": "integer"
+                },
+                {
+                  "minimum": 1.0,
+                  "type": "integer"
+                }
+              ],
+              "type": "array"
+            },
+            "maxItems": 4096,
+            "title": "Cells",
+            "type": "array"
+          },
+          "columns": {
+            "default": 32,
+            "maximum": 64.0,
+            "minimum": 1.0,
+            "title": "Columns",
+            "type": "integer"
+          },
+          "rows": {
+            "default": 18,
+            "maximum": 64.0,
+            "minimum": 1.0,
+            "title": "Rows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "camera_id",
+          "bucket_start"
+        ],
+        "title": "HeatmapBucketIn",
+        "type": "object"
+      },
+      "HeatmapOut": {
+        "properties": {
+          "camera_id": {
+            "format": "uuid",
+            "title": "Camera Id",
+            "type": "string"
+          },
+          "columns": {
+            "title": "Columns",
+            "type": "integer"
+          },
+          "hours": {
+            "description": "Hours of data in the period (the box sends each hour)",
+            "title": "Hours",
+            "type": "number"
+          },
+          "rows": {
+            "title": "Rows",
+            "type": "integer"
+          },
+          "seconds": {
+            "description": "Person-seconds per cell, row by row from the top left (cell index = row * columns + column); staff left out",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Seconds",
+            "type": "array"
+          }
+        },
+        "required": [
+          "camera_id",
+          "columns",
+          "rows",
+          "seconds",
+          "hours"
+        ],
+        "title": "HeatmapOut",
+        "type": "object"
+      },
       "IceServers": {
         "properties": {
           "ice_servers": {
@@ -12584,6 +12702,53 @@
         ]
       }
     },
+    "/v1/edge/heatmaps": {
+      "post": {
+        "description": "Finished heatmap buckets; a bucket sent again replaces the stored one.",
+        "operationId": "report_heatmaps_v1_edge_heatmaps_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeatmapBatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Report Heatmaps",
+        "tags": [
+          "edge"
+        ]
+      }
+    },
     "/v1/edge/media/upload-urls": {
       "post": {
         "operationId": "upload_url_v1_edge_media_upload_urls_post",
@@ -14037,6 +14202,116 @@
         "summary": "List Features",
         "tags": [
           "features"
+        ]
+      }
+    },
+    "/v1/heatmaps": {
+      "get": {
+        "description": "Where people (not staff) stood in the camera's view between `from` and `to`, added\nup hour by hour; null when the camera sent no heatmap for the period. Needs the Heatmap\nfeature on for the camera.",
+        "operationId": "get_heatmap_v1_heatmaps_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "camera_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Camera Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/HeatmapOut"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Heatmap V1 Heatmaps Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Heatmap",
+        "tags": [
+          "counts"
         ]
       }
     },

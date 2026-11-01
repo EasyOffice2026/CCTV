@@ -35,6 +35,7 @@ from cctv_cloud.db.models import (
     CountBucket,
     EdgeDevice,
     Event,
+    HeatmapBucket,
     Tenant,
 )
 from cctv_cloud.db.session import tenant_session
@@ -128,6 +129,7 @@ def _retain_tenant(
     with tenant_session(tenant_id) as db:
         result = db.execute(delete(Event).where(Event.started_at < event_cutoff))
         db.execute(delete(CountBucket).where(CountBucket.bucket_start < event_cutoff))
+        db.execute(delete(HeatmapBucket).where(HeatmapBucket.bucket_start < event_cutoff))
         db.execute(delete(AttendanceRecord).where(AttendanceRecord.work_date < event_cutoff.date()))
         webhooks.purge_deliveries(db, now)
         db.execute(delete(CameraHealthMinute).where(CameraHealthMinute.minute < now - KEEP_HEALTH))

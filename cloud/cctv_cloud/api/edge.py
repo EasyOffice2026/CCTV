@@ -39,6 +39,7 @@ from cctv_cloud.services.attendance import apply_sightings
 from cctv_cloud.services.counts import apply_counts
 from cctv_cloud.services.edge_config import build_edge_config
 from cctv_cloud.services.face_keys import open_embedding
+from cctv_cloud.services.heatmaps import apply_heatmaps
 from cctv_cloud.services.relay import EdgeRelay, get_relay
 from cctv_cloud.services.storage import ObjectStorage, get_storage, key_belongs_to, media_key
 from cctv_contracts.enums import EventStatus, MediaKind
@@ -54,6 +55,7 @@ from cctv_contracts.v1 import (
     FaceTemplateList,
     Heartbeat,
     HeartbeatResponse,
+    HeatmapBatch,
     PairRequest,
     PairResponse,
     RemoteReply,
@@ -466,3 +468,9 @@ def report_sightings(body: SightingBatch, ctx: Device) -> BatchResult:
 def report_counts(body: CountBatch, ctx: Device) -> BatchResult:
     """Finished count buckets; a bucket sent again replaces the stored one."""
     return apply_counts(ctx.db, ctx.device.tenant_id, ctx.device.branch_id, body.buckets)
+
+
+@router.post("/heatmaps", response_model=BatchResult)
+def report_heatmaps(body: HeatmapBatch, ctx: Device) -> BatchResult:
+    """Finished heatmap buckets; a bucket sent again replaces the stored one."""
+    return apply_heatmaps(ctx.db, ctx.device.tenant_id, ctx.device.branch_id, body.buckets)

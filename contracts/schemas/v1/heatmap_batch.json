@@ -1,0 +1,81 @@
+{
+  "$defs": {
+    "HeatmapBucketIn": {
+      "properties": {
+        "bucket_seconds": {
+          "default": 3600,
+          "maximum": 3600,
+          "minimum": 300,
+          "title": "Bucket Seconds",
+          "type": "integer"
+        },
+        "bucket_start": {
+          "format": "date-time",
+          "title": "Bucket Start",
+          "type": "string"
+        },
+        "camera_id": {
+          "format": "uuid",
+          "title": "Camera Id",
+          "type": "string"
+        },
+        "cells": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "minimum": 1,
+                "type": "integer"
+              }
+            ],
+            "type": "array"
+          },
+          "maxItems": 4096,
+          "title": "Cells",
+          "type": "array"
+        },
+        "columns": {
+          "default": 32,
+          "maximum": 64,
+          "minimum": 1,
+          "title": "Columns",
+          "type": "integer"
+        },
+        "rows": {
+          "default": 18,
+          "maximum": 64,
+          "minimum": 1,
+          "title": "Rows",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "camera_id",
+        "bucket_start"
+      ],
+      "title": "HeatmapBucketIn",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "buckets": {
+      "items": {
+        "$ref": "#/$defs/HeatmapBucketIn"
+      },
+      "maxItems": 100,
+      "minItems": 1,
+      "title": "Buckets",
+      "type": "array"
+    }
+  },
+  "required": [
+    "buckets"
+  ],
+  "title": "HeatmapBatch",
+  "type": "object"
+}

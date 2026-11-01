@@ -87,6 +87,12 @@ Multi-tenant API for the AI CCTV system.
 | POST | `/v1/auth/refresh` | Send the refresh token in the body, or rely on the cookie set at login. |  |  | `TokenPair` |
 | POST | `/v1/auth/sso` | Swap a sign-in token from the client's operational system for a session of the |  | `SsoRequest` | `TokenPair` |
 
+### counts
+
+| Method | Path | What | Query | Body | Returns |
+|---|---|---|---|---|---|
+| GET | `/v1/heatmaps` | Where people (not staff) stood in the camera's view between `from` and `to`, added | `camera_id`, `from`, `to` |  |  |
+
 ### devices
 
 | Method | Path | What | Query | Body | Returns |
@@ -118,6 +124,7 @@ Multi-tenant API for the AI CCTV system.
 | POST | `/v1/edge/events` | Idempotent by event_id; each event is accepted or rejected on its own. New events |  | `EventBatch` | `EventBatchResponse` |
 | GET | `/v1/edge/face-templates` | Templates of the branch's active staff with recorded consent, for recognition on |  |  | `FaceTemplateList` |
 | POST | `/v1/edge/heartbeat` | Heartbeat |  | `Heartbeat` | `HeartbeatResponse` |
+| POST | `/v1/edge/heatmaps` | Finished heatmap buckets; a bucket sent again replaces the stored one. |  | `HeatmapBatch` | `BatchResult` |
 | POST | `/v1/edge/media/upload-urls` | Upload Url |  | `UploadUrlRequest` | `UploadUrlResponse` |
 | POST | `/v1/edge/pair` | Swap a one-time pairing code (from the admin panel) for the device token. |  | `PairRequest` | `PairResponse` |
 | GET | `/v1/edge/remote` | Long poll: the next request for this box (live view, playback, ...), if any. | `wait`? |  | `RemoteRequest` |

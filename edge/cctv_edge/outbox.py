@@ -4,10 +4,10 @@ The sync loop sends from the outbox and only marks an event sent once the cloud 
 it, so events survive internet outages and restarts. Each change to an event (open ->
 closed) bumps its revision; the cloud upserts by `event_id`, so resending is harmless.
 
-Attendance sightings and count buckets wait here too. They are small and have no media:
-sightings are deleted once the cloud has answered, count buckets are kept a few hours
-after sending so a partial bucket (camera restarted mid-bucket) can be added to them and
-the full totals sent again.
+Attendance sightings, count buckets and heatmap buckets wait here too. They are small and
+have no media: sightings are deleted once the cloud has answered, count and heatmap buckets
+are kept a few hours after sending so a partial bucket (camera restarted mid-bucket) can be
+added to them and the full totals sent again.
 """
 
 import contextlib
@@ -24,7 +24,7 @@ from typing import Any
 from uuid import UUID
 
 from cctv_contracts.enums import EventStatus, MediaKind
-from cctv_contracts.v1 import CountBucketIn, StaffSighting
+from cctv_contracts.v1 import CountBucketIn, HeatmapBucketIn, StaffSighting
 
 # Count columns added after the first release; older outboxes get them on start.
 COUNT_COLUMNS_ADDED = ("staff_crossings", "waits", "wait_total_seconds", "wait_max_seconds")
@@ -98,6 +98,18 @@ CREATE TABLE IF NOT EXISTS counts (
     next_attempt_at  REAL NOT NULL DEFAULT 0,
     PRIMARY KEY (camera_id, zone_id, bucket_start)
 );
+CREATE TABLE IF NOT EXISTS heatmaps (
+    camera_id        TEXT NOT NULL,
+    bucket_start     REAL NOT NULL,
+    bucket_seconds   INTEGER NOT NULL,
+    columns          INTEGER NOT NULL,
+    rows             INTEGER NOT NULL,
+    cells            TEXT NOT NULL,           -- {"cell index": seconds} JSON
+    sent             INTEGER NOT NULL DEFAULT 0,
+    attempts         INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at  REAL NOT NULL DEFAULT 0,
+    PRIMARY KEY (camera_id, bucket_start)
+);
 """
 
 MAX_BACKOFF_SECONDS = 300
@@ -107,6 +119,7 @@ KEEP_SENT_COUNTS_SECONDS = 6 * 3600
 MAX_SIGHTING_AGE_SECONDS = 30 * 86400
 
 CountKey = tuple[str, str, float]  # camera id, zone id ('' for none), bucket start
+HeatmapKey = tuple[str, float]  # camera id, bucket start
 
 
 def _backoff(attempts: int) -> float:
@@ -498,9 +511,90 @@ class Outbox:
                 )
         self._tx(statements)
 
+    # --- heatmap buckets ----------------------------------------------------------------
+
+    def add_heatmaps(self, buckets: Iterable[HeatmapBucketIn]) -> None:
+        """Store finished buckets. A bucket already here (a partial one from before a
+        restart) is added to, cell by cell, and sent again with the combined totals."""
+        with self._lock:
+            self._db.execute("BEGIN IMMEDIATE")
+            try:
+                for b in buckets:
+                    key = (str(b.camera_id), b.bucket_start.timestamp())
+                    cells = {str(i): s for i, s in b.cells}
+                    row = self._db.execute(
+                        "SELECT columns, rows, cells FROM heatmaps"
+                        " WHERE camera_id = ? AND bucket_start = ?",
+                        key,
+                    ).fetchone()
+                    if row is not None and (row["columns"], row["rows"]) == (b.columns, b.rows):
+                        for i, s in json.loads(row["cells"]).items():
+                            cells[i] = cells.get(i, 0) + s
+                    self._db.execute(
+                        "INSERT OR REPLACE INTO heatmaps (camera_id, bucket_start,"
+                        " bucket_seconds, columns, rows, cells) VALUES (?, ?, ?, ?, ?, ?)",
+                        (*key, b.bucket_seconds, b.columns, b.rows, json.dumps(cells)),
+                    )
+                self._db.execute("COMMIT")
+            except BaseException:
+                self._db.execute("ROLLBACK")
+                raise
+
+    def due_heatmaps(self, now: float, limit: int) -> list[tuple[HeatmapKey, HeatmapBucketIn]]:
+        rows = self._query(
+            "SELECT * FROM heatmaps WHERE sent = 0 AND next_attempt_at <= ?"
+            " ORDER BY bucket_start LIMIT ?",
+            (now, limit),
+        )
+        return [
+            (
+                (row["camera_id"], row["bucket_start"]),
+                HeatmapBucketIn(
+                    camera_id=row["camera_id"],
+                    bucket_start=datetime.fromtimestamp(row["bucket_start"], timezone.utc),
+                    bucket_seconds=row["bucket_seconds"],
+                    columns=row["columns"],
+                    rows=row["rows"],
+                    cells=sorted((int(i), s) for i, s in json.loads(row["cells"]).items()),
+                ),
+            )
+            for row in rows
+        ]
+
+    def mark_heatmaps_sent(self, keys: Iterable[HeatmapKey]) -> None:
+        self._tx(
+            (
+                "UPDATE heatmaps SET sent = 1, attempts = 0"
+                " WHERE camera_id = ? AND bucket_start = ?",
+                key,
+            )
+            for key in keys
+        )
+
+    def retry_heatmaps(self, keys: Iterable[HeatmapKey], now: float) -> None:
+        statements = []
+        for key in keys:
+            rows = self._query(
+                "SELECT attempts FROM heatmaps WHERE camera_id = ? AND bucket_start = ?", key
+            )
+            if rows:
+                attempts = rows[0]["attempts"] + 1
+                statements.append(
+                    (
+                        "UPDATE heatmaps SET attempts = ?, next_attempt_at = ?"
+                        " WHERE camera_id = ? AND bucket_start = ?",
+                        (attempts, now + _backoff(attempts), *key),
+                    )
+                )
+        self._tx(statements)
+
     def cleanup_aggregates(self, now: float) -> None:
         self._tx(
             [
+                (
+                    "DELETE FROM heatmaps WHERE sent = 1 AND bucket_start < ?",
+                    (now - KEEP_SENT_COUNTS_SECONDS,),
+                ),
                 (
                     "DELETE FROM counts WHERE sent = 1 AND bucket_start < ?",
                     (now - KEEP_SENT_COUNTS_SECONDS,),

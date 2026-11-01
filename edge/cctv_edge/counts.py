@@ -50,6 +50,27 @@ class _Totals:
 
 
 @dataclass
+class StaffMarker:
+    """Tracks seen in a staff zone (staff area, kitchen, behind the counter) are staff from
+    then on, until unseen for FORGET_SECONDS. Shared by counts and heatmaps."""
+
+    staff_areas: Sequence[Sequence[Point]] = ()
+    _staff: dict[int, float] = field(default_factory=dict, init=False)  # track -> last seen
+
+    def mark(self, people: Sequence[Track], ts: float) -> set[int]:
+        """Ids of the staff tracks, after looking at this frame's people."""
+        for track in people:
+            if track.id in self._staff or any(
+                point_in_polygon(track.box.foot, area) for area in self.staff_areas
+            ):
+                self._staff[track.id] = ts
+        for track_id, seen in list(self._staff.items()):
+            if ts - seen > FORGET_SECONDS:
+                del self._staff[track_id]
+        return set(self._staff)
+
+
+@dataclass
 class _Wait:
     zone_id: UUID
     entered: float
@@ -70,8 +91,11 @@ class CountAggregator:
     _bucket: int | None = field(default=None, init=False)
     _totals: dict[UUID, _Totals] = field(default_factory=dict, init=False)
     _last_ts: float | None = field(default=None, init=False)
-    _staff: dict[int, float] = field(default_factory=dict, init=False)  # track -> last seen
+    _staff: StaffMarker = field(init=False)
     _waits: dict[int, _Wait] = field(default_factory=dict, init=False)
+
+    def __post_init__(self) -> None:
+        self._staff = StaffMarker(self.staff_areas)
 
     @property
     def active(self) -> bool:
@@ -91,7 +115,7 @@ class CountAggregator:
         dt = 0.0 if self._last_ts is None else ts - self._last_ts
         self._last_ts = ts
         people = [t for t in tracks if t.label == PERSON]
-        staff = self._mark_staff(people, ts)
+        staff = self._staff.mark(people, ts)
 
         for zone_id, (a, b) in self.lines.items():
             totals = self._totals[zone_id]
@@ -125,17 +149,6 @@ class CountAggregator:
                         wait.last_inside = ts
         self._end_waits(ts)
         return finished
-
-    def _mark_staff(self, people: Sequence[Track], ts: float) -> set[int]:
-        for track in people:
-            if track.id in self._staff or any(
-                point_in_polygon(track.box.foot, area) for area in self.staff_areas
-            ):
-                self._staff[track.id] = ts
-        for track_id, seen in list(self._staff.items()):
-            if ts - seen > FORGET_SECONDS:
-                del self._staff[track_id]
-        return set(self._staff)
 
     def _end_waits(self, ts: float, force: bool = False) -> None:
         for track_id, wait in list(self._waits.items()):

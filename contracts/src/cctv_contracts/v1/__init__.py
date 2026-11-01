@@ -13,6 +13,7 @@ Endpoints (all under API_PREFIX, authenticated with the device token except /pai
     GET  {API_PREFIX}/face-templates      (If-None-Match: etag) -> FaceTemplateList | 304
     POST {API_PREFIX}/attendance          SightingBatch       -> BatchResult
     POST {API_PREFIX}/counts              CountBatch          -> BatchResult
+    POST {API_PREFIX}/heatmaps            HeatmapBatch        -> BatchResult
 """
 
 from cctv_contracts.v1.attendance import (
@@ -52,6 +53,13 @@ from cctv_contracts.v1.heartbeat import (
     SystemStats,
     UpdateReport,
 )
+from cctv_contracts.v1.heatmaps import (
+    HEATMAP_COLUMNS,
+    HEATMAP_ROWS,
+    MAX_HEATMAPS_PER_BATCH,
+    HeatmapBatch,
+    HeatmapBucketIn,
+)
 from cctv_contracts.v1.media import UploadUrlRequest, UploadUrlResponse
 from cctv_contracts.v1.pairing import PairRequest, PairResponse, TokenResponse
 from cctv_contracts.v1.remote import (
@@ -84,14 +92,18 @@ SCHEMA_MODELS: dict[str, type[ContractModel]] = {
     "face_template_list": FaceTemplateList,
     "sighting_batch": SightingBatch,
     "count_batch": CountBatch,
+    "heatmap_batch": HeatmapBatch,
     "batch_result": BatchResult,
 }
 
 __all__ = [
     "API_PREFIX",
+    "HEATMAP_COLUMNS",
+    "HEATMAP_ROWS",
     "IMAGE_REF_PATTERN",
     "MAX_BUCKETS_PER_BATCH",
     "MAX_EVENTS_PER_BATCH",
+    "MAX_HEATMAPS_PER_BATCH",
     "MAX_SIGHTINGS_PER_BATCH",
     "SCHEMA_MODELS",
     "SOFTWARE_VERSION_PATTERN",
@@ -114,6 +126,8 @@ __all__ = [
     "FrameRequest",
     "Heartbeat",
     "HeartbeatResponse",
+    "HeatmapBatch",
+    "HeatmapBucketIn",
     "LiveRequest",
     "MediaKey",
     "NvrRef",
