@@ -78,6 +78,7 @@ in other branches returns 404. Super-admins (our team) can do everything, in any
 | Reports | `/v1/reports` (list, make), `/v1/reports/{id}`, `/v1/reports/{id}/file?format=pdf\|xlsx&lang=en\|ar` |
 | Realtime | WebSocket `/v1/ws` (live event feed, in-app alerts) |
 | Webhooks | `/v1/webhooks/whatsapp` (delivery reports from Meta; signed) |
+| Edge software (plan 2.10) | `/v1/platform/edge-releases` (list, add), `.../{version}/rollout`, `.../{version}/withdraw`, `/v1/platform/edge-devices` (every client's boxes and their update state); the offer itself goes out with `POST /v1/edge/heartbeat` |
 | Monitoring (plan 11.4) | `/v1/incidents` (devices managers), `/v1/platform/incidents` (super-admin), `/metrics` (Prometheus, `CCTV_METRICS_TOKEN`) |
 | Onboarding (plan 11.1) | `/v1/branches/{id}/onboarding` |
 | Pilot (plan 10) | `/v1/pilot/kpis` (figures against the success criteria), `/v1/pilot/log` (+ `/{id}`), `/v1/branches/{id}/pilot` (day 1, super-admin) |
@@ -241,6 +242,8 @@ encryption context `purpose=cctv-face-template`) or `local:<id>` with the key in
 `rotate_token`, the box calls `POST /v1/edge/token`, saves the new token and uses it. The
 old one keeps working for `CCTV_DEVICE_TOKEN_GRACE_MINUTES` (10). Pairing again or retiring
 the box ends all its tokens.
+
+**Edge software updates** (plan 2.10). `edge_releases` is a catalogue shared by all clients (no row-level security, like `features`); a box's `target_version` is set by a rollout. While a box runs another version, every heartbeat response carries the release (version, image by digest, and the rollout time, which identifies the request). The box's report comes back in the heartbeat (`update_*` columns); a failed or rolled-back update for the same rollout isn't offered again, and rolling out again retries it. Withdrawing a release stops offering it. Rollouts are in each client's audit log (`software_update`).
 
 **Monitoring** (plan 11.4). Heartbeats store the box's disk, temperature, CPU/GPU and upload backlog. Every minute the worker marks silent boxes offline and the health check (`services/monitoring.py`) opens or resolves `health_incidents`: box offline, a camera without frames for `CCTV_MONITOR_STREAM_DOWN_MINUTES` (5, only while its box is online), disk under `CCTV_MONITOR_DISK_FREE_GB` (20), temperature at `CCTV_MONITOR_TEMPERATURE_C` (85), backlog at `CCTV_MONITOR_SYNC_BACKLOG` (1,000). On-call (`CCTV_ONCALL_EMAILS`, `CCTV_ONCALL_WEBHOOK_URL` taking `{"text": ...}`) is told once an incident has lasted `CCTV_MONITOR_NOTIFY_AFTER_MINUTES` (5) and when it is resolved; shorter ones are closed silently. `GET /metrics` gives counts across tenants (boxes, cameras, open incidents, queued deliveries) through the `platform_monitoring()` database function. The API reference is generated: `python -m cctv_cloud.openapi` writes `openapi.json` and `docs/api-reference.md`.
 

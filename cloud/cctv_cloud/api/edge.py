@@ -33,7 +33,7 @@ from cctv_cloud.db.enums import DeviceStatus, StaffStatus
 from cctv_cloud.db.models import Branch, Camera, EdgeDevice, Event, FaceTemplate, Staff, Zone
 from cctv_cloud.db.session import tenant_session
 from cctv_cloud.security import new_secret, normalise_pairing_code, sha256_hex
-from cctv_cloud.services import pilot, webhooks
+from cctv_cloud.services import pilot, releases, webhooks
 from cctv_cloud.services.alerts import Change, Senders, dispatch, get_senders, route_event
 from cctv_cloud.services.attendance import apply_sightings
 from cctv_cloud.services.counts import apply_counts
@@ -192,6 +192,7 @@ def heartbeat(body: Heartbeat, ctx: Device) -> HeartbeatResponse:
     device.temperature_c = body.system.temperature_c
     device.disk_free_bytes = body.system.disk_free_bytes
     device.outbox_pending = body.system.outbox_pending
+    releases.record_report(device, body.update, now)
     # Only this device's branch: a device can't report on other cameras.
     pilot.record_health(ctx.db, device.tenant_id, device.branch_id, body.cameras, now)
     version = ctx.db.scalar(select(Branch.config_version).where(Branch.id == device.branch_id))
@@ -200,6 +201,7 @@ def heartbeat(body: Heartbeat, ctx: Device) -> HeartbeatResponse:
         server_time=now,
         latest_config_version=version or 0,
         rotate_token=device.token_issued_at is None or device.token_issued_at < now - max_age,
+        update=releases.offer(ctx.db, device, body.software_version),
     )
 
 

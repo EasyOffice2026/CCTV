@@ -50,6 +50,7 @@ const NAV: { group: MessageKey; items: NavItem[] }[] = [
     items: [
       { href: "/admin/tenants/", label: "nav.tenants", anyOf: ["platform_admin"] },
       { href: "/admin/health/", label: "nav.health", anyOf: ["platform_admin"] },
+      { href: "/admin/software/", label: "nav.software", anyOf: ["platform_admin"] },
       { href: "/admin/onboarding/", label: "nav.onboarding", anyOf: ["devices_manage"] },
       { href: "/admin/branches/", label: "nav.branches", anyOf: ["tenant_admin"] },
       { href: "/admin/cameras/", label: "nav.cameras", anyOf: ["devices_manage"] },

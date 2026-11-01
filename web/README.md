@@ -29,6 +29,7 @@ and talks to the API through its own proxy.
 |---|---|---|
 | Overview | `kpis_view` | Each branch today: events, issues, attendance, customers, cameras and boxes, alert times, latest events, reports; sections follow the feature switches; refreshes every minute. Home page of owners and managers |
 | Onboarding | `devices_manage` | The branch's 11 set-up steps from survey to go-live, worked out from what exists, the next one highlighted, each linked to its page (plan 11.1) |
+| Edge software | `platform_admin` | Edge software releases (from the release workflow's summary) and their rollout to one box, a client or everyone, with each box's version and last update (updating, updated, failed, rolled back) (plan 2.10) |
 | System health | `platform_admin` | Every client's open incidents (boxes offline, streams down, disks, temperature, uploads) for on-call (plan 11.4); each branch's own are on the Edge devices page, with the box's disk, temperature and upload backlog |
 | Pilot | `kpis_view` | The official pilot of the chosen branch: pilot day, the success criteria with met / not met, precision per feature, a table per day (false alarms, alert p95, camera and box uptime), and the pilot log (owners and our team write; super-admins set day 1) |
 | Daily review | `events_review` | The day's unreviewed events of the chosen branch, oldest first, with clip; keys V valid, F false alarm, R reviewed, S skip, B back. Below: review results of the last 7 days per event type, camera and zone (precision, false alarms/day) for tuning (plan 9.4, 9.5) |

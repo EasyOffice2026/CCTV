@@ -2,8 +2,10 @@ from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from cctv_edge import __version__
 
 
 class EdgeSettings(BaseSettings):
@@ -18,6 +20,9 @@ class EdgeSettings(BaseSettings):
     allow_insecure_cloud: bool = False
     device_token: SecretStr = SecretStr("")
     http_timeout_seconds: float = 10
+
+    # The release this image was built as (set by the release workflow; plan 2.10).
+    version: str = __version__
 
     data_dir: Path = Path("/var/lib/cctv-edge")
     # JSON file {credentials_ref: {"username": ..., "password": ...}}, readable by the service only.
@@ -72,6 +77,11 @@ class EdgeSettings(BaseSettings):
     # Face templates are refetched this often (and whenever the config version changes).
     face_templates_seconds: float = Field(default=300, ge=30)
 
+    @field_validator("version")
+    @classmethod
+    def _default_version(cls, value: str) -> str:
+        return value or __version__
+
     @model_validator(mode="after")
     def _check_ring(self) -> "EdgeSettings":
         if self.ring_seconds < self.max_event_seconds + 100:
@@ -114,6 +124,11 @@ class EdgeSettings(BaseSettings):
     @property
     def alive_path(self) -> Path:
         return self.data_dir / "alive"
+
+    @property
+    def update_dir(self) -> Path:
+        """Shared with the box's updater (cctv_edge.updater)."""
+        return self.data_dir / "update"
 
 
 @lru_cache

@@ -97,6 +97,11 @@ Without those variables the database tests are skipped. What the cloud tests che
   frame / face enrolment through a simulated edge box (only the addressed box can answer),
   the relay on Redis (fakeredis) and in-process, staff consent rules, CSV export, the
   refresh cookie
+- edge software updates (plan 2.10): releases and rollouts for super-admins only, the
+  offer in heartbeats, failed updates not offered again until rolled out again, withdrawn
+  releases; on the box the updater's switch, health watch and rollback, refused requests
+  (tag instead of digest, another repository, bad signature), with a stand-in for Docker;
+  the whole round trip through the real edge client
 - monitoring and onboarding (plan 11): incidents opened and resolved from heartbeats,
   on-call paged only for incidents that last, `/metrics` behind its token without tenant
   data, the onboarding checklist; `docs/api-reference.md` is up to date

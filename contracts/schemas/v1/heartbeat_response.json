@@ -1,4 +1,37 @@
 {
+  "$defs": {
+    "SoftwareUpdate": {
+      "description": "A release the box should switch to (plan 2.10). The box's updater pulls the image by\ndigest, checks its signature, and switches back if the new version isn't healthy.",
+      "properties": {
+        "image": {
+          "description": "repository@sha256:digest, e.g. ghcr.io/org/cctv-edge@sha256:...",
+          "maxLength": 330,
+          "pattern": "^[a-z0-9][a-z0-9._/:-]{0,250}@sha256:[0-9a-f]{64}$",
+          "title": "Image",
+          "type": "string"
+        },
+        "requested_at": {
+          "description": "When the update was asked for; asking again for the same version (a retry after a failure) gives a new time",
+          "format": "date-time",
+          "title": "Requested At",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 50,
+          "pattern": "^\\d{1,4}\\.\\d{1,4}\\.\\d{1,4}(-[0-9A-Za-z.]{1,30})?$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "image",
+        "requested_at"
+      ],
+      "title": "SoftwareUpdate",
+      "type": "object"
+    }
+  },
   "properties": {
     "latest_config_version": {
       "minimum": 0,
@@ -15,6 +48,18 @@
       "format": "date-time",
       "title": "Server Time",
       "type": "string"
+    },
+    "update": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SoftwareUpdate"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Switch to this release; none: stay on the current one"
     }
   },
   "required": [

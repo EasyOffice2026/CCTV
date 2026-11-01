@@ -108,11 +108,39 @@ When the box's token is refused (lost, or the box was retired by mistake):
 
 ## Update the edge software
 
+Normally from the dashboard (super-admins), plan 2.10:
+
+1. Tag a release (`git tag v1.4.0 && git push origin v1.4.0`). The release workflow builds
+   and signs the edge image; its summary shows the version and the image digest.
+2. Administration › **Edge software** › Add release: that version and image.
+3. **Roll out** to one box. Within a minute or two its row shows *Updating*, then its
+   new version, then *Updated*. Watch its incidents and events for a day.
+4. Roll out to the client, then to all clients.
+
+What the box does (`edge/cctv_edge/updater.py`, run every minute by
+`cctv-edge-update.timer`): pull the image by digest, check it is from the box's own
+repository and signed by our release workflow (cosign), set `CCTV_EDGE_IMAGE` in
+`/etc/cctv-edge/edge.env`, restart the edge container, then wait for the new version's
+heartbeat (at least 2 minutes after the switch, within 10). Otherwise it switches back to the
+previous image. Analysis stops for about a minute during the switch.
+
+When an update **failed** or was **rolled back**, the box stays on its version and the
+release isn't offered to it again until it is rolled out again. The reason is on the Edge
+software page; on the box:
+
 ```bash
-sudo docker compose -f /opt/cctv-edge/docker-compose.yml pull
-sudo systemctl restart cctv-edge
+journalctl -u cctv-edge-update --since today
+cat /var/lib/cctv-edge/update/status.json
 ```
 
-Pin `CCTV_EDGE_IMAGE` to a release tag in `/etc/cctv-edge/edge.env` rather than
-`latest`, update one branch first, and check its Edge devices row (software version,
-config current) and its incidents before the others.
+- *download failed*: the registry (login for a private package: `docker login ghcr.io`
+  as root) or the internet.
+- *signature check failed*: the image wasn't built by the release workflow, or the box's
+  `CCTV_EDGE_UPDATE_SIGNER` doesn't match the repository (after moving the repository,
+  set it in edge.env). Never set `CCTV_EDGE_UPDATE_UNSIGNED=yes` on a client's box.
+- *no heartbeat from the new version* / *restarted N times*: the new version doesn't work
+  on this box. Look at its logs (`docker compose ... logs edge` right after a retry) and
+  fix it in a new release. To move a box back to an older release, roll that one out.
+
+By hand, if the updater can't be used: set `CCTV_EDGE_IMAGE` in `/etc/cctv-edge/edge.env`
+to `repository@sha256:...` and `sudo systemctl restart cctv-edge`.

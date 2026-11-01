@@ -765,7 +765,8 @@
           "export_report",
           "export_audit",
           "sso_change",
-          "webhook_change"
+          "webhook_change",
+          "software_update"
         ],
         "title": "AuditAction",
         "type": "string"
@@ -2678,6 +2679,17 @@
           "status": {
             "$ref": "#/components/schemas/DeviceStatus"
           },
+          "target_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Version"
+          },
           "temperature_c": {
             "anyOf": [
               {
@@ -2688,6 +2700,50 @@
               }
             ],
             "title": "Temperature C"
+          },
+          "update_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Update Detail"
+          },
+          "update_reported_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Update Reported At"
+          },
+          "update_state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UpdateState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "update_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Update Version"
           },
           "uptime_seconds": {
             "anyOf": [
@@ -3692,6 +3748,16 @@
           "system": {
             "$ref": "#/components/schemas/SystemStats"
           },
+          "update": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UpdateReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "uptime_seconds": {
             "minimum": 0.0,
             "title": "Uptime Seconds",
@@ -3726,6 +3792,17 @@
             "format": "date-time",
             "title": "Server Time",
             "type": "string"
+          },
+          "update": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SoftwareUpdate"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Switch to this release; none: stay on the current one"
           }
         },
         "required": [
@@ -4661,6 +4738,130 @@
         "title": "PilotStartIn",
         "type": "object"
       },
+      "PlatformDeviceOut": {
+        "properties": {
+          "branch": {
+            "title": "Branch",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "software_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Software Version"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DeviceStatus"
+          },
+          "target_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Version"
+          },
+          "tenant": {
+            "title": "Tenant",
+            "type": "string"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "update_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Update Detail"
+          },
+          "update_reported_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Update Reported At"
+          },
+          "update_state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UpdateState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "update_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Update Version"
+          }
+        },
+        "required": [
+          "tenant_id",
+          "tenant",
+          "id",
+          "name",
+          "branch",
+          "status",
+          "last_seen_at",
+          "software_version",
+          "target_version",
+          "update_version",
+          "update_state",
+          "update_detail",
+          "update_reported_at"
+        ],
+        "title": "PlatformDeviceOut",
+        "type": "object"
+      },
       "PlaybackIn": {
         "properties": {
           "end": {
@@ -4902,6 +5103,98 @@
           "error"
         ],
         "title": "RejectedItem",
+        "type": "object"
+      },
+      "ReleaseIn": {
+        "properties": {
+          "image": {
+            "description": "From the release workflow's summary: repository@sha256:digest",
+            "maxLength": 330,
+            "pattern": "^[a-z0-9][a-z0-9._/:-]{0,250}@sha256:[0-9a-f]{64}$",
+            "title": "Image",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "version": {
+            "examples": [
+              "1.4.0"
+            ],
+            "maxLength": 50,
+            "pattern": "^\\d{1,4}\\.\\d{1,4}\\.\\d{1,4}(-[0-9A-Za-z.]{1,30})?$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "image"
+        ],
+        "title": "ReleaseIn",
+        "type": "object"
+      },
+      "ReleaseOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "failed": {
+            "description": "Of those, boxes whose update failed or was rolled back",
+            "title": "Failed",
+            "type": "integer"
+          },
+          "image": {
+            "title": "Image",
+            "type": "string"
+          },
+          "notes": {
+            "title": "Notes",
+            "type": "string"
+          },
+          "running": {
+            "description": "Boxes on this version",
+            "title": "Running",
+            "type": "integer"
+          },
+          "updating": {
+            "description": "Boxes asked to switch to it and not on it yet",
+            "title": "Updating",
+            "type": "integer"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          },
+          "withdrawn_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawn At"
+          }
+        },
+        "required": [
+          "version",
+          "image",
+          "notes",
+          "created_at",
+          "withdrawn_at",
+          "running",
+          "updating",
+          "failed"
+        ],
+        "title": "ReleaseOut",
         "type": "object"
       },
       "RemoteReply": {
@@ -5449,6 +5742,51 @@
         "title": "ReviewSummary",
         "type": "object"
       },
+      "RolloutIn": {
+        "properties": {
+          "device_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "One box of that client",
+            "title": "Device Id"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "One client; none: all",
+            "title": "Tenant Id"
+          }
+        },
+        "title": "RolloutIn",
+        "type": "object"
+      },
+      "RolloutOut": {
+        "properties": {
+          "devices": {
+            "title": "Devices",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "devices"
+        ],
+        "title": "RolloutOut",
+        "type": "object"
+      },
       "SdpAnswer": {
         "properties": {
           "sdp_answer": {
@@ -5693,6 +6031,37 @@
           "sightings"
         ],
         "title": "SightingBatch",
+        "type": "object"
+      },
+      "SoftwareUpdate": {
+        "description": "A release the box should switch to (plan 2.10). The box's updater pulls the image by\ndigest, checks its signature, and switches back if the new version isn't healthy.",
+        "properties": {
+          "image": {
+            "description": "repository@sha256:digest, e.g. ghcr.io/org/cctv-edge@sha256:...",
+            "maxLength": 330,
+            "pattern": "^[a-z0-9][a-z0-9._/:-]{0,250}@sha256:[0-9a-f]{64}$",
+            "title": "Image",
+            "type": "string"
+          },
+          "requested_at": {
+            "description": "When the update was asked for; asking again for the same version (a retry after a failure) gives a new time",
+            "format": "date-time",
+            "title": "Requested At",
+            "type": "string"
+          },
+          "version": {
+            "maxLength": 50,
+            "pattern": "^\\d{1,4}\\.\\d{1,4}\\.\\d{1,4}(-[0-9A-Za-z.]{1,30})?$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "image",
+          "requested_at"
+        ],
+        "title": "SoftwareUpdate",
         "type": "object"
       },
       "SsoAlgorithm": {
@@ -6868,6 +7237,61 @@
         ],
         "title": "TypeRow",
         "type": "object"
+      },
+      "UpdateReport": {
+        "description": "What the box's updater last did (plan 2.10). Sent with every heartbeat once there\nhas been an update.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "requested_at": {
+            "description": "SoftwareUpdate.requested_at it answers",
+            "format": "date-time",
+            "title": "Requested At",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/UpdateState"
+          },
+          "version": {
+            "maxLength": 50,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "requested_at",
+          "state",
+          "at"
+        ],
+        "title": "UpdateReport",
+        "type": "object"
+      },
+      "UpdateState": {
+        "description": "What the box's updater last did with a software update (plan 2.10).",
+        "enum": [
+          "updating",
+          "updated",
+          "failed",
+          "rolled_back"
+        ],
+        "title": "UpdateState",
+        "type": "string"
       },
       "UploadUrlRequest": {
         "description": "Ask the cloud where to upload a snapshot or clip for an event.",
@@ -15426,6 +15850,420 @@
         "summary": "List Platform Audit Logs",
         "tags": [
           "integrations",
+          "platform"
+        ]
+      }
+    },
+    "/v1/platform/edge-devices": {
+      "get": {
+        "description": "Every client's boxes (not retired) with their software version and update state.",
+        "operationId": "list_platform_devices_v1_platform_edge_devices_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformDeviceOut"
+                  },
+                  "title": "Response List Platform Devices V1 Platform Edge Devices Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Platform Devices",
+        "tags": [
+          "platform"
+        ]
+      }
+    },
+    "/v1/platform/edge-releases": {
+      "get": {
+        "description": "Newest first, with how many boxes run each one and how its rollout is going.",
+        "operationId": "list_releases_v1_platform_edge_releases_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReleaseOut"
+                  },
+                  "title": "Response List Releases V1 Platform Edge Releases Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Releases",
+        "tags": [
+          "platform"
+        ]
+      },
+      "post": {
+        "description": "Adds a release. Nothing changes on any box until it is rolled out.",
+        "operationId": "add_release_v1_platform_edge_releases_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Add Release",
+        "tags": [
+          "platform"
+        ]
+      }
+    },
+    "/v1/platform/edge-releases/{version}/rollout": {
+      "post": {
+        "description": "Sets the boxes' target version (every client, one client or one box). Each box\nswitches with its next heartbeat and rolls back by itself if the new version isn't\nhealthy. Rolling out again retries boxes whose update failed. Start with one box.",
+        "operationId": "rollout_v1_platform_edge_releases__version__rollout_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolloutIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RolloutOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Rollout",
+        "tags": [
+          "platform"
+        ]
+      }
+    },
+    "/v1/platform/edge-releases/{version}/withdraw": {
+      "post": {
+        "description": "Stops offering it: boxes not on it yet stay where they are. Boxes already on it\nkeep it; roll out another release to move them.",
+        "operationId": "withdraw_release_v1_platform_edge_releases__version__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Withdraw Release",
+        "tags": [
           "platform"
         ]
       }

@@ -51,7 +51,10 @@ CSP) and `EMBED_ANCESTORS` (the operational system's origins, plan 8).
 4. Roll the API, then the worker, then web, to the new tag. The API's container health
    check is `/healthz`; the load balancer should use `/readyz` (checks the database).
 5. `python -m cctv_cloud.cli security-check --online` in the new API container: no errors.
-6. Boxes are updated separately ([edge-recovery.md](edge-recovery.md#update-the-edge-software)).
+6. Boxes are updated separately, after the cloud: add the edge release under
+   Administration › Edge software and roll it out to one box first
+   ([edge-recovery.md](edge-recovery.md#update-the-edge-software)). The cloud must be
+   deployed first: a newer box talks to an older cloud, never the other way round.
 
 Rolling back: deploy the previous tag. Roll a migration back only if the release notes say
 it is safe (`alembic downgrade <revision>`); otherwise fix forward.

@@ -64,6 +64,7 @@ export const AUDIT_ACTIONS: Schemas["AuditAction"][] = [
   "attendance_change",
   "sso_change",
   "webhook_change",
+  "software_update",
 ];
 export const SEVERITIES: Schemas["Severity"][] = ["critical", "warning", "info"];
 export const REVIEW_STATUSES: Schemas["ReviewStatus"][] = ["new", "valid", "false_alarm", "reviewed"];
@@ -106,6 +107,15 @@ export const REVIEW_TONE: Record<Schemas["ReviewStatus"], Tone> = {
   valid: "red",
   false_alarm: "green",
   reviewed: "blue",
+};
+
+/** Software updates of the edge boxes (plan 2.10). */
+export const UPDATE_TONE: Record<Schemas["UpdateState"], Tone> = { updating: "blue", updated: "green", failed: "red", rolled_back: "amber" };
+export const UPDATE_LABEL: Record<Schemas["UpdateState"], MessageKey> = {
+  updating: "update.updating",
+  updated: "update.updated",
+  failed: "update.failed",
+  rolled_back: "update.rolled_back",
 };
 
 export const HEALTH_TONE: Record<string, Tone> = {

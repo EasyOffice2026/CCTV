@@ -92,6 +92,7 @@ across tenants and branches (`cloud/tests/test_security.py`).
 |---|---|
 | Add an edge ↔ cloud field | `contracts/src/cctv_contracts/v1/` (additive), `python -m cctv_contracts.export`, then both sides |
 | Add an event type or rule | `contracts` enums (`EventType`, `EVENT_FEATURE`), `edge/cctv_edge/rules.py` `DEFAULT_RULES`, labels in `web/src/lib/messages/` |
+| Ship new edge software | tag `v*` (release workflow), then Administration › Edge software; the box side is `edge/cctv_edge/updater.py` |
 | Add a model | a folder with `model.json` (edge/README.md "Models"); the task in `edge/cctv_edge/models/` |
 | Add an endpoint | `cloud/cctv_cloud/api/`, then `python -m cctv_cloud.openapi` and `npm run api:types` in `web/` |
 | Change the database | models in `cloud/cctv_cloud/db/models/`, `alembic revision --autogenerate`, add RLS for new tenant tables |

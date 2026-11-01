@@ -4,6 +4,10 @@ name: Release
 # as ghcr.io/<owner>/cctv-api, cctv-web and cctv-edge (amd64 + arm64 for the Jetson),
 # tagged with the version and "latest". Deploying is a separate step
 # (docs/runbooks/deploy-cloud.md). Run CI on the commit before tagging.
+#
+# The edge image is signed with cosign (keyless: GitHub's OIDC certificate for this
+# workflow on a v* tag); boxes run only images signed this way (plan 2.10). The job
+# summary shows the version and image digest to add under Administration > Edge software.
 
 on:
   push:
@@ -12,6 +16,7 @@ on:
 permissions:
   contents: read
   packages: write
+  id-token: write # keyless signing of the edge image
 
 jobs:
   images:
@@ -31,6 +36,8 @@ jobs:
           owner="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
           echo "prefix=ghcr.io/${owner}" >> "$GITHUB_OUTPUT"
           echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          echo "release=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - uses: sigstore/cosign-installer@v3
       - uses: docker/build-push-action@v6
         with:
           context: .
@@ -47,11 +54,30 @@ jobs:
             ${{ steps.names.outputs.prefix }}/cctv-web:${{ steps.names.outputs.version }}
             ${{ steps.names.outputs.prefix }}/cctv-web:latest
       - uses: docker/build-push-action@v6
+        id: edge
         with:
           context: .
           file: edge/Dockerfile
+          build-args: VERSION=${{ steps.names.outputs.release }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ steps.names.outputs.prefix }}/cctv-edge:${{ steps.names.outputs.version }}
             ${{ steps.names.outputs.prefix }}/cctv-edge:latest
+      - name: Sign the edge image
+        env:
+          IMAGE: ${{ steps.names.outputs.prefix }}/cctv-edge@${{ steps.edge.outputs.digest }}
+        run: cosign sign --yes "$IMAGE"
+      - name: Release summary
+        env:
+          IMAGE: ${{ steps.names.outputs.prefix }}/cctv-edge@${{ steps.edge.outputs.digest }}
+          RELEASE: ${{ steps.names.outputs.release }}
+        run: |
+          {
+            echo "### Edge release $RELEASE"
+            echo "Add it under Administration > Edge software, then roll it out to one box first:"
+            echo '```'
+            echo "Version: $RELEASE"
+            echo "Image:   $IMAGE"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

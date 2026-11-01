@@ -1,12 +1,15 @@
 """End-to-end tests of the edge service against the fake cloud (Phase 2 exit criteria)."""
 
+import json
 import time
+from datetime import datetime, timezone
 
 import numpy as np
 import pytest
 
 from cctv_contracts.enums import FeatureKey, ZoneType
 from cctv_contracts.v1 import ClipSettings, FeatureConfig
+from cctv_edge import updater
 from cctv_edge.detection import PERSON
 from cctv_edge.geometry import Box
 from cctv_edge.outbox import Outbox
@@ -183,3 +186,37 @@ def test_stalled_loops_are_detected(service):
     service._ticks = {"sync": (1000.0, 2.0), "heartbeat": (100.0, 30.0)}
     assert service.stalled_loops(now=1000.0) == []
     assert service.stalled_loops(now=1500.0) == ["heartbeat"]  # 1400 s in one step
+
+
+IMAGE = f"ghcr.io/easyoffice2026/cctv-edge@sha256:{'a' * 64}"
+REQUESTED = "2026-11-01T09:00:00+00:00"
+
+
+def test_service_passes_offers_on_and_reports_status(service, cloud):
+    service.settings.version = "1.0.0"
+    cloud.config = edge_config([camera([FAST])])
+    service.poll_config()
+    service.heartbeat_once(time.time())
+    folder = service.settings.update_dir
+    assert "update" not in cloud.heartbeats[-1] or cloud.heartbeats[-1]["update"] is None
+    assert json.loads((folder / updater.RUNNING_FILE).read_text())["version"] == "1.0.0"
+    assert not (folder / updater.REQUEST_FILE).exists()
+
+    cloud.update = {"version": "1.1.0", "image": IMAGE, "requested_at": REQUESTED}
+    service.heartbeat_once(time.time())
+    request = json.loads((folder / updater.REQUEST_FILE).read_text())
+    assert request == {"version": "1.1.0", "image": IMAGE, "requested_at": REQUESTED}
+
+    report = {
+        "version": "1.1.0",
+        "requested_at": REQUESTED,
+        "state": "rolled_back",
+        "detail": "no heartbeat from the new version in 10 min",
+        "at": datetime.now(timezone.utc).isoformat(),
+    }
+    (folder / updater.STATUS_FILE).write_text(json.dumps(report))
+    cloud.update = None  # the cloud stops offering it
+    service.heartbeat_once(time.time())
+    sent = cloud.heartbeats[-1]["update"]
+    assert (sent["version"], sent["state"]) == ("1.1.0", "rolled_back")
+    assert not (folder / updater.REQUEST_FILE).exists()

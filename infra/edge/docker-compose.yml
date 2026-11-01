@@ -6,6 +6,8 @@
 # /opt/cctv-edge/models, mounted read-only; without them the box runs motion detection
 # only. The service exits if one of its loops stalls, and `restart: unless-stopped` brings
 # it back.
+# Software updates (plan 2.10) set CCTV_EDGE_IMAGE in edge.env to a signed release pinned
+# by digest and run `up -d edge`; see edge/cctv_edge/updater.py.
 name: cctv-edge
 
 services:

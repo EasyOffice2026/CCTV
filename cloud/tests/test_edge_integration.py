@@ -4,6 +4,7 @@ Proves the two sides agree on the contract: pairing, config pull, media upload, 
 sync (open, then closed with a clip), heartbeat, face templates, sightings and counts.
 """
 
+import subprocess
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -26,6 +27,7 @@ from cctv_contracts.v1 import (  # noqa: E402
     SightingBatch,
     StaffSighting,
     SystemStats,
+    UpdateReport,
 )
 from cctv_edge.cloud import CloudClient  # noqa: E402
 from cctv_edge.outbox import Outbox  # noqa: E402
@@ -195,3 +197,75 @@ def test_attendance_counts_and_templates_through_the_edge_client(client, org, ow
         assert counted.accepted == 1 and counted.rejected == []
     finally:
         edge.close()
+
+
+def test_software_update_round_trip(client, org, tmp_path):
+    """Plan 2.10: a rollout reaches the box's updater through the edge client, and the
+    updater's reports come back to the cloud. Docker is a stand-in that always succeeds."""
+    from cctv_edge import updater
+
+    owner, admin = login(client, org, "owner_a"), login(client, org, "admin")
+    device = client.post(
+        "/v1/edge-devices",
+        json={"branch_id": str(org.ids["a1"]), "name": "Update box", "serial": "JETSON-3"},
+        headers=owner,
+    ).json()
+    paired = client.post("/v1/edge/pair", json={"pairing_code": device["pairing_code"]}).json()
+    image = "ghcr.io/easyoffice2026/cctv-edge@sha256:" + "c" * 64
+    client.post(
+        "/v1/platform/edge-releases", json={"version": "1.1.0", "image": image}, headers=admin
+    )
+    client.post(
+        "/v1/platform/edge-releases/1.1.0/rollout",
+        json={"tenant_id": str(org.ids["a"]), "device_id": paired["device_id"]},
+        headers=admin,
+    )
+
+    data, conf, install = tmp_path / "data", tmp_path / "conf", tmp_path / "opt"
+    for folder in (data / "update", conf, install):
+        folder.mkdir(parents=True)
+    (conf / "edge.env").write_text("CCTV_EDGE_IMAGE=ghcr.io/easyoffice2026/cctv-edge:0.1.0\n")
+    clock = [datetime.now(timezone.utc)]
+
+    def docker(args, env):
+        out = "0\n" if args[1] == "inspect" else "id\n"
+        return subprocess.CompletedProcess(args, 0, out, "")
+
+    box = updater.Updater(data, conf, install, runner=docker, clock=lambda: clock[0])
+
+    edge = CloudClient(str(client.base_url), paired["device_token"], transport=client._transport)
+
+    def heartbeat(version: str):
+        status = updater.read_status(box.update_dir)
+        return edge.heartbeat(
+            Heartbeat(
+                sent_at=datetime.now(timezone.utc),
+                software_version=version,
+                config_version_applied=1,
+                uptime_seconds=10,
+                cameras=[],
+                system=SystemStats(cpu_percent=10, disk_free_bytes=10**9, outbox_pending=0),
+                update=UpdateReport.model_validate(status) if status else None,
+            )
+        )
+
+    try:
+        offer = heartbeat("0.1.0").update
+        assert offer is not None and offer.image == image
+        updater.request_update(box.update_dir, offer.version, offer.image, offer.requested_at)
+        assert box.run_once() == "updating"
+        assert heartbeat("0.1.0").update is not None  # still offered while it switches
+        [row] = client.get("/v1/edge-devices", headers=owner).json()
+        assert (row["target_version"], row["update_state"]) == ("1.1.0", "updating")
+
+        # The new version reports in for a few minutes; the updater confirms it.
+        clock[0] += timedelta(minutes=3)
+        updater.mark_running(box.update_dir, "1.1.0", clock[0])
+        assert box.run_once() == "updated"
+        assert heartbeat("1.1.0").update is None
+    finally:
+        edge.close()
+    [row] = client.get("/v1/edge-devices", headers=owner).json()
+    assert (row["software_version"], row["update_state"]) == ("1.1.0", "updated")
+    [release] = client.get("/v1/platform/edge-releases", headers=admin).json()
+    assert (release["running"], release["updating"]) == (1, 0)

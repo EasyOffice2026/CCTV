@@ -126,3 +126,12 @@ class RemoteKind(str, Enum):
     RECORDINGS = "recordings"
     FRAME = "frame"
     FACE_EMBEDDING = "face_embedding"
+
+
+class UpdateState(str, Enum):
+    """What the box's updater last did with a software update (plan 2.10)."""
+
+    UPDATING = "updating"  # downloading, checking the signature or waiting for a heartbeat
+    UPDATED = "updated"
+    FAILED = "failed"  # not switched: download or signature check failed
+    ROLLED_BACK = "rolled_back"  # switched, not healthy in time, back on the previous version

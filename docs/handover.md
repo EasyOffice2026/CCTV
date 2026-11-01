@@ -12,9 +12,16 @@ tick each line when the receiver has done it themselves, not when we say it is d
       every test suite and the local stack. Note anything that didn't work and fix the doc.
 - [ ] Where things are: [architecture.md](architecture.md). The plan with what is done and
       what isn't: [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) (every phase has a status line).
-- [ ] Releasing: tag `v*` → `.github/workflows/release.yml` pushes the images
-      ([runbooks/deploy-cloud.md](runbooks/deploy-cloud.md)). Make the first release
-      together.
+- [ ] Releasing: tag `v*` → `.github/workflows/release.yml` pushes the images and signs
+      the edge image ([runbooks/deploy-cloud.md](runbooks/deploy-cloud.md)); edge boxes
+      are updated from Administration › Edge software
+      ([runbooks/edge-recovery.md](runbooks/edge-recovery.md#update-the-edge-software)).
+      Make the first release together, and roll it out to one box.
+- [ ] If the repository moves to another GitHub organisation: the images' registry path
+      and the boxes' signer change. Set `CCTV_EDGE_UPDATE_SIGNER` and
+      `CCTV_EDGE_UPDATE_REPOSITORY` in each box's edge.env (and the defaults in
+      `edge/cctv_edge/updater.py` and `infra/edge/docker-compose.yml`) before the first
+      release from the new place, or boxes will refuse it.
 
 ## 2. Accounts and secrets
 
@@ -66,8 +73,8 @@ About 90 minutes, screen-recorded, kept with the repository's documents (not in 
    the edge rule to the WhatsApp message (`rules.py` → `outbox.py` → `api/edge.py` →
    `services/alerts.py`); row-level security and the tenant sweeps; how a migration and
    an API change are made.
-4. Operations (20 min): a release and deploy, an edge box over the tailnet with the site
-   check, an incident from the System health page, the worker logs, `/metrics`.
+4. Operations (20 min): a release and deploy, an edge software rollout to one box, an edge
+   box over the tailnet with the site check, an incident from the System health page, the worker logs, `/metrics`.
 5. Open items (5 min): the plan's unticked items and known limits (below).
 
 ## 5. Open items at handover

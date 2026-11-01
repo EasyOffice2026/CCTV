@@ -119,6 +119,62 @@
       ],
       "title": "SystemStats",
       "type": "object"
+    },
+    "UpdateReport": {
+      "description": "What the box's updater last did (plan 2.10). Sent with every heartbeat once there\nhas been an update.",
+      "properties": {
+        "at": {
+          "format": "date-time",
+          "title": "At",
+          "type": "string"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail"
+        },
+        "requested_at": {
+          "description": "SoftwareUpdate.requested_at it answers",
+          "format": "date-time",
+          "title": "Requested At",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/UpdateState"
+        },
+        "version": {
+          "maxLength": 50,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "requested_at",
+        "state",
+        "at"
+      ],
+      "title": "UpdateReport",
+      "type": "object"
+    },
+    "UpdateState": {
+      "description": "What the box's updater last did with a software update (plan 2.10).",
+      "enum": [
+        "updating",
+        "updated",
+        "failed",
+        "rolled_back"
+      ],
+      "title": "UpdateState",
+      "type": "string"
     }
   },
   "properties": {
@@ -146,6 +202,17 @@
     },
     "system": {
       "$ref": "#/$defs/SystemStats"
+    },
+    "update": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/UpdateReport"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "uptime_seconds": {
       "minimum": 0,

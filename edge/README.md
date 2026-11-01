@@ -224,6 +224,7 @@ clock and time zone must be right (NTP, Asia/Kuwait).
 | `CCTV_EDGE_ALLOW_INSECURE_CLOUD` | `false` | Allow plain http to another machine (dev only) |
 | `CCTV_EDGE_DEVICE_TOKEN` | (required) | From pairing; identifies the tenant and branch. Rotated tokens are saved in `<data dir>/device_token` |
 | `CCTV_EDGE_DATA_DIR` | `/var/lib/cctv-edge` | Outbox, media, ring buffer, last config |
+| `CCTV_EDGE_VERSION` | the package version | The release this image is, sent with heartbeats; set by the release workflow (software updates) |
 | `CCTV_EDGE_CREDENTIALS_FILE` | `/etc/cctv-edge/credentials.json` | NVR/camera passwords |
 | `CCTV_EDGE_FFMPEG` | `ffmpeg` | |
 | `CCTV_EDGE_ANALYSIS_FPS` | `5` | |
@@ -259,14 +260,33 @@ it replaced) before using it, and loads it at start-up. If the box is paired aga
 sudo NVME_DEVICE=/dev/nvme0n1 FORMAT_NVME=yes TAILSCALE_AUTHKEY=tskey-... infra/edge/provision.sh
 ```
 
-This installs Docker and NTP, mounts the NVMe drive, sets up the hardware watchdog, the VPN
-and the boot service, then starts the container from `infra/edge/docker-compose.yml`. The
+This installs Docker and NTP, mounts the NVMe drive, sets up the hardware watchdog, the VPN,
+the boot service and the software updater, then starts the container from `infra/edge/docker-compose.yml`. The
 service exits if one of its loops hangs, and Docker restarts it.
 
 Add `ENCRYPT_NVME=yes` (with `FORMAT_NVME=yes`, on a new drive) to encrypt the drive with
 LUKS2 before formatting it (plan 7.2). The key is kept on the internal eMMC, so a removed or
 discarded NVMe can't be read; protecting a stolen box as a whole needs Jetson disk
 encryption at flash time (see [docs/security.md](../docs/security.md)).
+
+## Software updates
+
+Releases reach the boxes from the dashboard (Administration › Edge software, super-admins):
+the cloud names the release with the heartbeat response, the service writes it to
+`<data dir>/update/request.json`, and the updater (`cctv_edge/updater.py`, installed to
+`/opt/cctv-edge/updater.py` and run every minute as root by `cctv-edge-update.timer`) does
+the switch: pull by digest, check the repository and the cosign signature of our release
+workflow, set `CCTV_EDGE_IMAGE` in edge.env, `docker compose up -d edge`, and wait for the
+new version's heartbeat; no heartbeat at least 2 minutes after the switch and within 10, or
+more than 2 restarts, and it switches back. Its report (`status.json`) goes back with the
+heartbeats. The updater uses the standard library only, because it runs on the box's own
+Python. The image reports the release it was built as in `CCTV_EDGE_VERSION` (the
+release workflow's `VERSION` build argument).
+
+In edge.env: `CCTV_EDGE_UPDATE_SIGNER` (cosign certificate identity, a regexp; default:
+`release.yml` of this repository on a `v*` tag), `CCTV_EDGE_UPDATE_REPOSITORY` (default: the
+repository of the current image), `CCTV_EDGE_COSIGN_IMAGE`, and, on lab boxes only,
+`CCTV_EDGE_UPDATE_UNSIGNED=yes`. Runbook: [docs/runbooks/edge-recovery.md](../docs/runbooks/edge-recovery.md#update-the-edge-software).
 
 ## Site check (install day)
 

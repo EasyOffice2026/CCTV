@@ -78,6 +78,7 @@ class FakeCloud:
         self.template_requests: list[str | None] = []
         self.tokens = {"test-token"}  # accepted device tokens
         self.rotate = False  # heartbeat asks for a new token
+        self.update: dict | None = None  # software update offered with heartbeats
         self.issued: list[str] = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
@@ -131,6 +132,7 @@ class FakeCloud:
                     "server_time": datetime.now(timezone.utc).isoformat(),
                     "latest_config_version": self.config.version if self.config else 0,
                     "rotate_token": self.rotate,
+                    "update": self.update,
                 },
             )
         if path == "/v1/edge/remote":

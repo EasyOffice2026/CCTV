@@ -8,8 +8,8 @@ import { Notice, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 
-/** Pages a super-admin can use before choosing a client. */
-const TENANTLESS = ["/admin/tenants", "/account"];
+/** Pages a super-admin can use before choosing a client (they cover every client). */
+const TENANTLESS = ["/admin/tenants", "/admin/health", "/admin/software", "/account"];
 
 export default function SignedInLayout({ children }: { children: React.ReactNode }) {
   const { status, me, tenantId } = useAuth();

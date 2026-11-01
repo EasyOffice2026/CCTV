@@ -42,7 +42,16 @@ from cctv_contracts.v1.events import (
     EventIn,
     EventResult,
 )
-from cctv_contracts.v1.heartbeat import CameraStatus, Heartbeat, HeartbeatResponse, SystemStats
+from cctv_contracts.v1.heartbeat import (
+    IMAGE_REF_PATTERN,
+    SOFTWARE_VERSION_PATTERN,
+    CameraStatus,
+    Heartbeat,
+    HeartbeatResponse,
+    SoftwareUpdate,
+    SystemStats,
+    UpdateReport,
+)
 from cctv_contracts.v1.media import UploadUrlRequest, UploadUrlResponse
 from cctv_contracts.v1.pairing import PairRequest, PairResponse, TokenResponse
 from cctv_contracts.v1.remote import (
@@ -80,10 +89,12 @@ SCHEMA_MODELS: dict[str, type[ContractModel]] = {
 
 __all__ = [
     "API_PREFIX",
+    "IMAGE_REF_PATTERN",
     "MAX_BUCKETS_PER_BATCH",
     "MAX_EVENTS_PER_BATCH",
     "MAX_SIGHTINGS_PER_BATCH",
     "SCHEMA_MODELS",
+    "SOFTWARE_VERSION_PATTERN",
     "BatchResult",
     "CameraConfig",
     "CameraStatus",
@@ -115,9 +126,11 @@ __all__ = [
     "RemoteReply",
     "RemoteRequest",
     "SightingBatch",
+    "SoftwareUpdate",
     "StaffSighting",
     "SystemStats",
     "TokenResponse",
+    "UpdateReport",
     "UploadUrlRequest",
     "UploadUrlResponse",
     "UtcDatetime",

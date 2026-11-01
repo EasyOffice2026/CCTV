@@ -1401,6 +1401,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/platform/edge-devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Platform Devices
+         * @description Every client's boxes (not retired) with their software version and update state.
+         */
+        get: operations["list_platform_devices_v1_platform_edge_devices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/edge-releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Releases
+         * @description Newest first, with how many boxes run each one and how its rollout is going.
+         */
+        get: operations["list_releases_v1_platform_edge_releases_get"];
+        put?: never;
+        /**
+         * Add Release
+         * @description Adds a release. Nothing changes on any box until it is rolled out.
+         */
+        post: operations["add_release_v1_platform_edge_releases_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/edge-releases/{version}/rollout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rollout
+         * @description Sets the boxes' target version (every client, one client or one box). Each box
+         *     switches with its next heartbeat and rolls back by itself if the new version isn't
+         *     healthy. Rolling out again retries boxes whose update failed. Start with one box.
+         */
+        post: operations["rollout_v1_platform_edge_releases__version__rollout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/edge-releases/{version}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw Release
+         * @description Stops offering it: boxes not on it yet stay where they are. Boxes already on it
+         *     keep it; roll out another release to move them.
+         */
+        post: operations["withdraw_release_v1_platform_edge_releases__version__withdraw_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/platform/incidents": {
         parameters: {
             query?: never;
@@ -2131,7 +2218,7 @@ export interface components {
          * AuditAction
          * @enum {string}
          */
-        AuditAction: "login" | "login_failed" | "view_snapshot" | "view_clip" | "export_snapshot" | "export_clip" | "review_event" | "settings_change" | "user_change" | "device_change" | "api_key_change" | "view_live" | "view_playback" | "view_frame" | "export_events" | "staff_change" | "consent_change" | "face_enrol" | "face_delete" | "attendance_change" | "export_report" | "export_audit" | "sso_change" | "webhook_change";
+        AuditAction: "login" | "login_failed" | "view_snapshot" | "view_clip" | "export_snapshot" | "export_clip" | "review_event" | "settings_change" | "user_change" | "device_change" | "api_key_change" | "view_live" | "view_playback" | "view_frame" | "export_events" | "staff_change" | "consent_change" | "face_enrol" | "face_delete" | "attendance_change" | "export_report" | "export_audit" | "sso_change" | "webhook_change" | "software_update";
         /** AuditLogOut */
         AuditLogOut: {
             /** Action */
@@ -2804,8 +2891,17 @@ export interface components {
             /** Software Version */
             software_version: string | null;
             status: components["schemas"]["DeviceStatus"];
+            /** Target Version */
+            target_version?: string | null;
             /** Temperature C */
             temperature_c?: number | null;
+            /** Update Detail */
+            update_detail?: string | null;
+            /** Update Reported At */
+            update_reported_at?: string | null;
+            update_state?: components["schemas"]["UpdateState"] | null;
+            /** Update Version */
+            update_version?: string | null;
             /** Uptime Seconds */
             uptime_seconds?: number | null;
         };
@@ -3189,6 +3285,7 @@ export interface components {
             /** Software Version */
             software_version: string;
             system: components["schemas"]["SystemStats"];
+            update?: components["schemas"]["UpdateReport"] | null;
             /** Uptime Seconds */
             uptime_seconds: number;
         };
@@ -3207,6 +3304,8 @@ export interface components {
              * Format: date-time
              */
             server_time: string;
+            /** @description Switch to this release; none: stay on the current one */
+            update?: components["schemas"]["SoftwareUpdate"] | null;
         };
         /** IceServers */
         IceServers: {
@@ -3588,6 +3687,39 @@ export interface components {
              */
             started_on: string | null;
         };
+        /** PlatformDeviceOut */
+        PlatformDeviceOut: {
+            /** Branch */
+            branch: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Seen At */
+            last_seen_at: string | null;
+            /** Name */
+            name: string;
+            /** Software Version */
+            software_version: string | null;
+            status: components["schemas"]["DeviceStatus"];
+            /** Target Version */
+            target_version: string | null;
+            /** Tenant */
+            tenant: string;
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /** Update Detail */
+            update_detail: string | null;
+            /** Update Reported At */
+            update_reported_at: string | null;
+            update_state: components["schemas"]["UpdateState"] | null;
+            /** Update Version */
+            update_version: string | null;
+        };
         /** PlaybackIn */
         PlaybackIn: {
             /**
@@ -3708,6 +3840,55 @@ export interface components {
              * @description Position in the batch
              */
             index: number;
+        };
+        /** ReleaseIn */
+        ReleaseIn: {
+            /**
+             * Image
+             * @description From the release workflow's summary: repository@sha256:digest
+             */
+            image: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /**
+             * Version
+             * @example 1.4.0
+             */
+            version: string;
+        };
+        /** ReleaseOut */
+        ReleaseOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Failed
+             * @description Of those, boxes whose update failed or was rolled back
+             */
+            failed: number;
+            /** Image */
+            image: string;
+            /** Notes */
+            notes: string;
+            /**
+             * Running
+             * @description Boxes on this version
+             */
+            running: number;
+            /**
+             * Updating
+             * @description Boxes asked to switch to it and not on it yet
+             */
+            updating: number;
+            /** Version */
+            version: string;
+            /** Withdrawn At */
+            withdrawn_at: string | null;
         };
         /**
          * RemoteReply
@@ -3950,6 +4131,24 @@ export interface components {
              */
             until: string;
         };
+        /** RolloutIn */
+        RolloutIn: {
+            /**
+             * Device Id
+             * @description One box of that client
+             */
+            device_id?: string | null;
+            /**
+             * Tenant Id
+             * @description One client; none: all
+             */
+            tenant_id?: string | null;
+        };
+        /** RolloutOut */
+        RolloutOut: {
+            /** Devices */
+            devices: number;
+        };
         /** SdpAnswer */
         SdpAnswer: {
             /** Sdp Answer */
@@ -4061,6 +4260,26 @@ export interface components {
         SightingBatch: {
             /** Sightings */
             sightings: components["schemas"]["StaffSighting"][];
+        };
+        /**
+         * SoftwareUpdate
+         * @description A release the box should switch to (plan 2.10). The box's updater pulls the image by
+         *     digest, checks its signature, and switches back if the new version isn't healthy.
+         */
+        SoftwareUpdate: {
+            /**
+             * Image
+             * @description repository@sha256:digest, e.g. ghcr.io/org/cctv-edge@sha256:...
+             */
+            image: string;
+            /**
+             * Requested At
+             * Format: date-time
+             * @description When the update was asked for; asking again for the same version (a retry after a failure) gives a new time
+             */
+            requested_at: string;
+            /** Version */
+            version: string;
         };
         /**
          * SsoAlgorithm
@@ -4536,6 +4755,35 @@ export interface components {
             /** Valid */
             valid: number;
         };
+        /**
+         * UpdateReport
+         * @description What the box's updater last did (plan 2.10). Sent with every heartbeat once there
+         *     has been an update.
+         */
+        UpdateReport: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Detail */
+            detail?: string | null;
+            /**
+             * Requested At
+             * Format: date-time
+             * @description SoftwareUpdate.requested_at it answers
+             */
+            requested_at: string;
+            state: components["schemas"]["UpdateState"];
+            /** Version */
+            version: string;
+        };
+        /**
+         * UpdateState
+         * @description What the box's updater last did with a software update (plan 2.10).
+         * @enum {string}
+         */
+        UpdateState: "updating" | "updated" | "failed" | "rolled_back";
         /**
          * UploadUrlRequest
          * @description Ask the cloud where to upload a snapshot or clip for an event.
@@ -7999,6 +8247,178 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AuditLogOut"][];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_platform_devices_v1_platform_edge_devices_get: {
+        parameters: {
+            query?: {
+                tenant_id?: string | null;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformDeviceOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_releases_v1_platform_edge_releases_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_release_v1_platform_edge_releases_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rollout_v1_platform_edge_releases__version__rollout_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path: {
+                version: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RolloutIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RolloutOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    withdraw_release_v1_platform_edge_releases__version__withdraw_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path: {
+                version: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

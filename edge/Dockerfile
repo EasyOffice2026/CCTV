@@ -30,5 +30,10 @@ RUN useradd --system --no-create-home --uid 10001 app && mkdir -p /data && chown
 USER app
 VOLUME ["/data"]
 
+# The release this image is, reported in heartbeats; set by .github/workflows/release.yml
+# (empty: the package version).
+ARG VERSION=""
+ENV CCTV_EDGE_VERSION=${VERSION}
+
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s CMD ["cctv-edge", "--healthcheck"]
 CMD ["cctv-edge"]

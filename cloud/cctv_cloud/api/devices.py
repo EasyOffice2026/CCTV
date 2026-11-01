@@ -19,7 +19,7 @@ from cctv_cloud.rbac import Permission
 from cctv_cloud.security import new_pairing_code, sha256_hex
 from cctv_cloud.services.audit import AuditAction, record
 from cctv_cloud.services.edge_config import bump_config_version
-from cctv_contracts.enums import CameraHealth, CameraRole, ZoneType
+from cctv_contracts.enums import CameraHealth, CameraRole, UpdateState, ZoneType
 from cctv_contracts.v1 import ZoneConfig
 from cctv_contracts.v1.config import HOST_PATTERN
 
@@ -339,6 +339,12 @@ class EdgeDeviceOut(ORMModel):
     temperature_c: float | None = None
     disk_free_bytes: int | None = None
     outbox_pending: int | None = None
+    # Software updates (plan 2.10).
+    target_version: str | None = None
+    update_version: str | None = None
+    update_state: UpdateState | None = None
+    update_detail: str | None = None
+    update_reported_at: datetime | None = None
 
 
 class PairingCode(BaseModel):
@@ -364,6 +370,11 @@ def _device_out(device: EdgeDevice) -> EdgeDeviceOut:
         temperature_c=device.temperature_c,
         disk_free_bytes=device.disk_free_bytes,
         outbox_pending=device.outbox_pending,
+        target_version=device.target_version,
+        update_version=device.update_version,
+        update_state=UpdateState(device.update_state) if device.update_state else None,
+        update_detail=device.update_detail,
+        update_reported_at=device.update_reported_at,
     )
 
 

@@ -18,9 +18,11 @@ from cctv_contracts.v1 import (
     CountBucketIn,
     EdgeConfig,
     Heartbeat,
+    HeartbeatResponse,
     StaffSighting,
+    UpdateReport,
 )
-from cctv_edge import __version__, system
+from cctv_edge import system, updater
 from cctv_edge.cloud import CloudClient, CloudError
 from cctv_edge.config_store import ConfigStore
 from cctv_edge.credentials import Credential, redact, with_credentials
@@ -438,13 +440,15 @@ class EdgeService:
         applied = self.config.version if self.config else 0
         heartbeat = Heartbeat(
             sent_at=datetime.fromtimestamp(now, timezone.utc),
-            software_version=__version__,
+            software_version=self.settings.version,
             config_version_applied=applied,
             uptime_seconds=int(time.monotonic() - self._started),
             cameras=[w.status(now) for w in list(self.workers.values())],
             system=system.collect(self.settings.data_dir, self.outbox.pending_count()),
+            update=self.update_report(),
         )
         response = self.client.heartbeat(heartbeat)
+        self.handle_update(response, now)
         drift = response.server_time.timestamp() - time.time()
         if abs(drift) > MAX_CLOCK_DRIFT_SECONDS:
             log.warning("clock differs from the cloud by %.1fs; check NTP", drift)
@@ -454,6 +458,33 @@ class EdgeService:
             self._templates_wanted.set()
         if response.rotate_token:
             self.rotate_token()
+
+    def update_report(self) -> UpdateReport | None:
+        """The box updater's last report (plan 2.10), if there has been an update."""
+        status = updater.read_status(self.settings.update_dir)
+        if status is None:
+            return None
+        try:
+            return UpdateReport.model_validate(status)
+        except ValueError:
+            log.warning("unreadable update status: %s", status)
+            return None
+
+    def handle_update(self, response: HeartbeatResponse, now: float) -> None:
+        """Tell the updater on the host what the cloud wants; it does the switch."""
+        folder = self.settings.update_dir
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+            updater.mark_running(
+                folder, self.settings.version, datetime.fromtimestamp(now, timezone.utc)
+            )
+            if response.update is None:
+                updater.cancel_request(folder)
+            else:
+                offer = response.update
+                updater.request_update(folder, offer.version, offer.image, offer.requested_at)
+        except OSError:
+            log.exception("writing to the update folder failed")
 
     def rotate_token(self) -> None:
         """Swap the device token for a new one (plan 7.1). The new token is saved before
@@ -498,7 +529,11 @@ class EdgeService:
     # --- lifecycle --------------------------------------------------------------------
 
     def start(self) -> None:
-        for directory in (self.settings.media_dir, self.settings.ring_dir):
+        for directory in (
+            self.settings.media_dir,
+            self.settings.ring_dir,
+            self.settings.update_dir,
+        ):
             directory.mkdir(parents=True, exist_ok=True)
         recovered = self.outbox.recover_unfinished(time.time())
         if recovered:

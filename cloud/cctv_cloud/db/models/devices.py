@@ -4,6 +4,7 @@ from datetime import datetime
 from sqlalchemy import (
     BigInteger,
     CheckConstraint,
+    ForeignKey,
     Index,
     PrimaryKeyConstraint,
     SmallInteger,
@@ -16,7 +17,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from cctv_cloud.db.base import Base, CreatedAt, TenantScoped, UUIDPk, check_in, tenant_fk
 from cctv_cloud.db.enums import DeviceStatus, IncidentKind
-from cctv_contracts.enums import CameraHealth, CameraRole, ZoneType
+from cctv_contracts.enums import CameraHealth, CameraRole, UpdateState, ZoneType
 
 
 class EdgeDevice(UUIDPk, CreatedAt, TenantScoped, Base):
@@ -45,12 +46,38 @@ class EdgeDevice(UUIDPk, CreatedAt, TenantScoped, Base):
     temperature_c: Mapped[float | None]
     disk_free_bytes: Mapped[int | None] = mapped_column(BigInteger)
     outbox_pending: Mapped[int | None]
+    # Software updates (plan 2.10): the release this box should run, set by our team, and
+    # what the box's updater last reported.
+    target_version: Mapped[str | None] = mapped_column(String(50))
+    target_set_at: Mapped[datetime | None]
+    update_version: Mapped[str | None] = mapped_column(String(50))
+    update_state: Mapped[str | None] = mapped_column(String(20))
+    update_detail: Mapped[str | None] = mapped_column(String(500))
+    update_requested_at: Mapped[datetime | None]
+    update_reported_at: Mapped[datetime | None]
 
     __table_args__ = (
         tenant_fk("branch_id", "branches"),
         UniqueConstraint("id", "tenant_id"),
         check_in("status", DeviceStatus),
+        check_in("update_state", UpdateState),
     )
+
+
+class EdgeRelease(UUIDPk, CreatedAt, Base):
+    """Edge software releases (plan 2.10), the same for every client, added by our team.
+    Not tenant data: the app role may read, add and withdraw them. Boxes run only images
+    signed by the release workflow, so a row here alone can't put code on a box."""
+
+    __tablename__ = "edge_releases"
+
+    version: Mapped[str] = mapped_column(String(50), unique=True)
+    image: Mapped[str] = mapped_column(String(330))  # repository@sha256:digest
+    notes: Mapped[str] = mapped_column(String(2000), server_default="")
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+    withdrawn_at: Mapped[datetime | None]
 
 
 class Nvr(UUIDPk, CreatedAt, TenantScoped, Base):

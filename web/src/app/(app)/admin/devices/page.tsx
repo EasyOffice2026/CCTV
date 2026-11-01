@@ -11,7 +11,7 @@ import { api, unwrap, type Schemas } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useBranches } from "@/lib/branches";
 import { intlLocale, useI18n } from "@/lib/i18n";
-import { HEALTH_TONE, key } from "@/lib/labels";
+import { HEALTH_TONE, key, UPDATE_LABEL, UPDATE_TONE } from "@/lib/labels";
 import { formatDateTime } from "@/lib/time";
 
 function Devices() {
@@ -89,8 +89,16 @@ function Devices() {
                     <td>
                       <Badge tone={HEALTH_TONE[d.status]}>{t(key.deviceStatus(d.status))}</Badge>
                     </td>
-                    <td dir="ltr" className="text-start">
+                    <td dir="ltr" className="text-start text-xs">
                       {d.software_version ?? "—"}
+                      {d.target_version && d.target_version !== d.software_version && (
+                        <span className="ms-1 text-slate-500">→ {d.target_version}</span>
+                      )}
+                      {d.update_state && d.update_state !== "updated" && d.update_version !== d.software_version && (
+                        <span className="ms-1" title={d.update_detail ?? undefined}>
+                          <Badge tone={UPDATE_TONE[d.update_state]}>{t(UPDATE_LABEL[d.update_state])}</Badge>
+                        </span>
+                      )}
                     </td>
                     <td className="text-xs">
                       {d.config_version_applied ?? "—"}{" "}

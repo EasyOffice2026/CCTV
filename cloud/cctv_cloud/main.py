@@ -22,6 +22,7 @@ from cctv_cloud.api import (
     pilot,
     platform,
     realtime,
+    releases,
     remote,
     reports,
     staff,
@@ -118,6 +119,7 @@ def create_app() -> FastAPI:
         pilot,
         integrations,
         monitoring,
+        releases,
         realtime,
         edge,
     ):

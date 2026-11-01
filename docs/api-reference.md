@@ -213,6 +213,11 @@ Multi-tenant API for the AI CCTV system.
 
 | Method | Path | What | Query | Body | Returns |
 |---|---|---|---|---|---|
+| GET | `/v1/platform/edge-devices` | Every client's boxes (not retired) with their software version and update state. | `tenant_id`? |  | `PlatformDeviceOut[]` |
+| GET | `/v1/platform/edge-releases` | Newest first, with how many boxes run each one and how its rollout is going. |  |  | `ReleaseOut[]` |
+| POST | `/v1/platform/edge-releases` | Adds a release. Nothing changes on any box until it is rolled out. |  | `ReleaseIn` | `ReleaseOut` |
+| POST | `/v1/platform/edge-releases/{version}/rollout` | Sets the boxes' target version (every client, one client or one box). Each box |  | `RolloutIn` | `RolloutOut` |
+| POST | `/v1/platform/edge-releases/{version}/withdraw` | Stops offering it: boxes not on it yet stay where they are. Boxes already on it |  |  |  |
 | GET | `/v1/platform/tenants` | List Tenants |  |  | `TenantSummary[]` |
 | POST | `/v1/platform/tenants` | Creates the tenant and its first owner, who gets an email to set a password. |  | `TenantCreate` | `TenantCreated` |
 
