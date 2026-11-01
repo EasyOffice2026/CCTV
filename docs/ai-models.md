@@ -65,6 +65,25 @@ What matters most is accuracy **on Mudawara's cameras**: ceiling angles, kitchen
 reflections. Whatever we choose is checked on the labelled footage (the 90% target, plan 5.5)
 and improved by training on it.
 
+## Trial on a development PC (2 November 2026)
+
+D-FINE-S (COCO-only, the ready-made ONNX export on Hugging Face,
+`onnx-community/dfine_s_coco-ONNX`, from `ustc-community/dfine-small-coco`, Apache-2.0) run
+through the box's own code (`model.json` from `make_manifest --preset dfine-hf`, the box's
+loader with its sha256 and licence checks, its detector):
+
+| Test | Result |
+|---|---|
+| A restaurant kitchen photo (COCO) | The cook found (95 %), and a hand at the edge of the picture (75 %) |
+| A street photo with three people | All three (95–96 %) |
+| A photo of cats | Nobody (correct) |
+| 10 s of video at 02:00, branch open 10:00–23:00, through `replay` (decoding, detection, tracking, rules) | One "Person after hours" event over the 10 s (96 %) |
+| Time per image on the PC's processor (no graphics card) | About 120 ms |
+
+So the model works with the box as built. On a processor alone it would handle only about
+one camera; the box uses the Jetson's graphics chip (TensorRT), which must be measured on the
+real box. Accuracy on Mudawara's cameras is still to be measured on their footage.
+
 ## One thing for the lawyer
 
 The free models were trained on public photo collections (COCO's photos come from Flickr under
@@ -75,9 +94,11 @@ with the consent forms (plan 0.5).
 
 ## After you decide
 
-1. Download the chosen checkpoint (D-FINE: a COCO-only `.pth` from the project's releases).
-2. Export it to ONNX with the project's export script (D-FINE:
-   `tools/deployment/export_onnx.py`; RF-DETR: `model.export()`; YOLOX: `tools/export_onnx.py`).
+1. Get the model as ONNX: for D-FINE, the ready-made export on Hugging Face
+   (`onnx-community/dfine_s_coco-ONNX`, `onnx/model.onnx`; preset `dfine-hf`), or a COCO-only
+   `.pth` from the project's releases exported with `tools/deployment/export_onnx.py` (preset
+   `dfine`). RF-DETR: `model.export()`; YOLOX: `tools/export_onnx.py`.
+2. Check the export's licence and that it is the COCO-only checkpoint.
 3. Put it in a folder as `model.onnx` and write its `model.json`:
 
    ```bash

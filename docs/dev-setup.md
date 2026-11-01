@@ -62,6 +62,13 @@ in development and on site.
 
 ## 4. Tests
 
+On Windows, if `import onnxruntime` fails with "DLL load failed", the PC's Visual C++
+runtime is older than ONNX Runtime needs: install Microsoft's Visual C++ Redistributable
+(x64), or, without administrator rights, `pip install msvc-runtime` and copy its
+`msvcp140*.dll`, `vcruntime140*.dll` and `concrt140.dll` from `.venv/Scripts` into
+`.venv/Lib/site-packages/onnxruntime/capi`.
+
+
 ```bash
 pytest contracts
 cd edge && pytest && cd ..   # edge service and site check; fake cloud, NVR and ffmpeg (edge/README.md)

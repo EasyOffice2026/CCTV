@@ -77,6 +77,10 @@ def decode_rtdetr(
         scores = scores.reshape(-1).astype(np.float32)
     elif len(outputs) == 2:  # boxes (cx, cy, w, h, normalised), class logits
         raw_boxes, logits = (np.asarray(o, np.float32) for o in outputs)
+        # Exports differ in the order (Hugging Face's gives the logits first): the boxes
+        # are the output with 4 numbers each.
+        if raw_boxes.shape[-1] != 4 and logits.shape[-1] == 4:
+            raw_boxes, logits = logits, raw_boxes
         probabilities = _sigmoid(logits.reshape(-1, logits.shape[-1]))
         labels = probabilities.argmax(axis=1)
         scores = probabilities[np.arange(len(labels)), labels]

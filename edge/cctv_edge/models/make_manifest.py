@@ -149,6 +149,19 @@ PRESETS: dict[str, dict] = {
         "classes": "coco_ids",
         "options": {},
     },
+    # The same model as exported on Hugging Face (huggingface.co/onnx-community/dfine_s_coco-ONNX,
+    # from ustc-community/dfine-small-coco): RGB 0..1, stretched; logits + boxes over COCO's
+    # 80 classes counted 0..79.
+    "dfine-hf": {
+        "licence": "Apache-2.0",
+        "source": "https://huggingface.co/onnx-community/dfine_s_coco-ONNX"
+        " (ustc-community/dfine-small-coco, COCO)",
+        "size": 640,
+        "input": {"scale": 1 / 255, "channel_order": "rgb", "letterbox": False},
+        "output_format": "rtdetr",
+        "classes": "coco80",
+        "options": {},
+    },
     # github.com/roboflow/rf-detr (Nano to Large are Apache-2.0; the Plus models aren't):
     # RGB, ImageNet normalisation, stretched; boxes + logits over COCO category ids.
     "rfdetr": {

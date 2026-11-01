@@ -388,3 +388,27 @@ def test_dfine_manifest_maps_coco_category_ids_to_labels(tmp_path):
     )
     found = sorted(d.label for d in detector.detect(np.zeros((64, 64, 3), np.uint8)))
     assert found == ["person", "phone"]  # the chair isn't used by any rule
+
+
+def test_decode_rtdetr_finds_the_boxes_in_either_order():
+    """Hugging Face exports give (logits, boxes); others (boxes, logits)."""
+    boxes = np.array([[[0.5, 0.5, 0.2, 0.4]]], np.float32)
+    logits = np.array([[[3.0, -3.0, -3.0]]], np.float32)
+    first = decode_rtdetr([boxes, logits], 64, 64, 0.4)
+    swapped = decode_rtdetr([logits, boxes], 64, 64, 0.4)
+    for a, b in zip(first, swapped, strict=True):
+        np.testing.assert_allclose(a, b)
+    assert first[2].tolist() == [0]  # one box, class 0
+
+
+def test_huggingface_dfine_preset_counts_classes_from_zero(tmp_path):
+    from cctv_edge.models.make_manifest import main
+    from cctv_edge.models.manifest import load_manifest
+
+    folder = tmp_path / "person-dfine-s"
+    folder.mkdir()
+    (folder / "model.onnx").write_bytes(b"weights")
+    assert main([str(folder), "--preset", "dfine-hf", "--name", folder.name, "--version", "1"]) == 0
+    loaded, _ = load_manifest(folder)
+    assert loaded.classes[0] == "person" and loaded.classes[67] == "cell phone"
+    assert len(loaded.classes) == 80 and loaded.input.letterbox is False

@@ -85,7 +85,7 @@ Each model is a folder with its weights and a `model.json`:
 
 Which models (licences, accuracy, the recommendation): [docs/ai-models.md](../docs/ai-models.md).
 For a person detector exported to ONNX, `python -m cctv_edge.models.make_manifest <folder>
---preset dfine|rfdetr|yolox --name ... --version ...` writes its `model.json` (input, class
+--preset dfine|dfine-hf|rfdetr|yolox --name ... --version ...` writes its `model.json` (input, class
 numbering, sha256, licence), checks it the way the box loads it, and refuses checkpoints
 known not to be cleared for commercial use. The drawer and PPE classifiers are trained on
 Mudawara footage (see `ml/`).
