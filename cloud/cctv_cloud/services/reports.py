@@ -28,6 +28,7 @@ from cctv_cloud.db.enums import (
     AlertKind,
     AttendanceStatus,
     DeliveryStatus,
+    PosMatch,
     ReportPeriod,
     ReviewStatus,
     UserRole,
@@ -39,6 +40,7 @@ from cctv_cloud.db.models import (
     Camera,
     CountBucket,
     Event,
+    HeatmapBucket,
     Report,
     Staff,
     User,
@@ -47,7 +49,7 @@ from cctv_cloud.db.models import (
 )
 from cctv_cloud.db.session import tenant_session
 from cctv_cloud.rbac import ALL_BRANCH_ROLES, ROLE_PERMISSIONS, Permission
-from cctv_cloud.services import texts, webhooks
+from cctv_cloud.services import heatmaps, texts, webhooks
 from cctv_cloud.services.alerts import Senders, latency_stats
 from cctv_contracts.enums import FeatureKey, Severity, ZoneType
 
@@ -83,6 +85,8 @@ class Totals(BaseModel):
     queue_waits: int | None = None
     queue_wait_avg_s: int | None = None
     queue_wait_max_s: int | None = None
+    # Cash drawer openings without a sale on the till (None: the till isn't connected).
+    drawer_no_sale: int | None = None
 
 
 class DayRow(BaseModel):
@@ -131,6 +135,15 @@ class SecurityRow(BaseModel):
     review_status: str
 
 
+class AreaRow(BaseModel):
+    """One of a camera's busiest areas of the picture (heatmap)."""
+
+    camera: str
+    area: str  # e.g. "bottom.centre" (services/heatmaps.AREAS)
+    minutes: int  # person-minutes
+    share_pct: float  # of all the camera's time
+
+
 class AlertSummary(BaseModel):
     sent: int = 0
     failed: int = 0
@@ -158,6 +171,8 @@ class ReportData(BaseModel):
     staff: list[StaffRow]
     security_events: list[SecurityRow]
     alerts: AlertSummary
+    # Heatmap: each camera's three busiest areas (empty without heatmaps; older reports).
+    busiest_areas: list[AreaRow] = []
 
 
 def period_bounds(
@@ -209,6 +224,7 @@ def build_report(
             Event.review_status,
             Event.started_at,
             Event.staff_id,
+            Event.pos_match,
         )
         .where(Event.branch_id == branch.id, Event.started_at >= since, Event.started_at < until)
         .order_by(Event.started_at)
@@ -258,6 +274,8 @@ def build_report(
         if false_alarm:
             continue  # issues count what wasn't dismissed
         totals.critical += critical
+        if e.pos_match == PosMatch.NO_SALE.value:
+            totals.drawer_no_sale = (totals.drawer_no_sale or 0) + 1
         for feature, field in (
             (FeatureKey.SECURITY, "security"),
             (FeatureKey.KITCHEN_COMPLIANCE, "compliance"),
@@ -374,6 +392,36 @@ def build_report(
     if totals.queue_waits:
         totals.queue_wait_avg_s = round(wait_total / totals.queue_waits)
     totals.counter_staffed_pct = _pct(staffed, watched)
+    if branch.pos_synced_until is not None and totals.drawer_no_sale is None:
+        totals.drawer_no_sale = 0
+
+    # Heatmaps: each camera's busiest areas of the picture.
+    heat = db.scalars(
+        select(HeatmapBucket)
+        .join(Camera, Camera.id == HeatmapBucket.camera_id)
+        .where(
+            Camera.branch_id == branch.id,
+            HeatmapBucket.bucket_start >= since,
+            HeatmapBucket.bucket_start < until,
+        )
+    ).all()
+    by_camera: dict[uuid.UUID, list[HeatmapBucket]] = {}
+    for bucket in heat:
+        by_camera.setdefault(bucket.camera_id, []).append(bucket)
+    areas: list[AreaRow] = []
+    for camera_id, camera_buckets in sorted(by_camera.items(), key=lambda c: cameras.get(c[0], "")):
+        grid = heatmaps.combine(camera_buckets)
+        found = heatmaps.busiest_areas(grid) if grid else []
+        total = sum(s for _, s in found)
+        areas += [
+            AreaRow(
+                camera=cameras.get(camera_id, ""),
+                area=area,
+                minutes=round(seconds / 60),
+                share_pct=round(100 * seconds / total, 1),
+            )
+            for area, seconds in found[:3]
+        ]
 
     # Alert times (plan 6.7).
     deliveries = db.execute(
@@ -427,6 +475,7 @@ def build_report(
         staff=sorted(people.values(), key=lambda r: (r.name.lower(), r.employee_code)),
         security_events=security,
         alerts=alerts,
+        busiest_areas=areas,
     )
 
 

@@ -7,7 +7,7 @@ dashboard address we give you.
 
 | Connection | Direction | What it does |
 |---|---|---|
-| [1. Till sales](#1-till-sales-pos) | Your till → us, every few minutes | Each cash drawer opening the cameras see is checked against your sales. An opening with no sale near it is flagged *No sale on the till* for the managers to review |
+| [1. Till sales](#1-till-sales-pos) | Your till → us, every few minutes | Each cash drawer opening the cameras see is checked against your sales. An opening with no sale near it is flagged *No sale on the till*, alerted to the managers who asked for cashier warnings, and counted in the reports |
 | [2. Attendance for payroll](#2-attendance-for-payroll-hrm) | Your payroll system ← us, when it runs payroll | Each staff member's days: on time, late, absent, check-in and check-out, minutes worked |
 
 ## API keys

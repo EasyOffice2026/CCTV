@@ -86,6 +86,9 @@ function ReportView({ report }: { report: Report }) {
         <Kpi label={t("reports.kpi.security")} value={num(totals.security)} />
         <Kpi label={t("reports.kpi.compliance")} value={num(totals.compliance)} tone={totals.compliance ? "amber" : undefined} />
         <Kpi label={t("reports.kpi.cashier")} value={num(totals.cashier)} />
+        {totals.drawer_no_sale != null && (
+          <Kpi label={t("events.posNoSale")} value={num(totals.drawer_no_sale)} tone={totals.drawer_no_sale ? "red" : undefined} />
+        )}
         <Kpi label={t("reports.kpi.falseAlarms")} value={num(totals.false_alarms)} />
         <Kpi label={t("reports.kpi.attendanceRate")} value={pct(totals.attendance_pct)} />
         <Kpi label={t("reports.kpi.punctuality")} value={pct(totals.punctuality_pct)} />
@@ -143,6 +146,32 @@ function ReportView({ report }: { report: Report }) {
                   <td>{day.late}</td>
                   <td>{day.absent}</td>
                   <td>{num(day.customers_in)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </Card>
+      )}
+
+      {(data.busiest_areas ?? []).length > 0 && (
+        <Card>
+          <h3 className="px-4 pt-3 font-medium">{t("reports.busiestAreas")}</h3>
+          <Table>
+            <thead>
+              <tr>
+                <th>{t("common.camera")}</th>
+                <th>{t("reports.area")}</th>
+                <th>{t("reports.personMinutes")}</th>
+                <th>{t("reports.share")}</th>
+              </tr>
+            </thead>
+            <tbody className="tabular-nums">
+              {(data.busiest_areas ?? []).map((a) => (
+                <tr key={`${a.camera}-${a.area}`}>
+                  <td>{a.camera}</td>
+                  <td>{t(`heatmap.place.${a.area}` as MessageKey)}</td>
+                  <td>{a.minutes}</td>
+                  <td>{pct(a.share_pct)}</td>
                 </tr>
               ))}
             </tbody>

@@ -6,7 +6,31 @@ import { Button, Card, ErrorText, Field, Input, Notice, PageHeader } from "@/com
 import { api, unwrap } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
+import { installApp, useInstallState } from "@/lib/install";
 import { key } from "@/lib/labels";
+
+/** Install the dashboard as an app (home-screen icon, own window, alert notifications). */
+function PhoneApp() {
+  const { t } = useI18n();
+  const state = useInstallState();
+  return (
+    <Card className="flex flex-col gap-2 p-4 text-sm md:col-span-2">
+      <h2 className="font-semibold">{t("app.title")}</h2>
+      <p className="text-slate-600">{t("app.help")}</p>
+      {state === "installed" && <Notice tone="green">{t("app.installed")}</Notice>}
+      {state === "available" && (
+        <div>
+          <Button variant="primary" onClick={() => void installApp()}>
+            {t("app.install")}
+          </Button>
+        </div>
+      )}
+      {state === "ios" && <Notice>{t("app.ios")}</Notice>}
+      {state === "unavailable" && <Notice>{t("app.other")}</Notice>}
+      <p className="text-xs text-slate-500">{t("app.alerts")}</p>
+    </Card>
+  );
+}
 
 export default function AccountPage() {
   const { t } = useI18n();
@@ -76,6 +100,7 @@ export default function AccountPage() {
             </Button>
           </form>
         </Card>
+        <PhoneApp />
       </div>
     </>
   );

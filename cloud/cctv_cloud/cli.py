@@ -4,6 +4,7 @@
     python -m cctv_cloud.cli vapid-keys
     python -m cctv_cloud.cli face-key
     python -m cctv_cloud.cli rotate-face-keys
+    python -m cctv_cloud.cli rotate-secret-key --old-key-file FILE
     python -m cctv_cloud.cli security-check [--online]
     python -m cctv_cloud.cli sso-token --issuer <iss> --email <email> [--embed]
     python -m cctv_cloud.cli export-reviewed --tenant <slug> --since 2026-11-01 --out DIR
@@ -12,6 +13,9 @@ create-superadmin prints a link to set the password; 2FA is set up at the first 
 vapid-keys prints a new key for browser notifications (CCTV_VAPID_PRIVATE_KEY).
 face-key prints a new local key for face templates (CCTV_FACE_KEYS, CCTV_FACE_KEY).
 rotate-face-keys re-encrypts face templates that use an older key than CCTV_FACE_KEY.
+rotate-secret-key, run after CCTV_SECRET_KEY was changed, re-encrypts 2FA, sign-in
+integration and webhook secrets (and face templates without CCTV_FACE_KEY) from the old
+key in FILE (or CCTV_OLD_SECRET_KEY) to the new one; see docs/security.md §7.
 security-check lists unsafe settings; --online also checks the database and the bucket.
 It exits with 1 when there are errors.
 sso-token prints a sign-in link as the operational system would make it (HS256
@@ -22,6 +26,7 @@ snapshots to DIR for retraining (plan 9.5); every file fetched is in the audit l
 
 import argparse
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -59,6 +64,31 @@ def create_superadmin(email: str, name: str) -> uuid.UUID:
         db.flush()
         send_password_link(user, _PrintMailer(), purpose="invite")
     return user_id
+
+
+def _rotate_secret_key(old_key_file: str | None) -> int:
+    from cctv_cloud.services.secret_rotation import rotate_secret_key
+
+    if old_key_file:
+        old_key = Path(old_key_file).read_text(encoding="utf-8").strip()
+    else:
+        old_key = os.environ.get("CCTV_OLD_SECRET_KEY", "")
+    try:
+        result = rotate_secret_key(old_key)
+    except ValueError as exc:
+        print(exc)
+        return 1
+    if result.unreadable:
+        print("nothing changed: these can be decrypted with neither key:")
+        for item in result.unreadable:
+            print(f"  {item}")
+        return 1
+    print(
+        f"re-encrypted: {result.totp} 2FA secrets, {result.sso} sign-in integration secrets, "
+        f"{result.webhooks} webhook secrets, {result.face_templates} face templates "
+        f"({result.already_new} already under the new key). Everyone signs in again."
+    )
+    return 0
 
 
 def _security_check(online: bool) -> int:
@@ -124,6 +154,10 @@ def main(argv: list[str] | None = None) -> int:
     commands.add_parser("vapid-keys")
     commands.add_parser("face-key")
     commands.add_parser("rotate-face-keys")
+    rotate_secret = commands.add_parser("rotate-secret-key")
+    rotate_secret.add_argument(
+        "--old-key-file", help="file holding the previous key (default: CCTV_OLD_SECRET_KEY)"
+    )
     check = commands.add_parser("security-check")
     check.add_argument("--online", action="store_true", help="also check the database and bucket")
     sso_token = commands.add_parser("sso-token")
@@ -151,6 +185,8 @@ def main(argv: list[str] | None = None) -> int:
         count = rotate_templates(tenant_ids())
         print(f"{count} face templates re-encrypted with {current_key_id()}")
         return 0
+    if args.command == "rotate-secret-key":
+        return _rotate_secret_key(args.old_key_file)
     if args.command == "security-check":
         return _security_check(args.online)
     if args.command == "sso-token":

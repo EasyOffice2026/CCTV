@@ -222,6 +222,7 @@ python -m cctv_cloud.cli create-superadmin --email you@example.com --name "Your 
 python -m cctv_cloud.cli vapid-keys      # key for browser notifications
 python -m cctv_cloud.cli face-key        # a local key for face templates (when not using KMS)
 python -m cctv_cloud.cli rotate-face-keys  # re-encrypt templates after changing CCTV_FACE_KEY
+python -m cctv_cloud.cli rotate-secret-key --old-key-file FILE  # after changing CCTV_SECRET_KEY (docs/security.md §7)
 python -m cctv_cloud.cli security-check --online  # settings, TLS, keys, bucket encryption
 python -m cctv_cloud.cli sso-token --issuer <iss> --email <user>  # test sign-in link (HS256)
 python -m cctv_cloud.cli export-reviewed --tenant <slug> --since 2026-11-15 --out DIR

@@ -90,4 +90,3 @@ Taken from [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md); update before the session
 - NVR playback and checks are Hikvision only.
 - The operational-system integration method still to be confirmed by their technical
   contact (plan 8.1).
-- A `rotate-secret-key` command (security.md §7).

@@ -29,7 +29,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from cctv_cloud.config import get_settings
-from cctv_cloud.db.enums import AlertChannel, AlertKind, DeliveryStatus, UserRole
+from cctv_cloud.db.enums import AlertChannel, AlertKind, DeliveryStatus, PosMatch, UserRole
 from cctv_cloud.db.models import (
     AlertDelivery,
     AlertSubscription,
@@ -255,6 +255,8 @@ def build_message(
     zone_name: str | None,
 ) -> Message:
     what = texts.event_label(locale, event.event_type)
+    if event.pos_match == PosMatch.NO_SALE.value:  # checked against the till
+        what = texts.t(locale, "alert.drawer_no_sale")
     if kind == AlertKind.RESOLVED.value:
         title = f"{texts.t(locale, 'alert.resolved')}: {what}"
         at = event.ended_at or event.started_at

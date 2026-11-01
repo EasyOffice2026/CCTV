@@ -4,7 +4,9 @@ The till sends its sales with an API key (`POST /v1/pos/sales`), with `synced_un
 time up to which it has sent everything. Every minute the worker checks each cash drawer
 opening the till is complete for: a sale from BEFORE before it to AFTER after it explains
 it (cash first, then the nearest in time; each sale explains one opening). An opening
-without one is marked `no_sale` and raised to a warning, for the review list.
+without one is marked `no_sale` and raised to a warning, for the review list, and alerted
+like a new warning ("Cash drawer opened without a sale") to whoever's alert rules ask for
+cashier warnings; people already told about that opening aren't told twice.
 
 Openings are only checked up to `synced_until`, so a till that is offline or behind
 doesn't make every opening look like one without a sale.
@@ -22,6 +24,7 @@ from sqlalchemy.orm import Session
 from cctv_cloud.db.enums import PosMatch, PosPayment
 from cctv_cloud.db.models import Branch, Event, PosSale
 from cctv_cloud.db.session import tenant_session
+from cctv_cloud.services.alerts import Change, route_event
 from cctv_contracts.enums import EventType, Severity
 
 log = logging.getLogger(__name__)
@@ -56,9 +59,12 @@ def store_sales(db: Session, tenant_id: uuid.UUID, branch_id: uuid.UUID, sales: 
     return len(rows)
 
 
-def _match(events: Sequence[Event], sales: Iterable[PosSale], now: datetime) -> tuple[int, int]:
+def _match(
+    events: Sequence[Event], sales: Iterable[PosSale], now: datetime
+) -> tuple[int, list[Event]]:
     free = list(sales)
-    matched = no_sale = 0
+    matched = 0
+    no_sale: list[Event] = []
     for event in events:
         candidates = [
             s for s in free if event.started_at - BEFORE <= s.sold_at <= event.started_at + AFTER
@@ -80,7 +86,7 @@ def _match(events: Sequence[Event], sales: Iterable[PosSale], now: datetime) -> 
             event.pos_match = PosMatch.NO_SALE.value
             if event.severity == Severity.INFO.value:
                 event.severity = Severity.WARNING.value
-            no_sale += 1
+            no_sale.append(event)
     return matched, no_sale
 
 
@@ -116,7 +122,10 @@ def reconcile_tenant(tenant_id: uuid.UUID, now: datetime | None = None) -> tuple
                 )
             ).all()
             matched, no_sale = _match(events, sales, now)
-            totals = (totals[0] + matched, totals[1] + no_sale)
+            db.flush()
+            for event in no_sale:  # queued; the worker sends them in its next round
+                route_event(db, event, Change.NEW, now)
+            totals = (totals[0] + matched, totals[1] + len(no_sale))
     if totals[1]:
         log.info("tenant %s: %d drawer openings without a sale", tenant_id, totals[1])
     return totals

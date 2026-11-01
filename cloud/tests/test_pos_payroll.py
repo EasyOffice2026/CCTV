@@ -3,6 +3,7 @@ for payroll (HRM)."""
 
 import uuid
 from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy import select
@@ -192,3 +193,75 @@ def test_attendance_for_payroll(client, org, h, owner_engine):
     with Session(owner_engine) as s:
         exports = s.scalars(select(AuditLog).where(AuditLog.action == "export_attendance")).all()
     assert len(exports) == 3 and {e.details["format"] for e in exports} == {"json", "csv"}
+
+
+def test_no_sale_openings_are_alerted_and_reported(client, org, h, owner_engine):
+    """Openings without a sale alert cashier-warning rules once, and appear in reports with
+    the cameras' busiest areas."""
+    from io import BytesIO
+
+    from openpyxl import load_workbook
+
+    from cctv_cloud.db.models import AlertDelivery, Branch, HeatmapBucket
+    from cctv_cloud.db.session import tenant_session
+    from cctv_cloud.services import report_files, reports
+    from cctv_cloud.services.alerts import build_message
+
+    owner = h("owner_a")
+    r = client.post(
+        "/v1/me/alert-rules",
+        json={"channels": ["web"], "feature_key": "cashier", "min_severity": "warning"},
+        headers=owner,
+    )
+    assert r.status_code == 201, r.text
+    now = T  # a fixed afternoon, so the day's report holds all of it
+    [opening] = drawer_openings(owner_engine, org, now - timedelta(minutes=8))
+    till = api_key(client, h, "pos:write")
+    client.post(
+        "/v1/pos/sales",
+        json={"branch_id": str(org.ids["a1"]), "synced_until": now.isoformat(), "sales": []},
+        headers=till,
+    )
+    assert pos.reconcile_tenant(org.ids["a"], now=now) == (0, 1)
+    with Session(owner_engine) as s:
+        deliveries = s.scalars(select(AlertDelivery).where(AlertDelivery.event_id == opening)).all()
+        event = s.get(Event, opening)
+        branch = s.get(Branch, org.ids["a1"])
+        message = build_message("en", "alert", event, branch, "Counter", None)
+        arabic = build_message("ar", "alert", event, branch, "Counter", None)
+    assert [(d.user_id, d.channel, d.kind) for d in deliveries] == [
+        (org.ids["owner_a"], "web", "alert")
+    ]
+    assert "Cash drawer opened without a sale" in message.title
+    assert "دون عملية بيع" in arabic.title
+
+    with Session(owner_engine) as s, s.begin():
+        for hour in range(3):
+            s.add(
+                HeatmapBucket(
+                    tenant_id=org.ids["a"],
+                    camera_id=org.ids["cam_a1"],
+                    bucket_start=(now - timedelta(hours=hour + 1)).replace(minute=0, second=0),
+                    columns=3,
+                    rows=3,
+                    cells=[[7, 600], [0, 120]],  # bottom centre, top left
+                )
+            )
+    with tenant_session(org.ids["a"]) as db:
+        branch = db.get(Branch, org.ids["a1"])
+        day = now.astimezone(ZoneInfo(branch.timezone)).date()
+        data = reports.build_report(db, branch, reports.ReportPeriod.DAY, day, now=now)
+    assert data.totals.drawer_no_sale == 1
+    assert [(a.area, a.minutes, a.share_pct) for a in data.busiest_areas] == [
+        ("bottom.centre", 30, 83.3),
+        ("top.left", 6, 16.7),
+    ]
+    assert ("Drawer openings without a sale", "1") in report_files.summary_rows(data, "en")
+    book = load_workbook(BytesIO(report_files.render_xlsx(data, "en")))
+    sheets = {ws.title: ws for ws in book.worksheets}
+    cells = [c.value for ws in sheets.values() for row in ws.iter_rows() for c in row if c.value]
+    assert "Busiest areas of the picture (heatmap)" in cells or any(
+        "Busiest areas" in str(name) for name in sheets
+    )
+    assert "Bottom centre" in cells
+    assert report_files.render_pdf(data, "ar").startswith(b"%PDF")

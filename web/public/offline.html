@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#2259c2" />
+    <title>AI CCTV - offline</title>
+    <style>
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f8fafc;
+        color: #0f172a; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif; }
+      main { max-width: 22rem; padding: 1.5rem; text-align: center; }
+      img { width: 64px; height: 64px; }
+      h1 { font-size: 1.15rem; margin: 1rem 0 0.25rem; }
+      p { margin: 0.25rem 0; color: #475569; }
+      button { margin-top: 1.25rem; padding: 0.55rem 1.2rem; border: 0; border-radius: 0.4rem;
+        background: #2259c2; color: #fff; font: inherit; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/icons/icon-192.png" alt="" />
+      <h1>No internet connection</h1>
+      <p>The dashboard needs the internet to show events and video. Alerts reach this phone again as soon as it is back online.</p>
+      <p dir="rtl" lang="ar">لا يوجد اتصال بالإنترنت. تحتاج لوحة التحكم إلى الإنترنت لعرض الأحداث والفيديو.</p>
+      <button type="button" onclick="location.reload()">Try again · حاول مجدداً</button>
+    </main>
+  </body>
+</html>

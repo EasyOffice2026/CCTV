@@ -481,6 +481,35 @@
         "title": "ApiKeyOut",
         "type": "object"
       },
+      "AreaRow": {
+        "description": "One of a camera's busiest areas of the picture (heatmap).",
+        "properties": {
+          "area": {
+            "title": "Area",
+            "type": "string"
+          },
+          "camera": {
+            "title": "Camera",
+            "type": "string"
+          },
+          "minutes": {
+            "title": "Minutes",
+            "type": "integer"
+          },
+          "share_pct": {
+            "title": "Share Pct",
+            "type": "number"
+          }
+        },
+        "required": [
+          "camera",
+          "area",
+          "minutes",
+          "share_pct"
+        ],
+        "title": "AreaRow",
+        "type": "object"
+      },
       "AttendanceCorrection": {
         "properties": {
           "check_in_at": {
@@ -5685,6 +5714,14 @@
             "title": "Branch Name",
             "type": "string"
           },
+          "busiest_areas": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AreaRow"
+            },
+            "title": "Busiest Areas",
+            "type": "array"
+          },
           "days": {
             "items": {
               "$ref": "#/components/schemas/DayRow"
@@ -7523,6 +7560,17 @@
             "default": 0,
             "title": "Day Off",
             "type": "integer"
+          },
+          "drawer_no_sale": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drawer No Sale"
           },
           "events": {
             "default": 0,

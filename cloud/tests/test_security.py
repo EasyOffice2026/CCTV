@@ -8,6 +8,7 @@ import io
 import re
 import uuid
 from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import pytest
 from pydantic import SecretStr, ValidationError
@@ -39,6 +40,11 @@ def h(client, org):
         return cache[name]
 
     return headers
+
+
+def branch_today() -> date:
+    """Today in the test branches' time zone (not this computer's)."""
+    return datetime.now(ZoneInfo("Asia/Kuwait")).date()
 
 
 # --- 7.1: headers and settings ------------------------------------------------------
@@ -481,7 +487,8 @@ def _victim_rows(client, org, headers, branch: str, serial: str) -> dict[str, ob
         "report_id": made(
             client.post(
                 "/v1/reports",
-                json={"branch_id": str(branch_id), "period": "day", "day": str(date.today())},
+                # The branch's day (Kuwait), not this computer's: they differ around midnight.
+                json={"branch_id": str(branch_id), "period": "day", "day": str(branch_today())},
                 headers=headers,
             )
         ),

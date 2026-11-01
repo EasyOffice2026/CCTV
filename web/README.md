@@ -35,6 +35,7 @@ and talks to the API through its own proxy.
 | Daily review | `events_review` | The day's unreviewed events of the chosen branch, oldest first, with clip; keys V valid, F false alarm, R reviewed, S skip, B back. Below: review results of the last 7 days per event type, camera and zone (precision, false alarms/day) for tuning (plan 9.4, 9.5) |
 | Live events | `events_view` | Event cards that update live over the WebSocket; clip player; Valid / False alarm / Reviewed |
 | Attendance: payroll | `payroll_export` (owners) | A month of attendance as CSV for the payroll system, on the Attendance page |
+| My account › Phone app | everyone | Install the dashboard as an app (PWA: `public/manifest.json`, `public/sw.js`, `src/lib/install.ts`; icons from `scripts/make_icons.py`): an install button where the browser offers it, the steps for iPhone otherwise. The service worker also shows `public/offline.html` without a connection and caches only `_next/static` files and icons, never API answers or media |
 | Heatmap | `events_view` | Where customers stood in a camera's view over a period, on a current camera picture (with `live_view` or `devices_manage`), and the busiest areas of the picture as a list |
 | Search | `events_view` | Every filter of the search API; CSV export (`media_export`) |
 | Live view | `live_view` | Camera grid per branch, WebRTC from the edge box on demand; stops after 5 min without activity or when the tab is hidden |

@@ -140,13 +140,24 @@ python -m cctv_cloud.cli rotate-face-keys           # after changing CCTV_FACE_K
 ```
 
 Rotation schedule: device tokens automatic (30 days); `CCTV_SECRET_KEY` yearly or at once
-if leaked (signs everyone out and needs 2FA re-enrolment; the TOTP secrets are encrypted
-with it, so re-encrypt first - a `rotate-secret-key` command is to do; SSO and webhook
-secrets are too, so they must be re-issued); face key yearly
+if leaked (see below); face key yearly
 (KMS rotates the master key itself; local keys with `rotate-face-keys`); S3 and database
 credentials through the secrets manager with the API restarted; the WhatsApp system-user
 token when Meta expires it.
 
+Changing `CCTV_SECRET_KEY`: it signs sign-in tokens and encrypts the 2FA secrets, the shared
+secrets of sign-in integrations, webhook secrets and, without `CCTV_FACE_KEY`, face templates.
+
+1. Put the new key in the secrets manager as `CCTV_SECRET_KEY`, keep the old one in a file
+   readable only by you (or `CCTV_OLD_SECRET_KEY`), and restart the API and the worker.
+2. In an API container: `python -m cctv_cloud.cli rotate-secret-key --old-key-file FILE`.
+   It decrypts everything with the old key and encrypts it with the new one in one database
+   transaction (as the owner role); if anything can be read with neither key, nothing changes
+   and it lists what. Running it again is harmless.
+3. Delete the old key. Everyone signs in again; nobody has to set up 2FA again, and the
+   sign-in integrations and webhooks keep their secrets.
+
+Between steps 1 and 2 (a minute), 2FA sign-ins, SSO sign-ins and webhook signatures fail.
+
 Still open: Terraform for the cloud (plan 1.4) is where RDS encryption, the KMS key, the
-bucket policy and the secrets mounts get defined; Jetson flash-time disk encryption (Phase 9);
-a `rotate-secret-key` command.
+bucket policy and the secrets mounts get defined; Jetson flash-time disk encryption (Phase 9).

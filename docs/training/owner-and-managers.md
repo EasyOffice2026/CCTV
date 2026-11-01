@@ -55,6 +55,10 @@ off for a branch has no section.
 - Use **Test** to check a message arrives.
 - You also choose here whether to get a link when the daily, weekly or monthly report is
   ready.
+- **On your phone**: open the dashboard on the phone and install it as an app (**My account
+  › Phone app**: on Android the Install button or Chrome's menu › Install app; on iPhone
+  Safari › Share › Add to Home Screen). Then turn on browser notifications here, and alerts
+  arrive as phone notifications.
 
 ## 5. Reports
 
@@ -151,6 +155,9 @@ replaced, the internet or power is down for long, or alerts look wrong.
 - لا تحتوي الرسائل على صور أبدًا: فيها رابط يفتح الحدث بعد تسجيل الدخول.
 - استخدم **تجربة** للتأكد من وصول الرسالة.
 - تختار هنا أيضًا استلام رابط عند جاهزية التقرير اليومي أو الأسبوعي أو الشهري.
+- **على هاتفك**: افتح لوحة التحكم على الهاتف وثبّتها كتطبيق (**حسابي › تطبيق الهاتف**: على
+  أندرويد زر التثبيت أو قائمة Chrome › تثبيت التطبيق؛ على آيفون Safari › مشاركة › إضافة إلى
+  الشاشة الرئيسية). ثم فعّل إشعارات المتصفح هنا، فتصل التنبيهات كإشعارات على الهاتف.
 
 ## 5. التقارير
 

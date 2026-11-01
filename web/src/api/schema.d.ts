@@ -2215,6 +2215,20 @@ export interface components {
             /** Scopes */
             scopes: string[];
         };
+        /**
+         * AreaRow
+         * @description One of a camera's busiest areas of the picture (heatmap).
+         */
+        AreaRow: {
+            /** Area */
+            area: string;
+            /** Camera */
+            camera: string;
+            /** Minutes */
+            minutes: number;
+            /** Share Pct */
+            share_pct: number;
+        };
         /** AttendanceCorrection */
         AttendanceCorrection: {
             /** Check In At */
@@ -4179,6 +4193,11 @@ export interface components {
             branch_id: string;
             /** Branch Name */
             branch_name: string;
+            /**
+             * Busiest Areas
+             * @default []
+             */
+            busiest_areas: components["schemas"]["AreaRow"][];
             /** Days */
             days: components["schemas"]["DayRow"][];
             /**
@@ -4985,6 +5004,8 @@ export interface components {
              * @default 0
              */
             day_off: number;
+            /** Drawer No Sale */
+            drawer_no_sale?: number | null;
             /**
              * Events
              * @default 0

@@ -103,6 +103,8 @@ def summary_rows(data: ReportData, locale: str) -> list[tuple[str, str]]:
         (t("report.alerts_within_target"), _fmt_pct(alerts.within_10s_pct)),
         (t("report.alerts_failed"), str(alerts.failed)),
     ]
+    if totals.drawer_no_sale is not None:  # the till is connected
+        rows.insert(5, (t("report.drawer_no_sale"), str(totals.drawer_no_sale)))
     return rows
 
 
@@ -203,6 +205,17 @@ def _tables(data: ReportData, locale: str) -> list[tuple[str, list[str], list[li
             ],
         )
     )
+    if data.busiest_areas:
+        tables.append(
+            (
+                t("report.busiest_areas"),
+                [t("report.camera"), t("report.area"), t("report.minutes"), t("report.share")],
+                [
+                    [a.camera, t(f"report.area.{a.area}"), str(a.minutes), _fmt_pct(a.share_pct)]
+                    for a in data.busiest_areas
+                ],
+            )
+        )
     tables.append(
         (
             t("report.security"),

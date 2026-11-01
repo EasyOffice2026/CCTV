@@ -50,6 +50,14 @@ def apply_heatmaps(
     return BatchResult(accepted=len(buckets) - len(rejected), rejected=rejected)
 
 
+# The picture in nine areas (3 x 3), as in the dashboard's Heatmap page.
+AREAS = [
+    f"{row}.{column}"
+    for row in ("top", "middle", "bottom")
+    for column in ("left", "centre", "right")
+]
+
+
 @dataclass
 class Grid:
     columns: int
@@ -74,3 +82,14 @@ def combine(buckets: Sequence[HeatmapBucket]) -> Grid | None:
             if 0 <= index < len(seconds):
                 seconds[index] += value
     return Grid(columns, rows, seconds, covered / 3600)
+
+
+def busiest_areas(grid: Grid) -> list[tuple[str, int]]:
+    """(area, person-seconds) of the nine areas with time in them, busiest first."""
+    totals = [0] * 9
+    for index, seconds in enumerate(grid.seconds):
+        row = min(2, int((index // grid.columns + 0.5) / grid.rows * 3))
+        column = min(2, int((index % grid.columns + 0.5) / grid.columns * 3))
+        totals[row * 3 + column] += seconds
+    found = [(AREAS[i], s) for i, s in enumerate(totals) if s > 0]
+    return sorted(found, key=lambda a: -a[1])

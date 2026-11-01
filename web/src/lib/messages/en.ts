@@ -845,6 +845,17 @@ export const en = {
   "attendance.payrollMonth": "Month",
   "attendance.payrollExport": "Download for payroll (CSV)",
   "auditAction.export_attendance": "Exported attendance",
+  "reports.busiestAreas": "Busiest areas of the picture (heatmap)",
+  "reports.area": "Area",
+  "reports.personMinutes": "Person-minutes",
+  "reports.share": "Share",
+  "app.title": "Phone app",
+  "app.help": "Install the dashboard as an app: an icon on your phone's home screen (or your computer), its own full-screen window, and alerts as phone notifications. No app store needed; it updates by itself.",
+  "app.install": "Install the app",
+  "app.installed": "Installed: open it from your home screen or apps.",
+  "app.ios": "iPhone or iPad: open this page in Safari, tap Share (the square with an arrow), then \"Add to Home Screen\".",
+  "app.other": "Android: in Chrome, open the menu (⋮) and tap \"Install app\" or \"Add to Home screen\". Computer: use Chrome or Edge, then the install icon at the end of the address bar.",
+  "app.alerts": "For alerts on this phone, also turn on browser notifications under Alerts.",
 } as const;
 
 export type MessageKey = keyof typeof en;
