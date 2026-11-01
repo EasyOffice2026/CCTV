@@ -247,6 +247,24 @@ LUKS2 before formatting it (plan 7.2). The key is kept on the internal eMMC, so 
 discarded NVMe can't be read; protecting a stolen box as a whole needs Jetson disk
 encryption at flash time (see [docs/security.md](../docs/security.md)).
 
+## Site check (install day)
+
+```bash
+sudo docker compose -f /opt/cctv-edge/docker-compose.yml exec edge python -m cctv_edge --check [--json]
+```
+
+One line per finding (OK / WARN / FAIL); exits with 1 on a failure. It checks the device
+token (by fetching the config), the cloud and the box's clock against it, disk and
+temperature; every camera's main and sub-stream with `ffprobe` (codec H.264/H.265, main
+stream 1080p and 15 fps or better, credentials from `credentials.json`, never printed);
+and each NVR through ISAPI (GET only): clock against the box, time zone against the
+branch's, NTP or manual, and disk states (anything but ok/idle fails: "Disk Exception"
+means nothing is recorded). In the container it can't see NTP; run `timedatectl` on the
+host. See [docs/runbooks/install.md](../docs/runbooks/install.md).
+
+Heartbeats include each camera's `stream_restarts` (times the analysis stream ended and
+was reopened since the service started), which the cloud's 48-hour setup test uses.
+
 ## Offline evaluation (replay)
 
 Runs a camera's real pipeline over recorded footage, for the per-feature evaluation on

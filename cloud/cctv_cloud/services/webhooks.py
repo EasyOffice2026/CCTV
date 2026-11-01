@@ -47,6 +47,7 @@ from cctv_cloud.db.models import (
 )
 from cctv_cloud.db.session import tenant_session
 from cctv_cloud.security import _fernet, new_secret
+from cctv_cloud.services import pilot
 from cctv_cloud.services.alerts import SEVERITY_RANK, Change, event_url
 
 log = logging.getLogger(__name__)
@@ -182,8 +183,8 @@ def queue_event(db: Session, event: Event, change: Change) -> list[int]:
     topic = {Change.NEW: WebhookTopic.EVENT_NEW, Change.CLOSED: WebhookTopic.EVENT_CLOSED}.get(
         change
     )
-    if topic is None:
-        return []
+    if topic is None or pilot.branch_in_shadow(db, event.branch_id, datetime.now(timezone.utc)):
+        return []  # nothing reaches the client during shadow mode (plan 9.4)
     hooks = _matching(db, topic, event.branch_id, event.severity)
     if not hooks:
         return []
@@ -192,6 +193,8 @@ def queue_event(db: Session, event: Event, change: Change) -> list[int]:
 
 def queue_report(db: Session, report: Report, branch: Branch, url: str) -> list[int]:
     """When a scheduled report is made: one message per matching webhook."""
+    if pilot.shadow_active(branch.shadow_until, datetime.now(timezone.utc)):
+        return []
     hooks = _matching(db, WebhookTopic.REPORT_READY, branch.id)
     if not hooks:
         return []

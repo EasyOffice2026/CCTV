@@ -29,8 +29,10 @@ label ─► train / configure ─► offline evaluation on held-out footage ─
    evaluation report (definition of done, item 4) and must meet the 90% target, or an
    agreed adjusted target, before shadow mode.
 5. **Shadow mode** on site (plan 9.4): events are reviewed daily as valid / false alarm.
-6. **Tune** thresholds with the threshold sweep; add hard negatives from false alarms to
-   the training labels (never from the test split).
+6. **Tune** thresholds with the threshold sweep (and `cctv_ml.review_sweep` on the shadow
+   reviews); add hard negatives from false alarms to the training labels (never from the
+   test split). Exported with `python -m cctv_cloud.cli export-reviewed`
+   (docs/runbooks/shadow-mode.md).
 7. **Enable alerts** once the feature passes.
 
 ## Install and test
@@ -134,6 +136,20 @@ Per attribute: precision and recall per class on items the annotator could see (
 `unknown` answers on visible items, answers on items labelled `not_visible` (guesses),
 and the confusion matrix. `--min-score` turns low-score answers into `unknown` to test
 a stricter threshold.
+
+### Thresholds from shadow-mode reviews: `python -m cctv_ml.review_sweep`
+
+```bash
+python -m cctv_ml.review_sweep --manifest manifest.csv --out sweep.md [--json sweep.json] \
+    [--target 0.9] [--days 14]
+```
+
+`manifest.csv` from `python -m cctv_cloud.cli export-reviewed` (events people marked
+valid or false alarm, with the model's confidence). Per event type: every threshold the
+data allows, with confirmed events still raised, false alarms left, precision and false
+alarms per day, and the lowest threshold reaching `--target`. It only sees events the
+system raised, not the ones it missed: confirm a new threshold on the labelled test set
+with `cctv_ml.evaluate`.
 
 ## Labelling
 

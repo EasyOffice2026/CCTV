@@ -459,8 +459,12 @@ def notify_report(db: Session, report: Report, branch: Branch, senders: Senders)
         db.scalars(select(UserBranchAccess.user_id).where(UserBranchAccess.branch_id == branch.id))
     )
     templates = get_settings().whatsapp_templates
+    # Shadow mode (plan 9.4): only the support team's reviewers get the link.
+    shadow = branch.shadow_until is not None and branch.shadow_until > datetime.now(timezone.utc)
     sent = 0
     for user in users:
+        if shadow and not user.shadow_reviewer:
+            continue
         role = UserRole(user.role)
         if Permission.REPORTS_VIEW not in ROLE_PERMISSIONS[role]:
             continue

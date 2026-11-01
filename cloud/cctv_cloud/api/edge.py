@@ -23,7 +23,7 @@ from fastapi import (
     status,
 )
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import select, text, update
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -33,7 +33,7 @@ from cctv_cloud.db.enums import DeviceStatus, StaffStatus
 from cctv_cloud.db.models import Branch, Camera, EdgeDevice, Event, FaceTemplate, Staff, Zone
 from cctv_cloud.db.session import tenant_session
 from cctv_cloud.security import new_secret, normalise_pairing_code, sha256_hex
-from cctv_cloud.services import webhooks
+from cctv_cloud.services import pilot, webhooks
 from cctv_cloud.services.alerts import Change, Senders, dispatch, get_senders, route_event
 from cctv_cloud.services.attendance import apply_sightings
 from cctv_cloud.services.counts import apply_counts
@@ -187,15 +187,7 @@ def heartbeat(body: Heartbeat, ctx: Device) -> HeartbeatResponse:
     device.software_version = body.software_version
     device.config_version_applied = body.config_version_applied
     # Only this device's branch: a device can't report on other cameras.
-    for camera in body.cameras:
-        ctx.db.execute(
-            update(Camera)
-            .where(Camera.id == camera.camera_id, Camera.branch_id == device.branch_id)
-            .values(
-                health=camera.health.value,
-                last_seen_at=camera.last_frame_at or Camera.last_seen_at,
-            )
-        )
+    pilot.record_health(ctx.db, device.tenant_id, device.branch_id, body.cameras, now)
     version = ctx.db.scalar(select(Branch.config_version).where(Branch.id == device.branch_id))
     max_age = timedelta(days=get_settings().device_token_days)
     return HeartbeatResponse(

@@ -8,6 +8,7 @@ import logging
 import uuid
 from collections.abc import Iterable
 from functools import lru_cache
+from pathlib import Path
 from typing import Protocol
 
 import boto3
@@ -45,6 +46,8 @@ class ObjectStorage(Protocol):
     def presign_get(self, key: str, expires: int, download_name: str | None = None) -> str: ...
 
     def delete(self, keys: Iterable[str]) -> None: ...
+
+    def download(self, key: str, path: Path) -> None: ...
 
 
 class S3Storage:
@@ -91,6 +94,9 @@ class S3Storage:
             raise
         rules = config["ServerSideEncryptionConfiguration"]["Rules"]
         return rules[0]["ApplyServerSideEncryptionByDefault"]["SSEAlgorithm"] if rules else None
+
+    def download(self, key: str, path: Path) -> None:
+        self._client.download_file(self.bucket, key, str(path))
 
     def delete(self, keys: Iterable[str]) -> None:
         batch = [{"Key": k} for k in keys]

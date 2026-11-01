@@ -30,6 +30,7 @@ from cctv_cloud.db.enums import DeviceStatus
 from cctv_cloud.db.models import (
     AttendanceRecord,
     Camera,
+    CameraHealthMinute,
     CountBucket,
     EdgeDevice,
     Event,
@@ -39,6 +40,7 @@ from cctv_cloud.db.session import tenant_session
 from cctv_cloud.services import webhooks
 from cctv_cloud.services.alerts import Senders, default_senders, dispatch_all
 from cctv_cloud.services.attendance import mark_absences
+from cctv_cloud.services.pilot import KEEP_HEALTH
 from cctv_cloud.services.reports import generate_due
 from cctv_cloud.services.storage import ObjectStorage, get_storage
 
@@ -125,6 +127,7 @@ def _retain_tenant(
         db.execute(delete(CountBucket).where(CountBucket.bucket_start < event_cutoff))
         db.execute(delete(AttendanceRecord).where(AttendanceRecord.work_date < event_cutoff.date()))
         webhooks.purge_deliveries(db, now)
+        db.execute(delete(CameraHealthMinute).where(CameraHealthMinute.minute < now - KEEP_HEALTH))
         report.events_deleted += result.rowcount
 
 

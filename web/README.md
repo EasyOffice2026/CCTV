@@ -28,6 +28,7 @@ and talks to the API through its own proxy.
 | Page | Who (permission) | What |
 |---|---|---|
 | Overview | `kpis_view` | Each branch today: events, issues, attendance, customers, cameras and boxes, alert times, latest events, reports; sections follow the feature switches; refreshes every minute. Home page of owners and managers |
+| Daily review | `events_review` | The day's unreviewed events of the chosen branch, oldest first, with clip; keys V valid, F false alarm, R reviewed, S skip, B back. Below: review results of the last 7 days per event type, camera and zone (precision, false alarms/day) for tuning (plan 9.4, 9.5) |
 | Live events | `events_view` | Event cards that update live over the WebSocket; clip player; Valid / False alarm / Reviewed |
 | Search | `events_view` | Every filter of the search API; CSV export (`media_export`) |
 | Live view | `live_view` | Camera grid per branch, WebRTC from the edge box on demand; stops after 5 min without activity or when the tab is hidden |
@@ -41,7 +42,7 @@ and talks to the API through its own proxy.
 | Alerts | `events_view` | The user's alert rules, WhatsApp number and consent, message language, report links, browser notifications, test messages |
 | Audit log | `tenant_admin` | Who signed in, viewed or exported footage, reports and event lists, and changed settings, users, devices, staff or consent; filters, CSV export. Super-admins also see the platform log (their team's sign-ins) |
 | Integrations | `tenant_admin` | API keys, webhooks (test, recent sends), the operational system's sign-in (super-admins set it up; owners see it) |
-| Clients, Branches, Cameras & NVRs, Edge devices, Users | `platform_admin`, `tenant_admin`, `devices_manage` | Administration |
+| Clients, Branches, Cameras & NVRs, Edge devices, Users | `platform_admin`, `tenant_admin`, `devices_manage` | Administration. Edge devices also shows the 48-hour setup test of the chosen branch (plan 9.2). Super-admins turn shadow mode on per branch (Branches) and mark the support team's accounts (Users); a banner shows shadow mode on every page |
 | `/sso/` | — | Opened from the operational system with `#token=…&next=…`: signs in without a password |
 | `/embed/overview/` | `kpis_view` | The overview for the operational system's iframe (`#token=…&lang=…&branch=…`, or a token by `postMessage`); no navigation. Only this path may be framed, by the origins in `EMBED_ANCESTORS` |
 

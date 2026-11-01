@@ -548,6 +548,7 @@ BODIES = {
     ("PATCH", "/v1/events/{event_id}/review"): {"review_status": "false_alarm"},
     ("PUT", "/v1/me/alert-rules/{rule_id}"): {"channels": ["web"]},
     ("PATCH", "/v1/sso-integrations/{integration_id}"): {"name": "Taken"},
+    ("PUT", "/v1/branches/{branch_id}/shadow"): {"until": None},
     ("PATCH", "/v1/webhooks/{webhook_id}"): {"name": "Taken"},
     ("PATCH", "/v1/shifts/{shift_id}"): {"name": "Taken"},
     ("PATCH", "/v1/staff/{staff_id}"): {"full_name": "Taken"},

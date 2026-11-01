@@ -5,12 +5,13 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { AlertToasts } from "@/components/AlertToasts";
-import { Select } from "@/components/ui";
+import { Notice, Select } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useBranches } from "@/lib/branches";
-import { useI18n } from "@/lib/i18n";
+import { intlLocale, useI18n } from "@/lib/i18n";
 import type { MessageKey } from "@/lib/messages/en";
 import { can, canAny, type Permission } from "@/lib/permissions";
+import { formatDateTime } from "@/lib/time";
 
 type NavItem = { href: string; label: MessageKey; anyOf: Permission[] };
 
@@ -20,6 +21,7 @@ const NAV: { group: MessageKey; items: NavItem[] }[] = [
     items: [
       { href: "/overview/", label: "nav.overview", anyOf: ["kpis_view"] },
       { href: "/events/", label: "nav.events", anyOf: ["events_view"] },
+      { href: "/review/", label: "nav.review", anyOf: ["events_review"] },
       { href: "/search/", label: "nav.search", anyOf: ["events_view"] },
       { href: "/live/", label: "nav.live", anyOf: ["live_view"] },
       { href: "/playback/", label: "nav.playback", anyOf: ["live_view"] },
@@ -55,6 +57,31 @@ const NAV: { group: MessageKey; items: NavItem[] }[] = [
     ],
   },
 ];
+
+/** Shadow mode (plan 9.4): while the system is being tuned, say who gets the alerts. */
+function ShadowNotice() {
+  const { t, locale } = useI18n();
+  const { branches, branchId } = useBranches();
+  const [now] = useState(() => Date.now());
+  const shadow = branches.filter(
+    (b) => b.shadow_until && Date.parse(b.shadow_until) > now && (!branchId || b.id === branchId),
+  );
+  if (!shadow.length) return null;
+  return (
+    <div className="mb-4">
+      <Notice tone="amber">
+        {shadow
+          .map((b) =>
+            t("shadow.notice", {
+              branch: b.name,
+              date: formatDateTime(b.shadow_until ?? "", b.timezone, intlLocale(locale)),
+            }),
+          )
+          .join(" ")}
+      </Notice>
+    </div>
+  );
+}
 
 /** The first page this user may open (after login). */
 export function homePath(me: Parameters<typeof canAny>[0]): string {
@@ -161,7 +188,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </button>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-7xl flex-1 p-4 md:p-6">{children}</main>
+        <main className="mx-auto w-full max-w-7xl flex-1 p-4 md:p-6">
+          <ShadowNotice />
+          {children}
+        </main>
       </div>
       <AlertToasts enabled={!!tenantId && can(me, "events_view")} />
     </div>

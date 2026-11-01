@@ -12,6 +12,12 @@ class CameraStatus(ContractModel):
     fps: float = Field(ge=0)
     last_frame_at: UtcDatetime | None = None
     error: str | None = Field(default=None, max_length=500)
+    stream_restarts: int = Field(
+        default=0,
+        ge=0,
+        description="Times the stream dropped and was reopened since the service started "
+        "(counts up; back to 0 after a restart of the service)",
+    )
 
 
 class SystemStats(ContractModel):

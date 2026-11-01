@@ -1,4 +1,5 @@
-"""Entry point: `python -m cctv_edge` (or `cctv-edge`). `--healthcheck` is used by Docker."""
+"""Entry point: `python -m cctv_edge` (or `cctv-edge`). `--healthcheck` is used by Docker;
+`--check` is the install-day site check (cameras, NVRs, cloud, clock, disk; plan 9.1)."""
 
 import argparse
 import logging
@@ -8,6 +9,7 @@ import sys
 import threading
 import time
 
+from cctv_edge import sitecheck
 from cctv_edge.cloud import CloudClient
 from cctv_edge.credentials import load_credentials
 from cctv_edge.outbox import Outbox
@@ -30,12 +32,28 @@ def healthcheck() -> int:
     return 0 if age < ALIVE_MAX_AGE_SECONDS else 1
 
 
+def site_check(as_json: bool) -> int:
+    settings = get_settings()
+    tokens = TokenStore(settings.token_path, settings.device_token.get_secret_value())
+    client = CloudClient(settings.cloud_url, tokens.load(), settings.http_timeout_seconds)
+    try:
+        findings = sitecheck.run(settings, client)
+    finally:
+        client.close()
+    print(sitecheck.report(findings, as_json))
+    return 1 if any(f.level == "fail" for f in findings) else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="cctv-edge")
     parser.add_argument("--healthcheck", action="store_true", help="exit 0 if the service is alive")
+    parser.add_argument("--check", action="store_true", help="site check; exit 1 on failures")
+    parser.add_argument("--json", action="store_true", help="with --check: JSON output")
     args = parser.parse_args(argv)
     if args.healthcheck:
         return healthcheck()
+    if args.check:
+        return site_check(args.json)
 
     logging.basicConfig(
         level=os.environ.get("CCTV_EDGE_LOG_LEVEL", "INFO"),

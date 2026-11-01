@@ -1,7 +1,14 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, SmallInteger, String, UniqueConstraint, text
+from sqlalchemy import (
+    CheckConstraint,
+    PrimaryKeyConstraint,
+    SmallInteger,
+    String,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -71,6 +78,9 @@ class Camera(UUIDPk, CreatedAt, TenantScoped, Base):
     enabled: Mapped[bool] = mapped_column(server_default=text("true"))
     health: Mapped[str] = mapped_column(String(20), server_default=CameraHealth.OFFLINE.value)
     last_seen_at: Mapped[datetime | None]
+    # The box's count of stream restarts in its last heartbeat (it counts up from 0 after
+    # each start of the service), to work out new restarts.
+    stream_restarts: Mapped[int] = mapped_column(server_default="0")
 
     __table_args__ = (
         tenant_fk("branch_id", "branches"),
@@ -102,4 +112,24 @@ class Zone(UUIDPk, CreatedAt, TenantScoped, Base):
         UniqueConstraint("id", "tenant_id"),
         UniqueConstraint("camera_id", "name"),
         check_in("zone_type", ZoneType),
+    )
+
+
+class CameraHealthMinute(TenantScoped, Base):
+    """Stream health per camera and minute, from the edge heartbeats (plan 9.2: the setup
+    test, 48 h without dropped streams). A minute without a row had no heartbeat."""
+
+    __tablename__ = "camera_health_minutes"
+
+    camera_id: Mapped[uuid.UUID]
+    minute: Mapped[datetime]
+    samples: Mapped[int] = mapped_column(SmallInteger, server_default="0")
+    degraded: Mapped[int] = mapped_column(SmallInteger, server_default="0")
+    offline: Mapped[int] = mapped_column(SmallInteger, server_default="0")
+    restarts: Mapped[int] = mapped_column(SmallInteger, server_default="0")
+    min_fps: Mapped[float | None]
+
+    __table_args__ = (
+        PrimaryKeyConstraint("camera_id", "minute"),
+        tenant_fk("camera_id", "cameras", ondelete="CASCADE"),
     )

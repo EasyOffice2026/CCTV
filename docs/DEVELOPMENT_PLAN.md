@@ -286,12 +286,14 @@ For **each** feature follow the same loop: **label → train/configure → offli
 
 ### Phase 9 — On-site install & shadow mode (Week 12–14)
 
-- [ ] 9.1 Install the edge box at the pilot branch (UPS, wired LAN, VPN up), connect all cameras, register in the admin panel.
-- [ ] 9.2 **Setup test** (brief test #1): all cameras streaming, 48 h without dropped streams.
-- [ ] 9.3 Draw real zones, set working hours, enrol staff (with consent).
-- [ ] 9.4 **Shadow mode (1–2 weeks):** events are recorded but **alerts go only to us**. Review every event daily and mark valid/false.
-- [ ] 9.5 Tuning loop: adjust thresholds, ignore zones, dwell times; retrain on the false alarms collected (hard-negative mining).
-- [ ] 9.6 Train the owner and managers (review flow, settings, alerts).
+- [ ] 9.1 Install the edge box at the pilot branch (UPS, wired LAN, VPN up), connect all cameras, register in the admin panel. *Ready: install runbook (`docs/runbooks/install.md`: NVR fixes from §0, provisioning and pairing, credentials, checklist) and the site check on the box, `python -m cctv_edge --check`: pairing, cloud, clock against the cloud, disk, temperature, every camera's main and sub-stream against the minimum spec, and each NVR's clock, time zone, time source and disks (the survey's "4 min / 5 h off" and "Disk Exception"). Waiting on: the visit.*
+- [ ] 9.2 **Setup test** (brief test #1): all cameras streaming, 48 h without dropped streams. *Ready: the box counts stream restarts per camera; the cloud keeps health per camera and minute (60 days); Edge devices page shows the test per camera (restarts, minutes offline, minutes without heartbeat, longest outage, hour bars) from the first heartbeat, with pass/fail. Waiting on: 48 h on site.*
+- [ ] 9.3 Draw real zones, set working hours, enrol staff (with consent). *Existing pages; steps in the install runbook. Waiting on: the visit and signed consent forms.*
+- [ ] 9.4 **Shadow mode (1–2 weeks):** events are recorded but **alerts go only to us**. Review every event daily and mark valid/false. *Ready: shadow mode per branch until a date (super-admins); alerts only to accounts marked "Support team", no webhooks or report links to the client, a banner on every page. Daily review page: the day's unreviewed events one by one with clip, keys V/F/R/S/B. Routine in `docs/runbooks/shadow-mode.md`.*
+- [ ] 9.5 Tuning loop: adjust thresholds, ignore zones, dwell times; retrain on the false alarms collected (hard-negative mining). *Ready: review figures per event type, camera and zone (precision, false alarms/day, confidence of valid vs false) on the review page and `GET /v1/review-summary`; `cli export-reviewed` (events, notes and media for labelling, audited) and `cctv_ml.review_sweep` (threshold per event type from the reviews). Training itself waits on the model decision (§1 #12).*
+- [ ] 9.6 Train the owner and managers (review flow, settings, alerts). *Ready: guide in English and Arabic, `docs/training/owner-and-managers.md`. Waiting on: the session.*
+
+*Status: the software and documents for Phase 9 are built and tested (edge site check against simulated NVR replies and probes; health per minute, setup test, shadow-mode routing, review figures and export against PostgreSQL; threshold sweep; in a browser: shadow banner, keyboard review, tuning table, setup test). The items stay open until they are done on site.*
 
 ### Phase 10 — Official 30-day pilot (Week 14–18+)
 

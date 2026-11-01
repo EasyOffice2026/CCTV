@@ -64,7 +64,7 @@ in development and on site.
 
 ```bash
 pytest contracts
-cd edge && pytest && cd ..   # edge service; uses a fake cloud and ffmpeg (see edge/README.md)
+cd edge && pytest && cd ..   # edge service and site check; fake cloud, NVR and ffmpeg (edge/README.md)
 cd ml && pytest && cd ..     # dataset split and evaluation tools (see ml/README.md)
 
 # Cloud tests need Postgres (the docker stack above). The test database's schema is wiped.
@@ -97,6 +97,10 @@ Without those variables the database tests are skipped. What the cloud tests che
   frame / face enrolment through a simulated edge box (only the addressed box can answer),
   the relay on Redis (fakeredis) and in-process, staff consent rules, CSV export, the
   refresh cookie
+- install and shadow mode (plan 9): health per minute from heartbeats (restart counting,
+  other branches' cameras ignored), the setup test (pass, drops, missing minutes, running
+  window, default start), shadow mode (alerts only to the support team, no webhooks, only
+  super-admins switch it), review figures, the training export (audited, per tenant)
 - the operational system (plan 8): sign-in tokens (replay, expiry, audience, keys,
   algorithms, users, owner 2FA), the overview and its feature switches, the `kpis:read`
   API key, webhooks (signature, retries, private addresses, reports)

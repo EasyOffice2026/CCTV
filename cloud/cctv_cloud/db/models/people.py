@@ -80,6 +80,9 @@ class User(UUIDPk, CreatedAt, Base):
     report_channels: Mapped[list[str]] = mapped_column(
         ARRAY(String(20)), server_default=text("'{}'::varchar(20)[]")
     )
+    # Our support team's account in this tenant: gets the alerts of branches in shadow
+    # mode (plan 9.4). Set by super-admins only.
+    shadow_reviewer: Mapped[bool] = mapped_column(server_default=text("false"))
 
     __table_args__ = (
         UniqueConstraint("id", "tenant_id"),

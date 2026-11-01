@@ -78,6 +78,7 @@ in other branches returns 404. Super-admins (our team) can do everything, in any
 | Reports | `/v1/reports` (list, make), `/v1/reports/{id}`, `/v1/reports/{id}/file?format=pdf\|xlsx&lang=en\|ar` |
 | Realtime | WebSocket `/v1/ws` (live event feed, in-app alerts) |
 | Webhooks | `/v1/webhooks/whatsapp` (delivery reports from Meta; signed) |
+| Install, shadow mode (plan 9) | `/v1/branches/{id}/stream-test` (48-hour setup test), `/v1/branches/{id}/shadow` (super-admin), `/v1/review-summary` (review results for tuning) |
 | Overview, KPIs | `/v1/overview` (per branch, today so far or a past day; follows the feature switches) |
 | Integrations | `/v1/api-keys`, `/v1/webhooks` (+ `/{id}/test`, `/{id}/deliveries`), `/v1/sso-integrations` (super-admin creates; owners see) |
 | Audit log | `/v1/audit-logs` (filters: action, user, target, since/until), `/v1/audit-logs/export` (CSV, itself audited) |
@@ -204,6 +205,8 @@ python -m cctv_cloud.cli face-key        # a local key for face templates (when 
 python -m cctv_cloud.cli rotate-face-keys  # re-encrypt templates after changing CCTV_FACE_KEY
 python -m cctv_cloud.cli security-check --online  # settings, TLS, keys, bucket encryption
 python -m cctv_cloud.cli sso-token --issuer <iss> --email <user>  # test sign-in link (HS256)
+python -m cctv_cloud.cli export-reviewed --tenant <slug> --since 2026-11-15 --out DIR
+                                         # reviewed events + media for retraining (audited)
 python -m cctv_cloud.worker run          # alert and webhook retries every 5 s; offline devices,
                                          # absences and reports every 5 min; retention hourly
 ```
@@ -233,6 +236,16 @@ encryption context `purpose=cctv-face-template`) or `local:<id>` with the key in
 `rotate_token`, the box calls `POST /v1/edge/token`, saves the new token and uses it. The
 old one keeps working for `CCTV_DEVICE_TOKEN_GRACE_MINUTES` (10). Pairing again or retiring
 the box ends all its tokens.
+
+**Install and shadow mode** (plan 9). Each heartbeat adds a sample to
+`camera_health_minutes` (per camera and minute: samples, degraded, offline, new stream
+restarts from the box's counter, lowest fps; kept 60 days). The setup test passes a camera
+when, over the window, it never restarted, was never offline and no minute is missing.
+While `branches.shadow_until` is in the future, alert rules only fire for users with
+`shadow_reviewer` (our support accounts, set by super-admins), and no webhooks or report
+links go to the client. `export-reviewed` writes `manifest.csv` and the media of reviewed
+events to a folder, recording each file in the audit log (`export_snapshot`/`export_clip`,
+`via: cli`); runbooks in `docs/runbooks/`.
 
 **The operational system** (plan 8). Our team adds a sign-in integration for the client
 (`POST /v1/sso-integrations` as super-admin with `X-Tenant-Id`): an issuer, unique across

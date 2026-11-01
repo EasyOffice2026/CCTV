@@ -6,7 +6,7 @@ from cctv_cloud.db.models.alerts import (
     AuditLog,
     PushSubscription,
 )
-from cctv_cloud.db.models.devices import Camera, EdgeDevice, Nvr, Zone
+from cctv_cloud.db.models.devices import Camera, CameraHealthMinute, EdgeDevice, Nvr, Zone
 from cctv_cloud.db.models.events import AttendanceRecord, CountBucket, Event
 from cctv_cloud.db.models.features import Feature, FeatureSetting
 from cctv_cloud.db.models.integrations import (
@@ -34,6 +34,7 @@ __all__ = [
     "AuditLog",
     "Branch",
     "Camera",
+    "CameraHealthMinute",
     "CountBucket",
     "EdgeDevice",
     "Event",

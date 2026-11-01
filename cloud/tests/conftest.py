@@ -129,6 +129,10 @@ class FakeStorage:
     def delete(self, keys) -> None:
         self.deleted.extend(keys)
 
+    def download(self, key: str, path) -> None:
+        self.gets.append((key, None))
+        path.write_bytes(f"media of {key}".encode())
+
 
 class FakePublisher(LocalBus):
     """The in-process bus, recording what was published."""

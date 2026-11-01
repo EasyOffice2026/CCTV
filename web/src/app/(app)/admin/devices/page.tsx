@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { RequirePermission } from "@/components/RequirePermission";
-import { Badge, Button, Card, ErrorText, Field, Input, Modal, PageHeader, Select, Spinner, Table } from "@/components/ui";
+import { StreamTest } from "@/components/StreamTest";
+import { Badge, Button, Card, ErrorText, Field, Input, Modal, Notice, PageHeader, Select, Spinner, Table } from "@/components/ui";
 import { api, unwrap, type Schemas } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useBranches } from "@/lib/branches";
@@ -174,6 +175,13 @@ function Devices() {
           </div>
         )}
       </Modal>
+      <div className="mt-4">
+        {branchId ? (
+          <StreamTest key={branchId} branchId={branchId} timeZone={timezoneOf(branchId)} />
+        ) : (
+          <Notice tone="slate">{t("streamTest.chooseBranch")}</Notice>
+        )}
+      </div>
     </>
   );
 }

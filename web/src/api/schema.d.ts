@@ -399,6 +399,50 @@ export interface paths {
         patch: operations["update_branch_v1_branches__branch_id__patch"];
         trace?: never;
     };
+    "/v1/branches/{branch_id}/shadow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Shadow Mode
+         * @description Shadow mode (plan 9.4), set by our team: until `until`, the branch's alerts go only
+         *     to users marked `shadow_reviewer`, and no webhooks or report links reach the client.
+         */
+        put: operations["set_shadow_mode_v1_branches__branch_id__shadow_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/branches/{branch_id}/stream-test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Stream Test
+         * @description The setup test (plan 9.2): each camera of the branch over `hours` from `since`.
+         *     While the window is still running, cameras without problems so far have `passed: null`.
+         *     Without `since` the window starts at the branch's first heartbeat of the last `hours`,
+         *     so on install day it starts when the box came online.
+         */
+        get: operations["get_stream_test_v1_branches__branch_id__stream_test_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/branches/{branch_id}/working-hours": {
         parameters: {
             query?: never;
@@ -1308,6 +1352,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/review-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Review Summary
+         * @description Review results per day, and per event type, camera and zone with precision and
+         *     false alarms per day (plan 9.4, 9.5): where to tune first. Days are branch-local;
+         *     default: the last 7 days.
+         */
+        get: operations["get_review_summary_v1_review_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/shifts": {
         parameters: {
             query?: never;
@@ -1997,6 +2063,11 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            /**
+             * Shadow Until
+             * @description Shadow mode: alerts go only to the support team until then
+             */
+            shadow_until?: string | null;
             /** Timezone */
             timezone: string;
         };
@@ -2165,6 +2236,46 @@ export interface components {
             health: components["schemas"]["CameraHealth"];
             /** Last Frame At */
             last_frame_at?: string | null;
+            /**
+             * Stream Restarts
+             * @description Times the stream dropped and was reopened since the service started (counts up; back to 0 after a restart of the service)
+             * @default 0
+             */
+            stream_restarts: number;
+        };
+        /** CameraTest */
+        CameraTest: {
+            /**
+             * Camera Id
+             * Format: uuid
+             */
+            camera_id: string;
+            /** Degraded Minutes */
+            degraded_minutes: number;
+            /** Expected Minutes */
+            expected_minutes: number;
+            /** Hours */
+            hours: (number | null)[];
+            /** Longest Outage Minutes */
+            longest_outage_minutes: number;
+            /** Min Fps */
+            min_fps: number | null;
+            /** Missing Minutes */
+            missing_minutes: number;
+            /** Name */
+            name: string;
+            /** Offline Minutes */
+            offline_minutes: number;
+            /** Passed */
+            passed: boolean | null;
+            /** Problems */
+            problems: string[];
+            /** Reported Minutes */
+            reported_minutes: number;
+            /** Restarts */
+            restarts: number;
+            /** Uptime Pct */
+            uptime_pct: number | null;
         };
         /** CameraUpdate */
         CameraUpdate: {
@@ -2294,6 +2405,22 @@ export interface components {
             peak_hour: number | null;
             /** Peak Occupancy */
             peak_occupancy: number | null;
+        };
+        /** DayReview */
+        DayReview: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** False Alarm */
+            false_alarm: number;
+            /** Reviewed */
+            reviewed: number;
+            /** Total */
+            total: number;
+            /** Valid */
+            valid: number;
         };
         /** DayRow */
         DayRow: {
@@ -2749,6 +2876,40 @@ export interface components {
              * @enum {string}
              */
             kind: "frame";
+        };
+        /** GroupReview */
+        GroupReview: {
+            /** Camera */
+            camera: string;
+            /**
+             * Camera Id
+             * Format: uuid
+             */
+            camera_id: string;
+            /** Event Type */
+            event_type: string;
+            /** False Alarm */
+            false_alarm: number;
+            /** False Alarms Per Day */
+            false_alarms_per_day: number;
+            /** Feature */
+            feature: string;
+            /** Mean Confidence False */
+            mean_confidence_false: number | null;
+            /** Mean Confidence Valid */
+            mean_confidence_valid: number | null;
+            /** Precision */
+            precision: number | null;
+            /** Total */
+            total: number;
+            /** Unreviewed */
+            unreviewed: number;
+            /** Valid */
+            valid: number;
+            /** Zone */
+            zone: string | null;
+            /** Zone Id */
+            zone_id: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -3367,6 +3528,28 @@ export interface components {
          * @enum {string}
          */
         ReviewStatus: "new" | "valid" | "false_alarm" | "reviewed";
+        /** ReviewSummary */
+        ReviewSummary: {
+            /**
+             * Branch Id
+             * Format: uuid
+             */
+            branch_id: string;
+            /** Days */
+            days: components["schemas"]["DayReview"][];
+            /** Groups */
+            groups: components["schemas"]["GroupReview"][];
+            /**
+             * Since
+             * Format: date
+             */
+            since: string;
+            /**
+             * Until
+             * Format: date
+             */
+            until: string;
+        };
         /** SdpAnswer */
         SdpAnswer: {
             /** Sdp Answer */
@@ -3398,6 +3581,14 @@ export interface components {
          * @enum {string}
          */
         Severity: "info" | "warning" | "critical";
+        /** ShadowIn */
+        ShadowIn: {
+            /**
+             * Until
+             * @description End of shadow mode; null ends it now
+             */
+            until: string | null;
+        };
         /** ShiftIn */
         ShiftIn: {
             /**
@@ -3690,6 +3881,35 @@ export interface components {
             /** @description 'left' deletes the person's face data */
             status?: components["schemas"]["StaffStatus"] | null;
         };
+        /** StreamTest */
+        StreamTest: {
+            /**
+             * Branch Id
+             * Format: uuid
+             */
+            branch_id: string;
+            /** Cameras */
+            cameras: components["schemas"]["CameraTest"][];
+            /** Complete */
+            complete: boolean;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Passed */
+            passed: boolean | null;
+            /**
+             * Since
+             * Format: date-time
+             */
+            since: string;
+            /**
+             * Until
+             * Format: date-time
+             */
+            until: string;
+        };
         /** SystemKpis */
         SystemKpis: {
             /** Cameras */
@@ -3974,6 +4194,8 @@ export interface components {
             /** Mfa Enabled */
             mfa_enabled: boolean;
             role: components["schemas"]["UserRole"];
+            /** Shadow Reviewer */
+            shadow_reviewer: boolean;
         };
         /**
          * UserRole
@@ -3989,6 +4211,11 @@ export interface components {
             /** Is Active */
             is_active?: boolean | null;
             role?: components["schemas"]["UserRole"] | null;
+            /**
+             * Shadow Reviewer
+             * @description Support team account: gets shadow-mode alerts (super-admins)
+             */
+            shadow_reviewer?: boolean | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -5104,6 +5331,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BranchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_shadow_mode_v1_branches__branch_id__shadow_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path: {
+                branch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShadowIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BranchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_stream_test_v1_branches__branch_id__stream_test_get: {
+        parameters: {
+            query?: {
+                /** @description Start of the window; default: the first heartbeat in the last `hours` */
+                since?: string | null;
+                hours?: number;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path: {
+                branch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StreamTest"];
                 };
             };
             /** @description Validation Error */
@@ -7239,6 +7542,42 @@ export interface operations {
                 content: {
                     "application/pdf": unknown;
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_review_summary_v1_review_summary_get: {
+        parameters: {
+            query: {
+                branch_id: string;
+                since?: string | null;
+                until?: string | null;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewSummary"];
                 };
             };
             /** @description Validation Error */

@@ -69,6 +69,8 @@ class CameraWorker:
         self.pipeline = pipeline
         settings = service.settings
         self.health = StreamHealth(settings.analysis_fps, settings.stale_after_seconds)
+        # Times the analysis stream ended and was reopened (plan 9.2: 48 h without drops).
+        self.restarts = 0
         self.lock = threading.Lock()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -117,6 +119,7 @@ class CameraWorker:
                 break
             error = reader.stderr_tail[-1] if reader.stderr_tail else "stream ended"
             self.health.error(error)
+            self.restarts += 1
             log.warning("camera %s (%s): %s", self.camera.name, redact(url), error)
             backoff = 1.0 if time.monotonic() - started > 60 else min(backoff * 2, 30)
             self._stop.wait(backoff)
@@ -160,6 +163,7 @@ class CameraWorker:
             fps=report.fps,
             last_frame_at=report.last_frame_at,
             error=error[:500] if error else None,
+            stream_restarts=self.restarts,
         )
 
 

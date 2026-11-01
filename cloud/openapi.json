@@ -986,6 +986,19 @@
             "title": "Name",
             "type": "string"
           },
+          "shadow_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Shadow mode: alerts go only to the support team until then",
+            "title": "Shadow Until"
+          },
           "timezone": {
             "title": "Timezone",
             "type": "string"
@@ -1523,6 +1536,13 @@
               }
             ],
             "title": "Last Frame At"
+          },
+          "stream_restarts": {
+            "default": 0,
+            "description": "Times the stream dropped and was reopened since the service started (counts up; back to 0 after a restart of the service)",
+            "minimum": 0.0,
+            "title": "Stream Restarts",
+            "type": "integer"
           }
         },
         "required": [
@@ -1531,6 +1551,119 @@
           "fps"
         ],
         "title": "CameraStatus",
+        "type": "object"
+      },
+      "CameraTest": {
+        "properties": {
+          "camera_id": {
+            "format": "uuid",
+            "title": "Camera Id",
+            "type": "string"
+          },
+          "degraded_minutes": {
+            "title": "Degraded Minutes",
+            "type": "integer"
+          },
+          "expected_minutes": {
+            "title": "Expected Minutes",
+            "type": "integer"
+          },
+          "hours": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Hours",
+            "type": "array"
+          },
+          "longest_outage_minutes": {
+            "title": "Longest Outage Minutes",
+            "type": "integer"
+          },
+          "min_fps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Fps"
+          },
+          "missing_minutes": {
+            "title": "Missing Minutes",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "offline_minutes": {
+            "title": "Offline Minutes",
+            "type": "integer"
+          },
+          "passed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Passed"
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "reported_minutes": {
+            "title": "Reported Minutes",
+            "type": "integer"
+          },
+          "restarts": {
+            "title": "Restarts",
+            "type": "integer"
+          },
+          "uptime_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uptime Pct"
+          }
+        },
+        "required": [
+          "camera_id",
+          "name",
+          "expected_minutes",
+          "reported_minutes",
+          "missing_minutes",
+          "offline_minutes",
+          "degraded_minutes",
+          "restarts",
+          "longest_outage_minutes",
+          "uptime_pct",
+          "min_fps",
+          "hours",
+          "passed",
+          "problems"
+        ],
+        "title": "CameraTest",
         "type": "object"
       },
       "CameraUpdate": {
@@ -1937,6 +2070,40 @@
           "hours"
         ],
         "title": "CustomerKpis",
+        "type": "object"
+      },
+      "DayReview": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "false_alarm": {
+            "title": "False Alarm",
+            "type": "integer"
+          },
+          "reviewed": {
+            "title": "Reviewed",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "valid": {
+            "title": "Valid",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "total",
+          "reviewed",
+          "valid",
+          "false_alarm"
+        ],
+        "title": "DayReview",
         "type": "object"
       },
       "DayRow": {
@@ -3028,6 +3195,121 @@
           "camera_id"
         ],
         "title": "FrameRequest",
+        "type": "object"
+      },
+      "GroupReview": {
+        "properties": {
+          "camera": {
+            "title": "Camera",
+            "type": "string"
+          },
+          "camera_id": {
+            "format": "uuid",
+            "title": "Camera Id",
+            "type": "string"
+          },
+          "event_type": {
+            "title": "Event Type",
+            "type": "string"
+          },
+          "false_alarm": {
+            "title": "False Alarm",
+            "type": "integer"
+          },
+          "false_alarms_per_day": {
+            "title": "False Alarms Per Day",
+            "type": "number"
+          },
+          "feature": {
+            "title": "Feature",
+            "type": "string"
+          },
+          "mean_confidence_false": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Confidence False"
+          },
+          "mean_confidence_valid": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Confidence Valid"
+          },
+          "precision": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Precision"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "unreviewed": {
+            "title": "Unreviewed",
+            "type": "integer"
+          },
+          "valid": {
+            "title": "Valid",
+            "type": "integer"
+          },
+          "zone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zone"
+          },
+          "zone_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zone Id"
+          }
+        },
+        "required": [
+          "feature",
+          "event_type",
+          "camera_id",
+          "camera",
+          "zone_id",
+          "zone",
+          "total",
+          "valid",
+          "false_alarm",
+          "unreviewed",
+          "precision",
+          "false_alarms_per_day",
+          "mean_confidence_valid",
+          "mean_confidence_false"
+        ],
+        "title": "GroupReview",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -4350,6 +4632,48 @@
         "title": "ReviewStatus",
         "type": "string"
       },
+      "ReviewSummary": {
+        "properties": {
+          "branch_id": {
+            "format": "uuid",
+            "title": "Branch Id",
+            "type": "string"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/DayReview"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/GroupReview"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "since": {
+            "format": "date",
+            "title": "Since",
+            "type": "string"
+          },
+          "until": {
+            "format": "date",
+            "title": "Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "branch_id",
+          "since",
+          "until",
+          "days",
+          "groups"
+        ],
+        "title": "ReviewSummary",
+        "type": "object"
+      },
       "SdpAnswer": {
         "properties": {
           "sdp_answer": {
@@ -4411,6 +4735,28 @@
         ],
         "title": "Severity",
         "type": "string"
+      },
+      "ShadowIn": {
+        "properties": {
+          "until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "End of shadow mode; null ends it now",
+            "title": "Until"
+          }
+        },
+        "required": [
+          "until"
+        ],
+        "title": "ShadowIn",
+        "type": "object"
       },
       "ShiftIn": {
         "properties": {
@@ -5122,6 +5468,63 @@
         "title": "StaffUpdate",
         "type": "object"
       },
+      "StreamTest": {
+        "properties": {
+          "branch_id": {
+            "format": "uuid",
+            "title": "Branch Id",
+            "type": "string"
+          },
+          "cameras": {
+            "items": {
+              "$ref": "#/components/schemas/CameraTest"
+            },
+            "title": "Cameras",
+            "type": "array"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "passed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Passed"
+          },
+          "since": {
+            "format": "date-time",
+            "title": "Since",
+            "type": "string"
+          },
+          "until": {
+            "format": "date-time",
+            "title": "Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "branch_id",
+          "since",
+          "until",
+          "generated_at",
+          "complete",
+          "passed",
+          "cameras"
+        ],
+        "title": "StreamTest",
+        "type": "object"
+      },
       "SystemKpis": {
         "properties": {
           "cameras": {
@@ -5748,6 +6151,10 @@
           },
           "role": {
             "$ref": "#/components/schemas/UserRole"
+          },
+          "shadow_reviewer": {
+            "title": "Shadow Reviewer",
+            "type": "boolean"
           }
         },
         "required": [
@@ -5758,7 +6165,8 @@
           "is_active",
           "mfa_enabled",
           "branch_ids",
-          "last_login_at"
+          "last_login_at",
+          "shadow_reviewer"
         ],
         "title": "UserOut",
         "type": "object"
@@ -5824,6 +6232,18 @@
                 "type": "null"
               }
             ]
+          },
+          "shadow_reviewer": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Support team account: gets shadow-mode alerts (super-admins)",
+            "title": "Shadow Reviewer"
           }
         },
         "title": "UserUpdate",
@@ -8476,6 +8896,211 @@
         "summary": "Update Branch",
         "tags": [
           "admin"
+        ]
+      }
+    },
+    "/v1/branches/{branch_id}/shadow": {
+      "put": {
+        "description": "Shadow mode (plan 9.4), set by our team: until `until`, the branch's alerts go only\nto users marked `shadow_reviewer`, and no webhooks or report links reach the client.",
+        "operationId": "set_shadow_mode_v1_branches__branch_id__shadow_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "branch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Branch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShadowIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BranchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set Shadow Mode",
+        "tags": [
+          "pilot"
+        ]
+      }
+    },
+    "/v1/branches/{branch_id}/stream-test": {
+      "get": {
+        "description": "The setup test (plan 9.2): each camera of the branch over `hours` from `since`.\nWhile the window is still running, cameras without problems so far have `passed: null`.\nWithout `since` the window starts at the branch's first heartbeat of the last `hours`,\nso on install day it starts when the box came online.",
+        "operationId": "get_stream_test_v1_branches__branch_id__stream_test_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "branch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Branch Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Start of the window; default: the first heartbeat in the last `hours`",
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Start of the window; default: the first heartbeat in the last `hours`",
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "hours",
+            "required": false,
+            "schema": {
+              "default": 48,
+              "maximum": 168,
+              "minimum": 1,
+              "title": "Hours",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamTest"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Stream Test",
+        "tags": [
+          "pilot"
         ]
       }
     },
@@ -13788,6 +14413,122 @@
         "summary": "Download Report",
         "tags": [
           "reports"
+        ]
+      }
+    },
+    "/v1/review-summary": {
+      "get": {
+        "description": "Review results per day, and per event type, camera and zone with precision and\nfalse alarms per day (plan 9.4, 9.5): where to tune first. Days are branch-local;\ndefault: the last 7 days.",
+        "operationId": "get_review_summary_v1_review_summary_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "branch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Branch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Review Summary",
+        "tags": [
+          "pilot"
         ]
       }
     },

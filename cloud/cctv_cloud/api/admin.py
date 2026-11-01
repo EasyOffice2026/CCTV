@@ -114,6 +114,9 @@ class BranchOut(ORMModel):
     address: str | None
     config_version: int
     created_at: datetime
+    shadow_until: datetime | None = Field(
+        default=None, description="Shadow mode: alerts go only to the support team until then"
+    )
 
 
 @router.get("/branches", response_model=list[BranchOut])
@@ -240,6 +243,9 @@ class UserUpdate(BaseModel):
     role: UserRole | None = None
     branch_ids: list[uuid.UUID] | None = None
     is_active: bool | None = None
+    shadow_reviewer: bool | None = Field(
+        default=None, description="Support team account: gets shadow-mode alerts (super-admins)"
+    )
 
     @model_validator(mode="after")
     def _tenant_role(self) -> "UserUpdate":
@@ -257,6 +263,7 @@ class UserOut(BaseModel):
     mfa_enabled: bool
     branch_ids: list[uuid.UUID]
     last_login_at: datetime | None
+    shadow_reviewer: bool
 
 
 def _user_out(ctx: Context, user: User) -> UserOut:
@@ -272,6 +279,7 @@ def _user_out(ctx: Context, user: User) -> UserOut:
         mfa_enabled=user.totp_secret_encrypted is not None,
         branch_ids=sorted(branches),
         last_login_at=user.last_login_at,
+        shadow_reviewer=user.shadow_reviewer,
     )
 
 
@@ -348,6 +356,10 @@ def update_user(
         user.role = body.role.value
     if body.is_active is not None:
         user.is_active = body.is_active  # takes effect on the user's next request
+    if body.shadow_reviewer is not None:
+        if not ctx.principal.can(Permission.PLATFORM_ADMIN):
+            raise forbidden("only the support team marks its own accounts")
+        user.shadow_reviewer = body.shadow_reviewer
     if body.branch_ids is not None or body.role is not None:
         current = ctx.db.scalars(
             select(UserBranchAccess.branch_id).where(UserBranchAccess.user_id == user.id)

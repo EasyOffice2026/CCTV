@@ -49,6 +49,13 @@
           ],
           "default": null,
           "title": "Last Frame At"
+        },
+        "stream_restarts": {
+          "default": 0,
+          "description": "Times the stream dropped and was reopened since the service started (counts up; back to 0 after a restart of the service)",
+          "minimum": 0,
+          "title": "Stream Restarts",
+          "type": "integer"
         }
       },
       "required": [

@@ -6,6 +6,7 @@
     python -m cctv_cloud.cli rotate-face-keys
     python -m cctv_cloud.cli security-check [--online]
     python -m cctv_cloud.cli sso-token --issuer <iss> --email <email> [--embed]
+    python -m cctv_cloud.cli export-reviewed --tenant <slug> --since 2026-11-01 --out DIR
 
 create-superadmin prints a link to set the password; 2FA is set up at the first login.
 vapid-keys prints a new key for browser notifications (CCTV_VAPID_PRIVATE_KEY).
@@ -15,13 +16,17 @@ security-check lists unsafe settings; --online also checks the database and the 
 It exits with 1 when there are errors.
 sso-token prints a sign-in link as the operational system would make it (HS256
 integrations only; for testing an integration end to end).
+export-reviewed writes reviewed events (default: false alarms and valid ones) with their
+snapshots to DIR for retraining (plan 9.5); every file fetched is in the audit log.
 """
 
 import argparse
 import json
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from cctv_cloud.api.auth import send_password_link
@@ -32,8 +37,10 @@ from cctv_cloud.db.session import tenant_session
 from cctv_cloud.services import security_check, sso
 from cctv_cloud.services.face_keys import current_key_id, new_local_key, rotate_templates
 from cctv_cloud.services.mailer import LogMailer
+from cctv_cloud.services.pilot import export_reviewed
 from cctv_cloud.services.storage import get_storage
 from cctv_cloud.services.webpush import Vapid, new_vapid_private_key
+from cctv_contracts.enums import MediaKind
 
 
 class _PrintMailer(LogMailer):
@@ -81,6 +88,33 @@ def _sso_token(issuer: str, email: str, embed: bool) -> int:
     return 0
 
 
+def _export_reviewed(args: argparse.Namespace) -> int:
+    with tenant_session(None) as db:
+        tenants = db.execute(text("SELECT tenant_id, slug FROM platform_list_tenants()")).all()
+    tenant = next((t.tenant_id for t in tenants if args.tenant in (t.slug, str(t.tenant_id))), None)
+    if tenant is None:
+        print(f"no tenant {args.tenant!r}")
+        return 1
+
+    def moment(value: str) -> datetime:
+        parsed = datetime.fromisoformat(value)
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+    kinds = {"snapshot": [MediaKind.SNAPSHOT], "clip": [MediaKind.CLIP], "none": []}
+    count = export_reviewed(
+        get_storage(),
+        tenant,
+        Path(args.out),
+        moment(args.since),
+        moment(args.until) if args.until else datetime.now(timezone.utc),
+        args.status.split(","),
+        kinds.get(args.media, [MediaKind.SNAPSHOT, MediaKind.CLIP]),
+        uuid.UUID(args.branch) if args.branch else None,
+    )
+    print(f"{count} events written to {Path(args.out) / 'manifest.csv'}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="cctv_cloud.cli")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -96,6 +130,14 @@ def main(argv: list[str] | None = None) -> int:
     sso_token.add_argument("--issuer", required=True)
     sso_token.add_argument("--email", required=True)
     sso_token.add_argument("--embed", action="store_true", help="link to the embedded overview")
+    export = commands.add_parser("export-reviewed")
+    export.add_argument("--tenant", required=True, help="slug or id")
+    export.add_argument("--branch", help="branch id (default: all)")
+    export.add_argument("--since", required=True, help="date or time, e.g. 2026-11-01")
+    export.add_argument("--until", help="default: now")
+    export.add_argument("--status", default="false_alarm,valid", help="review statuses")
+    export.add_argument("--media", default="snapshot", choices=["snapshot", "clip", "both", "none"])
+    export.add_argument("--out", required=True, help="folder outside the repository")
     args = parser.parse_args(argv)
     if args.command == "face-key":
         key_id = f"{datetime.now(timezone.utc):%Y-%m}"
@@ -113,6 +155,8 @@ def main(argv: list[str] | None = None) -> int:
         return _security_check(args.online)
     if args.command == "sso-token":
         return _sso_token(args.issuer, args.email, args.embed)
+    if args.command == "export-reviewed":
+        return _export_reviewed(args)
     if args.command == "vapid-keys":
         private = new_vapid_private_key()
         print(f"CCTV_VAPID_PRIVATE_KEY={private}")

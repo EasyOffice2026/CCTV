@@ -135,12 +135,22 @@ export function EventDetail({ event, onClose }: { event: EventOut | null; onClos
   const { t } = useI18n();
   return (
     <Modal open={!!event} onClose={onClose} title={event ? t(key.eventType(event.event_type)) : ""} wide>
-      {event && <EventDetailBody key={event.id} event={event} />}
+      {event && <EventPanel key={event.id} event={event} />}
     </Modal>
   );
 }
 
-function EventDetailBody({ event }: { event: EventOut }) {
+/** Clip, snapshot, details and review buttons. With `shortcuts`, V / F / R review the
+ * event from the keyboard (by key position, so it works with an Arabic layout too). */
+export function EventPanel({
+  event,
+  shortcuts = false,
+  onReviewed,
+}: {
+  event: EventOut;
+  shortcuts?: boolean;
+  onReviewed?: (event: EventOut) => void;
+}) {
   const { t, locale } = useI18n();
   const { me } = useAuth();
   const { timezoneOf, nameOf } = useBranches();
@@ -160,12 +170,29 @@ function EventDetailBody({ event }: { event: EventOut }) {
     onSuccess: (updated) => {
       setCurrent(updated);
       void queryClient.invalidateQueries({ queryKey: ["events"] });
+      void queryClient.invalidateQueries({ queryKey: ["review-summary"] });
+      onReviewed?.(updated);
     },
   });
+  const { mutate, isPending } = review;
 
   const tz = timezoneOf(current.branch_id);
   const canReview = can(me, "events_review");
   const canExport = can(me, "media_export");
+
+  useEffect(() => {
+    if (!shortcuts || !canReview) return;
+    const keys: Record<string, Schemas["ReviewStatus"]> = { KeyV: "valid", KeyF: "false_alarm", KeyR: "reviewed" };
+    const onKey = (e: KeyboardEvent) => {
+      const status = keys[e.code];
+      if (!status || isPending || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.target instanceof HTMLElement && e.target.closest("input, textarea, select")) return;
+      e.preventDefault();
+      mutate(status);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [shortcuts, canReview, isPending, mutate]);
 
   return (
     <div className="grid gap-4 md:grid-cols-[3fr_2fr]">

@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth";
 import { useBranches } from "@/lib/branches";
 import { intlLocale, useI18n } from "@/lib/i18n";
 import { TENANT_ROLES, key } from "@/lib/labels";
+import { can } from "@/lib/permissions";
 import { formatDateTime } from "@/lib/time";
 
 type Role = (typeof TENANT_ROLES)[number];
@@ -44,6 +45,11 @@ function Users() {
   const setActive = useMutation({
     mutationFn: ({ id, active }: { id: string; active: boolean }) =>
       unwrap(api.PATCH("/v1/users/{user_id}", { params: { path: { user_id: id } }, body: { is_active: active } })),
+    onSuccess: () => void refresh(),
+  });
+  const setSupport = useMutation({
+    mutationFn: ({ id, on }: { id: string; on: boolean }) =>
+      unwrap(api.PATCH("/v1/users/{user_id}", { params: { path: { user_id: id } }, body: { shadow_reviewer: on } })),
     onSuccess: () => void refresh(),
   });
   const resetMfa = useMutation({
@@ -87,7 +93,9 @@ function Users() {
                       {u.email}
                     </p>
                   </td>
-                  <td>{t(key.role(u.role))}</td>
+                  <td>
+                    {t(key.role(u.role))} {u.shadow_reviewer && <Badge tone="amber">{t("shadow.support")}</Badge>}
+                  </td>
                   <td className="text-xs">
                     {allBranches(u.role) ? t("users.allBranches") : u.branch_ids.map(nameOf).join(", ") || "—"}
                   </td>
@@ -119,6 +127,11 @@ function Users() {
                         <Button size="sm" variant="ghost" onClick={() => setActive.mutate({ id: u.id, active: !u.is_active })}>
                           {u.is_active ? t("users.deactivate") : t("users.activate")}
                         </Button>
+                        {can(me, "platform_admin") && (
+                          <Button size="sm" variant="ghost" onClick={() => setSupport.mutate({ id: u.id, on: !u.shadow_reviewer })}>
+                            {u.shadow_reviewer ? t("shadow.unmarkSupport") : t("shadow.markSupport")}
+                          </Button>
+                        )}
                         {u.mfa_enabled && (
                           <Button
                             size="sm"
@@ -136,7 +149,7 @@ function Users() {
             </tbody>
           </Table>
         )}
-        <ErrorText error={users.error ?? setActive.error ?? resetMfa.error} />
+        <ErrorText error={users.error ?? setActive.error ?? resetMfa.error ?? setSupport.error} />
       </Card>
 
       <Modal open={!!form} onClose={() => setForm(null)} title={form?.id ? t("common.edit") : t("users.invite")}>

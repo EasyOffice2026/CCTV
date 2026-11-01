@@ -35,6 +35,9 @@ class Branch(UUIDPk, CreatedAt, TenantScoped, Base):
     address: Mapped[str | None] = mapped_column(String(500))
     # Bumped whenever anything in the branch's edge config changes; the edge pulls on change.
     config_version: Mapped[int] = mapped_column(BigInteger, server_default="1")
+    # Shadow mode (plan 9.4): until then, alerts go only to the support team's reviewers,
+    # and no webhooks or report links go to the client.
+    shadow_until: Mapped[datetime | None]
 
     __table_args__ = (
         UniqueConstraint("id", "tenant_id"),

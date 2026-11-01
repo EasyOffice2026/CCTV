@@ -114,13 +114,17 @@ def _wanted_channels(
             )
         ).all()
     )
-    timezone_name = db.scalar(select(Branch.timezone).where(Branch.id == event.branch_id))
-    local_time = now.astimezone(ZoneInfo(timezone_name or "UTC")).time()
+    branch = db.get_one(Branch, event.branch_id)
+    local_time = now.astimezone(ZoneInfo(branch.timezone)).time()
+    # Shadow mode (plan 9.4): only the support team's reviewers are told.
+    shadow = branch.shadow_until is not None and branch.shadow_until > now
     critical = event.severity == Severity.CRITICAL.value
 
     wanted: dict[uuid.UUID, set[str]] = {}
     for rule, user in rows:
         if resolved_only and not rule.notify_resolved:
+            continue
+        if shadow and not user.shadow_reviewer:
             continue
         if SEVERITY_RANK[event.severity] < SEVERITY_RANK[rule.min_severity]:
             continue
