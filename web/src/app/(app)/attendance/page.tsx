@@ -5,10 +5,11 @@ import { useState } from "react";
 
 import { RequirePermission } from "@/components/RequirePermission";
 import { Badge, Button, Card, ErrorText, Field, Input, Modal, Notice, PageHeader, Select, Spinner, Table, type Tone } from "@/components/ui";
-import { api, unwrap, type Schemas } from "@/lib/api";
+import { api, ensureOk, rawFetch, unwrap, type Schemas } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useBranches } from "@/lib/branches";
 import { intlLocale, useI18n } from "@/lib/i18n";
+import { can } from "@/lib/permissions";
 import type { MessageKey } from "@/lib/messages/en";
 import { useShifts, useStaff } from "@/lib/queries";
 import { localDate, zonedToUtc } from "@/lib/time";
@@ -267,11 +268,54 @@ function AttendanceContent() {
   return <AttendanceDay key={branchId} branchId={branchId} />;
 }
 
+/** A month of attendance as CSV for the payroll system (owners; audited). The payroll
+ * system can also fetch it itself with an API key (Administration › Integrations). */
+function PayrollExport() {
+  const { t } = useI18n();
+  const { branchId } = useBranches();
+  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+
+  async function download() {
+    setBusy(true);
+    setError(null);
+    try {
+      const [y, m] = month.split("-").map(Number) as [number, number];
+      const last = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+      const params = new URLSearchParams({ from: `${month}-01`, to: last, format: "csv" });
+      if (branchId) params.set("branch_id", branchId);
+      const response = await ensureOk(await rawFetch(`/v1/payroll/attendance?${params}`));
+      const url = URL.createObjectURL(await response.blob());
+      const link = Object.assign(document.createElement("a"), { href: url, download: `attendance-${month}.csv` });
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex items-center gap-2">
+        <Input type="month" aria-label={t("attendance.payrollMonth")} value={month} onChange={(e) => setMonth(e.target.value)} className="w-auto" />
+        <Button onClick={() => void download()} disabled={busy || !month}>
+          {t("attendance.payrollExport")}
+        </Button>
+      </div>
+      <ErrorText error={error} />
+    </div>
+  );
+}
+
 export default function AttendancePage() {
   const { t } = useI18n();
+  const { me } = useAuth();
   return (
     <RequirePermission anyOf={["staff_manage"]}>
-      <PageHeader title={t("attendance.title")} />
+      <PageHeader title={t("attendance.title")}>{can(me, "payroll_export") && <PayrollExport />}</PageHeader>
       <p className="mb-4 max-w-3xl text-sm text-slate-600">{t("attendance.help")}</p>
       <AttendanceContent />
     </RequirePermission>

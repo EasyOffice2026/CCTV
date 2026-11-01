@@ -11,6 +11,7 @@ Pilot site: Mudawara. Built as a multi-tenant product for later client rollout.
 - Web dashboard: [web/README.md](web/README.md)
 - Security (TLS, encryption, secrets, pen-test checklist): [docs/security.md](docs/security.md)
 - Privacy (data flow, retention, consent form, signage): [docs/privacy/](docs/privacy/README.md)
+- Connecting the till (POS) and payroll (HRM): [docs/integration/pos-and-payroll.md](docs/integration/pos-and-payroll.md)
 - Architecture: [docs/architecture.md](docs/architecture.md); API reference: [docs/api-reference.md](docs/api-reference.md)
 - Hardware kits and camera requirements: [docs/hardware.md](docs/hardware.md)
 - Operations: [deploying the cloud](docs/runbooks/deploy-cloud.md), [onboarding a branch](docs/runbooks/onboarding.md), [edge recovery](docs/runbooks/edge-recovery.md), [retraining a model](docs/runbooks/retraining.md); handover: [docs/handover.md](docs/handover.md)

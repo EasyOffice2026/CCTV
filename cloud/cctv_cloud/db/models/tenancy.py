@@ -40,6 +40,8 @@ class Branch(UUIDPk, CreatedAt, TenantScoped, Base):
     shadow_until: Mapped[datetime | None]
     # The official pilot (plan 10): day 1, for the pilot figures and the 30-day check.
     pilot_started_on: Mapped[date | None]
+    # The till (POS) has sent every sale up to this time (later phase: drawer vs sales).
+    pos_synced_until: Mapped[datetime | None]
 
     __table_args__ = (
         UniqueConstraint("id", "tenant_id"),

@@ -13,8 +13,12 @@ wording of the consent form and signage.
 | People | Data | Why |
 |---|---|---|
 | Customers and visitors | Appear in footage, snapshots and clips of events; counted at entrances and in queues, and where they stood (heatmaps) - numbers only | Security, service quality (customer count, queues, layout), compliance evidence |
-| Staff | Appear in footage; attendance from face recognition (consenting staff only); name, employee code, shift; compliance events (mask, gloves, hair cap) in the kitchen; attendance and compliance figures in reports | Attendance, food-safety compliance, security |
+| Staff | Appear in footage; attendance from face recognition (consenting staff only); name, employee code, shift; compliance events (mask, gloves, hair cap) in the kitchen; attendance and compliance figures in reports | Attendance (sent to the payroll system when it is connected), food-safety compliance, security |
 | Dashboard users (owners, managers, reviewers) | Email, name, role, phone (if they chose WhatsApp alerts), sign-ins and actions in the audit log | Operating the system; accountability |
+
+When the till is connected, its sales are kept too: receipt number, time, total, cash or card
+and which till, with no items or customer data, only to check cash drawer openings against
+them (`docs/integration/pos-and-payroll.md`).
 
 The system does **not** identify customers, store faces of anyone who hasn't consented, read
 lips, estimate age, gender or emotion, or send any image outside the dashboard (alerts

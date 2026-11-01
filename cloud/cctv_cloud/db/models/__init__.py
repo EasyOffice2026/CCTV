@@ -18,6 +18,7 @@ from cctv_cloud.db.models.devices import (
 from cctv_cloud.db.models.events import AttendanceRecord, CountBucket, Event, HeatmapBucket
 from cctv_cloud.db.models.features import Feature, FeatureSetting
 from cctv_cloud.db.models.integrations import (
+    PosSale,
     SsoIntegration,
     SsoTokenUse,
     Webhook,
@@ -54,6 +55,7 @@ __all__ = [
     "HeatmapBucket",
     "Nvr",
     "PilotNote",
+    "PosSale",
     "PushSubscription",
     "Report",
     "Shift",

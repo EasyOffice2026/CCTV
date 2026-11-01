@@ -27,6 +27,7 @@ type Filters = {
   status: string;
   review_status: string;
   staff_id: string;
+  pos_match: string;
 };
 
 const EMPTY: Filters = {
@@ -40,6 +41,7 @@ const EMPTY: Filters = {
   status: "",
   review_status: "",
   staff_id: "",
+  pos_match: "",
 };
 
 type Query = NonNullable<paths["/v1/events"]["get"]["parameters"]["query"]>;
@@ -77,6 +79,7 @@ function SearchEvents() {
     status: (applied.status || undefined) as Schemas["EventStatus"] | undefined,
     review_status: (applied.review_status || undefined) as Schemas["ReviewStatus"] | undefined,
     staff_id: applied.staff_id || undefined,
+    pos_match: (applied.pos_match || undefined) as Schemas["PosMatch"] | undefined,
   };
 
   const results = useInfiniteQuery({
@@ -231,6 +234,15 @@ function SearchEvents() {
                     {t(key.review(r))}
                   </option>
                 ))}
+              </Select>
+            )}
+          </Field>
+          <Field label={t("search.till")}>
+            {(id) => (
+              <Select id={id} value={draft.pos_match} onChange={(e) => set("pos_match", e.target.value)}>
+                <option value="">{t("common.all")}</option>
+                <option value="no_sale">{t("events.posNoSale")}</option>
+                <option value="sale">{t("search.tillSale")}</option>
               </Select>
             )}
           </Field>

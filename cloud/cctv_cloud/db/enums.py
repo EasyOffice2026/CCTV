@@ -53,6 +53,19 @@ class AttendanceStatus(str, Enum):
     DAY_OFF = "day_off"
 
 
+class PosPayment(str, Enum):
+    CASH = "cash"
+    CARD = "card"
+    OTHER = "other"
+
+
+class PosMatch(str, Enum):
+    """A cash drawer opening checked against the till's sales."""
+
+    SALE = "sale"
+    NO_SALE = "no_sale"
+
+
 class AttendanceSource(str, Enum):
     FACE = "face"
     MANUAL = "manual"

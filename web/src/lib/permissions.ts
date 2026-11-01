@@ -15,7 +15,9 @@ export type Permission =
   | "live_view"
   | "staff_manage"
   | "reports_view"
-  | "kpis_view";
+  | "kpis_view"
+  | "payroll_export"
+  | "pos_write";
 
 export type Me = Schemas["Me"];
 

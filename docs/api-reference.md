@@ -135,8 +135,8 @@ Multi-tenant API for the AI CCTV system.
 
 | Method | Path | What | Query | Body | Returns |
 |---|---|---|---|---|---|
-| GET | `/v1/events` | Newest first. Results only include branches the caller can access. | `limit`?, `cursor`?, `from`?, `to`?, `branch_id`?, `camera_id`?, `zone_id`?, `feature`?, `event_type`?, `severity`?, `status`?, `review_status`?, `staff_id`? |  | `EventPage` |
-| GET | `/v1/events/export` | The search results as CSV, newest first, up to `event_export_max_rows` rows. Written | `from`?, `to`?, `branch_id`?, `camera_id`?, `zone_id`?, `feature`?, `event_type`?, `severity`?, `status`?, `review_status`?, `staff_id`? |  |  |
+| GET | `/v1/events` | Newest first. Results only include branches the caller can access. | `limit`?, `cursor`?, `from`?, `to`?, `branch_id`?, `camera_id`?, `zone_id`?, `feature`?, `event_type`?, `severity`?, `status`?, `review_status`?, `staff_id`?, `pos_match`? |  | `EventPage` |
+| GET | `/v1/events/export` | The search results as CSV, newest first, up to `event_export_max_rows` rows. Written | `from`?, `to`?, `branch_id`?, `camera_id`?, `zone_id`?, `feature`?, `event_type`?, `severity`?, `status`?, `review_status`?, `staff_id`?, `pos_match`? |  |  |
 | GET | `/v1/events/{event_id}` | Get Event |  |  | `EventOut` |
 | GET | `/v1/events/{event_id}/media/{kind}` | A short-lived link to the snapshot or clip. Every call is written to the audit log. | `download`? |  | `MediaLink` |
 | PATCH | `/v1/events/{event_id}/review` | Review Event |  | `ReviewIn` | `EventOut` |
@@ -167,7 +167,9 @@ Multi-tenant API for the AI CCTV system.
 | DELETE | `/v1/api-keys/{api_key_id}` | Revoke Api Key |  |  |  |
 | GET | `/v1/audit-logs` | The tenant's audit log (plan 7.3): sign-ins, views and exports of footage, reports | `before_id`?, `limit`?, `action`?, `user_id`?, `target_type`?, `target_id`?, `since`?, `until`? |  | `AuditLogOut[]` |
 | GET | `/v1/audit-logs/export` | The matching entries as CSV, newest first (up to `event_export_max_rows`). The export | `action`?, `user_id`?, `target_type`?, `target_id`?, `since`?, `until`? |  |  |
+| GET | `/v1/payroll/attendance` | Each staff member's work days from `from` to `to` (at most 62 days): status, check-in | `from`, `to`, `branch_id`?, `format`? |  | `PayrollOut` |
 | GET | `/v1/platform/audit-logs` | Entries without a tenant (super-admin sign-ins). What a super-admin does for a | `before_id`?, `limit`?, `action`?, `user_id`?, `target_type`?, `target_id`?, `since`?, `until`? |  | `AuditLogOut[]` |
+| POST | `/v1/pos/sales` | Sales from a branch's till; a receipt sent again replaces the earlier one. Send |  | `SalesIn` | `SalesResult` |
 | GET | `/v1/sso-integrations` | Owners can see how their operational system signs users in; our team sets it up. |  |  | `SsoIntegrationOut[]` |
 | POST | `/v1/sso-integrations` | Create Sso Integration |  | `SsoIntegrationIn` | `SsoIntegrationSaved` |
 | DELETE | `/v1/sso-integrations/{integration_id}` | Delete Sso Integration |  |  |  |

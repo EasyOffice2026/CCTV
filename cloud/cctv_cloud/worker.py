@@ -36,10 +36,11 @@ from cctv_cloud.db.models import (
     EdgeDevice,
     Event,
     HeatmapBucket,
+    PosSale,
     Tenant,
 )
 from cctv_cloud.db.session import tenant_session
-from cctv_cloud.services import monitoring, webhooks
+from cctv_cloud.services import monitoring, pos, webhooks
 from cctv_cloud.services.alerts import Senders, default_senders, dispatch_all
 from cctv_cloud.services.attendance import mark_absences
 from cctv_cloud.services.pilot import KEEP_HEALTH
@@ -130,6 +131,7 @@ def _retain_tenant(
         result = db.execute(delete(Event).where(Event.started_at < event_cutoff))
         db.execute(delete(CountBucket).where(CountBucket.bucket_start < event_cutoff))
         db.execute(delete(HeatmapBucket).where(HeatmapBucket.bucket_start < event_cutoff))
+        db.execute(delete(PosSale).where(PosSale.sold_at < event_cutoff))
         db.execute(delete(AttendanceRecord).where(AttendanceRecord.work_date < event_cutoff.date()))
         webhooks.purge_deliveries(db, now)
         db.execute(delete(CameraHealthMinute).where(CameraHealthMinute.minute < now - KEEP_HEALTH))
@@ -198,6 +200,7 @@ def main(argv: list[str] | None = None) -> int:
             "reports",
             "webhooks",
             "health",
+            "pos",
             "run",
         ],
     )
@@ -221,6 +224,8 @@ def main(argv: list[str] | None = None) -> int:
     elif args.job == "health":
         mark_offline_devices()
         log.info("on-call pages: %d", monitoring.check_all(tenant_ids(), monitoring.get_pager()))
+    elif args.job == "pos":
+        log.info("drawer openings without a sale: %d", pos.reconcile_all(tenant_ids()))
     elif args.job == "webhooks":
         log.info("webhook messages sent: %d", webhooks.dispatch_all(webhooks.get_webhook_poster()))
     else:
@@ -239,8 +244,12 @@ def main(argv: list[str] | None = None) -> int:
             except Exception:
                 log.exception("sending webhooks failed")
             if time.monotonic() - last_health >= HEALTH_INTERVAL:
-                mark_offline_devices()
-                monitoring.check_all(tenant_ids(), pager)
+                try:
+                    mark_offline_devices()
+                    monitoring.check_all(tenant_ids(), pager)
+                    pos.reconcile_all(tenant_ids())
+                except Exception:
+                    log.exception("health check or drawer check failed")
                 last_health = time.monotonic()
             if time.monotonic() - last_jobs >= args.interval:
                 mark_absent_staff()

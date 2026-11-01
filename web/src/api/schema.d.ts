@@ -1358,6 +1358,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/payroll/attendance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Payroll Attendance
+         * @description Each staff member's work days from `from` to `to` (at most 62 days): status, check-in
+         *     and check-out in the branch's time, minutes worked; and totals per person. Written to
+         *     the audit log.
+         */
+        get: operations["payroll_attendance_v1_payroll_attendance_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/pilot/kpis": {
         parameters: {
             query?: never;
@@ -1565,6 +1587,27 @@ export interface paths {
          * @description Creates the tenant and its first owner, who gets an email to set a password.
          */
         post: operations["create_tenant_v1_platform_tenants_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pos/sales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Receive Sales
+         * @description Sales from a branch's till; a receipt sent again replaces the earlier one. Send
+         *     every few minutes with `synced_until`, also when there were no sales.
+         */
+        post: operations["receive_sales_v1_pos_sales_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2260,7 +2303,7 @@ export interface components {
          * AuditAction
          * @enum {string}
          */
-        AuditAction: "login" | "login_failed" | "view_snapshot" | "view_clip" | "export_snapshot" | "export_clip" | "review_event" | "settings_change" | "user_change" | "device_change" | "api_key_change" | "view_live" | "view_playback" | "view_frame" | "export_events" | "staff_change" | "consent_change" | "face_enrol" | "face_delete" | "attendance_change" | "export_report" | "export_audit" | "sso_change" | "webhook_change" | "software_update";
+        AuditAction: "login" | "login_failed" | "view_snapshot" | "view_clip" | "export_snapshot" | "export_clip" | "review_event" | "settings_change" | "user_change" | "device_change" | "api_key_change" | "view_live" | "view_playback" | "view_frame" | "export_events" | "staff_change" | "consent_change" | "face_enrol" | "face_delete" | "attendance_change" | "export_report" | "export_audit" | "sso_change" | "webhook_change" | "software_update" | "export_attendance";
         /** AuditLogOut */
         AuditLogOut: {
             /** Action */
@@ -3047,6 +3090,9 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            pos_match?: components["schemas"]["PosMatch"] | null;
+            /** Pos Receipt Id */
+            pos_receipt_id?: string | null;
             /**
              * Received At
              * Format: date-time
@@ -3706,6 +3752,90 @@ export interface components {
              */
             pairing_code: string;
         };
+        /** PayrollDay */
+        PayrollDay: {
+            /** Branch */
+            branch: string;
+            /** Check In */
+            check_in: string | null;
+            /** Check Out */
+            check_out: string | null;
+            /** Corrected */
+            corrected: boolean;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Employee Code */
+            employee_code: string;
+            /** Name */
+            name: string;
+            /** Note */
+            note: string | null;
+            /**
+             * Staff Id
+             * Format: uuid
+             */
+            staff_id: string;
+            status: components["schemas"]["AttendanceStatus"];
+            /** Worked Minutes */
+            worked_minutes: number;
+        };
+        /** PayrollOut */
+        PayrollOut: {
+            /** Days */
+            days: components["schemas"]["PayrollDay"][];
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /** Staff */
+            staff: components["schemas"]["PayrollTotals"][];
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+        };
+        /** PayrollTotals */
+        PayrollTotals: {
+            /**
+             * Days Absent
+             * @default 0
+             */
+            days_absent: number;
+            /**
+             * Days Late
+             * @default 0
+             */
+            days_late: number;
+            /**
+             * Days Off
+             * @default 0
+             */
+            days_off: number;
+            /**
+             * Days On Time
+             * @default 0
+             */
+            days_on_time: number;
+            /** Employee Code */
+            employee_code: string;
+            /** Name */
+            name: string;
+            /**
+             * Staff Id
+             * Format: uuid
+             */
+            staff_id: string;
+            /**
+             * Worked Minutes
+             * @default 0
+             */
+            worked_minutes: number;
+        };
         /** PilotKpis */
         PilotKpis: {
             /**
@@ -3865,6 +3995,17 @@ export interface components {
              */
             start: string;
         };
+        /**
+         * PosMatch
+         * @description A cash drawer opening checked against the till's sales.
+         * @enum {string}
+         */
+        PosMatch: "sale" | "no_sale";
+        /**
+         * PosPayment
+         * @enum {string}
+         */
+        PosPayment: "cash" | "card" | "other";
         /** PushKeys */
         PushKeys: {
             /** Auth */
@@ -4250,6 +4391,55 @@ export interface components {
         RolloutOut: {
             /** Devices */
             devices: number;
+        };
+        /** SaleIn */
+        SaleIn: {
+            payment: components["schemas"]["PosPayment"];
+            /**
+             * Receipt Id
+             * @description Unique in the branch
+             */
+            receipt_id: string;
+            /**
+             * Sold At
+             * Format: date-time
+             */
+            sold_at: string;
+            /**
+             * Till
+             * @description Which till, if several
+             */
+            till?: string | null;
+            /**
+             * Total
+             * @example 3.250
+             */
+            total: number | string;
+        };
+        /** SalesIn */
+        SalesIn: {
+            /**
+             * Branch Id
+             * Format: uuid
+             */
+            branch_id: string;
+            /** Sales */
+            sales?: components["schemas"]["SaleIn"][];
+            /**
+             * Synced Until
+             * @description Every sale up to this time has been sent (in this batch or before). Drawer openings are checked against sales only up to here.
+             */
+            synced_until?: string | null;
+        };
+        /** SalesResult */
+        SalesResult: {
+            /** Accepted */
+            accepted: number;
+            /**
+             * Synced Until
+             * @description What the branch's till is complete up to
+             */
+            synced_until: string | null;
         };
         /** SdpAnswer */
         SdpAnswer: {
@@ -7350,6 +7540,7 @@ export interface operations {
                 status?: components["schemas"]["EventStatus"] | null;
                 review_status?: components["schemas"]["ReviewStatus"] | null;
                 staff_id?: string | null;
+                pos_match?: components["schemas"]["PosMatch"] | null;
             };
             header?: {
                 "X-API-Key"?: string | null;
@@ -7394,6 +7585,7 @@ export interface operations {
                 status?: components["schemas"]["EventStatus"] | null;
                 review_status?: components["schemas"]["ReviewStatus"] | null;
                 staff_id?: string | null;
+                pos_match?: components["schemas"]["PosMatch"] | null;
             };
             header?: {
                 "X-API-Key"?: string | null;
@@ -8250,6 +8442,45 @@ export interface operations {
             };
         };
     };
+    payroll_attendance_v1_payroll_attendance_get: {
+        parameters: {
+            query: {
+                from: string;
+                /** @description Last day, included */
+                to: string;
+                branch_id?: string | null;
+                format?: "json" | "csv";
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description As JSON, or CSV */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayrollOut"];
+                    "text/csv": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_pilot_kpis_v1_pilot_kpis_get: {
         parameters: {
             query: {
@@ -8689,6 +8920,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TenantCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    receive_sales_v1_pos_sales_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SalesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SalesResult"];
                 };
             };
             /** @description Validation Error */

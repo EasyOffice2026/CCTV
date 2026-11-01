@@ -766,7 +766,8 @@
           "export_audit",
           "sso_change",
           "webhook_change",
-          "software_update"
+          "software_update",
+          "export_attendance"
         ],
         "title": "AuditAction",
         "type": "string"
@@ -3012,6 +3013,27 @@
             "title": "Id",
             "type": "string"
           },
+          "pos_match": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PosMatch"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pos_receipt_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pos Receipt Id"
+          },
           "received_at": {
             "format": "date-time",
             "title": "Received At",
@@ -4633,6 +4655,176 @@
         "title": "PairingCode",
         "type": "object"
       },
+      "PayrollDay": {
+        "properties": {
+          "branch": {
+            "title": "Branch",
+            "type": "string"
+          },
+          "check_in": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Check In"
+          },
+          "check_out": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Check Out"
+          },
+          "corrected": {
+            "title": "Corrected",
+            "type": "boolean"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "employee_code": {
+            "title": "Employee Code",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "staff_id": {
+            "format": "uuid",
+            "title": "Staff Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AttendanceStatus"
+          },
+          "worked_minutes": {
+            "title": "Worked Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "staff_id",
+          "employee_code",
+          "name",
+          "branch",
+          "date",
+          "status",
+          "check_in",
+          "check_out",
+          "worked_minutes",
+          "corrected",
+          "note"
+        ],
+        "title": "PayrollDay",
+        "type": "object"
+      },
+      "PayrollOut": {
+        "properties": {
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/PayrollDay"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "end": {
+            "format": "date",
+            "title": "End",
+            "type": "string"
+          },
+          "staff": {
+            "items": {
+              "$ref": "#/components/schemas/PayrollTotals"
+            },
+            "title": "Staff",
+            "type": "array"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "days",
+          "staff"
+        ],
+        "title": "PayrollOut",
+        "type": "object"
+      },
+      "PayrollTotals": {
+        "properties": {
+          "days_absent": {
+            "default": 0,
+            "title": "Days Absent",
+            "type": "integer"
+          },
+          "days_late": {
+            "default": 0,
+            "title": "Days Late",
+            "type": "integer"
+          },
+          "days_off": {
+            "default": 0,
+            "title": "Days Off",
+            "type": "integer"
+          },
+          "days_on_time": {
+            "default": 0,
+            "title": "Days On Time",
+            "type": "integer"
+          },
+          "employee_code": {
+            "title": "Employee Code",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "staff_id": {
+            "format": "uuid",
+            "title": "Staff Id",
+            "type": "string"
+          },
+          "worked_minutes": {
+            "default": 0,
+            "title": "Worked Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "staff_id",
+          "employee_code",
+          "name"
+        ],
+        "title": "PayrollTotals",
+        "type": "object"
+      },
       "PilotKpis": {
         "properties": {
           "branch_id": {
@@ -5046,6 +5238,24 @@
         ],
         "title": "PlaybackRequest",
         "type": "object"
+      },
+      "PosMatch": {
+        "description": "A cash drawer opening checked against the till's sales.",
+        "enum": [
+          "sale",
+          "no_sale"
+        ],
+        "title": "PosMatch",
+        "type": "string"
+      },
+      "PosPayment": {
+        "enum": [
+          "cash",
+          "card",
+          "other"
+        ],
+        "title": "PosPayment",
+        "type": "string"
       },
       "PushKeys": {
         "properties": {
@@ -5903,6 +6113,124 @@
           "devices"
         ],
         "title": "RolloutOut",
+        "type": "object"
+      },
+      "SaleIn": {
+        "properties": {
+          "payment": {
+            "$ref": "#/components/schemas/PosPayment"
+          },
+          "receipt_id": {
+            "description": "Unique in the branch",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "sold_at": {
+            "format": "date-time",
+            "title": "Sold At",
+            "type": "string"
+          },
+          "till": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Which till, if several",
+            "title": "Till"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "maximum": 1000000.0,
+                "minimum": -1000000.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "examples": [
+              "3.250"
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "receipt_id",
+          "sold_at",
+          "total",
+          "payment"
+        ],
+        "title": "SaleIn",
+        "type": "object"
+      },
+      "SalesIn": {
+        "properties": {
+          "branch_id": {
+            "format": "uuid",
+            "title": "Branch Id",
+            "type": "string"
+          },
+          "sales": {
+            "items": {
+              "$ref": "#/components/schemas/SaleIn"
+            },
+            "maxItems": 1000,
+            "title": "Sales",
+            "type": "array"
+          },
+          "synced_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Every sale up to this time has been sent (in this batch or before). Drawer openings are checked against sales only up to here.",
+            "title": "Synced Until"
+          }
+        },
+        "required": [
+          "branch_id"
+        ],
+        "title": "SalesIn",
+        "type": "object"
+      },
+      "SalesResult": {
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "integer"
+          },
+          "synced_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the branch's till is complete up to",
+            "title": "Synced Until"
+          }
+        },
+        "required": [
+          "accepted",
+          "synced_until"
+        ],
+        "title": "SalesResult",
         "type": "object"
       },
       "SdpAnswer": {
@@ -13190,6 +13518,22 @@
             }
           },
           {
+            "in": "query",
+            "name": "pos_match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/PosMatch"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pos Match"
+            }
+          },
+          {
             "in": "header",
             "name": "X-API-Key",
             "required": false,
@@ -13444,6 +13788,22 @@
                 }
               ],
               "title": "Staff Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pos_match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/PosMatch"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pos Match"
             }
           },
           {
@@ -15546,6 +15906,132 @@
         ]
       }
     },
+    "/v1/payroll/attendance": {
+      "get": {
+        "description": "Each staff member's work days from `from` to `to` (at most 62 days): status, check-in\nand check-out in the branch's time, minutes worked; and totals per person. Written to\nthe audit log.",
+        "operationId": "payroll_attendance_v1_payroll_attendance_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Last day, included",
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "description": "Last day, included",
+              "format": "date",
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "branch_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Branch Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "json",
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayrollOut"
+                }
+              },
+              "text/csv": {}
+            },
+            "description": "As JSON, or CSV"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Payroll Attendance",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
     "/v1/pilot/kpis": {
       "get": {
         "description": "The pilot's figures per day and in total against the success criteria (plan 10.3,\n10.5). Default: from the pilot start (or the last 30 days) to today.",
@@ -16773,6 +17259,88 @@
         "summary": "Create Tenant",
         "tags": [
           "platform"
+        ]
+      }
+    },
+    "/v1/pos/sales": {
+      "post": {
+        "description": "Sales from a branch's till; a receipt sent again replaces the earlier one. Send\nevery few minutes with `synced_until`, also when there were no sales.",
+        "operationId": "receive_sales_v1_pos_sales_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Tenant-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SalesIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalesResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Receive Sales",
+        "tags": [
+          "integrations"
         ]
       }
     },

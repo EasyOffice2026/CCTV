@@ -97,6 +97,10 @@ Without those variables the database tests are skipped. What the cloud tests che
   frame / face enrolment through a simulated edge box (only the addressed box can answer),
   the relay on Redis (fakeredis) and in-process, staff consent rules, CSV export, the
   refresh cookie
+- till and payroll: sales by API key, retries replacing receipts, drawer openings matched
+  (cash first, each sale once) or marked without a sale only where the till is complete, the
+  search filter; attendance per day and totals for payroll as JSON and CSV (formulas
+  defused), owners and the payroll key only, audited
 - objects left or removed: a bag put down or taken away in a watched area, someone walking
   past, lights switched on, a person standing still, long holds becoming normal; the
   event ends when the bag is taken away, without a false "removed"

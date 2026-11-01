@@ -65,6 +65,7 @@ export const AUDIT_ACTIONS: Schemas["AuditAction"][] = [
   "sso_change",
   "webhook_change",
   "software_update",
+  "export_attendance",
 ];
 export const SEVERITIES: Schemas["Severity"][] = ["critical", "warning", "info"];
 export const REVIEW_STATUSES: Schemas["ReviewStatus"][] = ["new", "valid", "false_alarm", "reviewed"];

@@ -836,6 +836,15 @@ export const en = {
   "heatmap.place.bottom.left": "Bottom left",
   "heatmap.place.bottom.centre": "Bottom centre",
   "heatmap.place.bottom.right": "Bottom right",
+  "integrations.scope.attendance:read": "Attendance for payroll (HRM)",
+  "integrations.scope.pos:write": "Send till sales (POS)",
+  "events.posNoSale": "No sale on the till",
+  "events.posSale": "Sale {receipt}",
+  "search.till": "Till check",
+  "search.tillSale": "With a sale",
+  "attendance.payrollMonth": "Month",
+  "attendance.payrollExport": "Download for payroll (CSV)",
+  "auditAction.export_attendance": "Exported attendance",
 } as const;
 
 export type MessageKey = keyof typeof en;

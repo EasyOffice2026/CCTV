@@ -19,7 +19,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from cctv_cloud.db.base import Base, TenantScoped, UUIDPk, check_in, tenant_fk
-from cctv_cloud.db.enums import AttendanceSource, AttendanceStatus, ReviewStatus
+from cctv_cloud.db.enums import AttendanceSource, AttendanceStatus, PosMatch, ReviewStatus
 from cctv_contracts.enums import EventStatus, Severity
 
 
@@ -53,6 +53,11 @@ class Event(TenantScoped, Base):
     review_note: Mapped[str | None] = mapped_column(Text)
     received_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime | None]
+    # Cash drawer openings checked against the till's sales (later phase). Separate
+    # columns, so the edge's updates to `attributes` don't overwrite them.
+    pos_match: Mapped[str | None] = mapped_column(String(10))
+    pos_receipt_id: Mapped[str | None] = mapped_column(String(100))
+    pos_checked_at: Mapped[datetime | None]
 
     __table_args__ = (
         tenant_fk("branch_id", "branches"),
@@ -64,6 +69,7 @@ class Event(TenantScoped, Base):
         check_in("severity", Severity),
         check_in("status", EventStatus),
         check_in("review_status", ReviewStatus),
+        check_in("pos_match", PosMatch),
         CheckConstraint("confidence BETWEEN 0 AND 1", name="confidence_range"),
         CheckConstraint("ended_at IS NULL OR ended_at >= started_at", name="ended_after_started"),
         # Search filters from plan §3.6.
@@ -73,6 +79,13 @@ class Event(TenantScoped, Base):
         ),
         Index("ix_events_tenant_camera_started", "tenant_id", "camera_id", text("started_at DESC")),
         Index("ix_events_tenant_branch_started", "tenant_id", "branch_id", text("started_at DESC")),
+        # Cash drawer openings still to check against the till (services/pos.py).
+        Index(
+            "ix_events_drawer_unchecked",
+            "branch_id",
+            "started_at",
+            postgresql_where=text("event_type = 'drawer_open' AND pos_checked_at IS NULL"),
+        ),
         Index(
             "ix_events_tenant_staff_started",
             "tenant_id",

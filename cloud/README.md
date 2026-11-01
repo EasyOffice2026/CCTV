@@ -26,7 +26,7 @@ checklist) are described in [docs/security.md](../docs/security.md) and
 | Users | `POST /v1/auth/login` → access token (15 min) + refresh token. Send `Authorization: Bearer <access>`. Browsers also get the refresh token as an HttpOnly, SameSite=Strict cookie (path `/v1/auth`); `/refresh` accepts it instead of a body |
 | Owners, super-admins | Must use 2FA (TOTP): login returns an `mfa_token`, then `/mfa/verify` (or `/mfa/setup` + `/mfa/enable` the first time) |
 | Super-admins | Pick the tenant to act on with the `X-Tenant-Id` header |
-| Integrations | `X-API-Key: cctv_…`, created under `/v1/api-keys` with scopes (`events:read`, `kpis:read`) |
+| Integrations | `X-API-Key: cctv_…`, created under `/v1/api-keys` with scopes (`events:read`, `kpis:read`, `attendance:read` for payroll, `pos:write` for the till) |
 | The client's operational system | `POST /v1/auth/sso` with a short-lived JWT its server signed for the user (plan 8; `docs/integration/ops-system.md`). Gives a normal session of the invited user with that email; `embedded: true` (in an iframe) sets no cookie, the refresh token goes in the body |
 | Edge devices | `/v1/edge/*` with the device token from pairing (see `contracts/README.md`) |
 
@@ -74,6 +74,7 @@ in other branches returns 404. Super-admins (our team) can do everything, in any
 | Live view, playback | `/v1/live/ice-servers`, `/v1/cameras/{id}/live`, `/playback`, `/recordings`, `/frame` |
 | Staff | `/v1/staff`, `/v1/staff/{id}/consent`, `/v1/staff/{id}/face`, `/v1/shifts` |
 | Attendance, counts | `/v1/attendance`, `/v1/attendance/{staff_id}/{date}` (correct / undo), `/v1/counts` |
+| Till and payroll | `POST /v1/pos/sales` (`pos:write`), `GET /v1/payroll/attendance` (owners, `attendance:read`; JSON or CSV); `pos_match` on events and as a search filter. Guide: `docs/integration/pos-and-payroll.md` |
 | Heatmaps | `/v1/heatmaps?camera_id=&from=&to=` (the camera's grid added up over the period, up to 93 days; `null` without data) |
 | Alerts | `/v1/me/alert-rules`, `/v1/me/alert-profile`, `/v1/me/push-subscriptions`, `/v1/me/alert-test`, `/v1/events/{id}/alerts` (who was told, how fast) |
 | Reports | `/v1/reports` (list, make), `/v1/reports/{id}`, `/v1/reports/{id}/file?format=pdf\|xlsx&lang=en\|ar` |
@@ -141,6 +142,14 @@ branch) bump the branch config version so the box reloads the templates.
 **Counts** (`POST /v1/edge/counts`): 5-minute buckets per camera and zone: entrance-line
 in/out and zone occupancy (`max_occupancy`, `occupied_seconds`, e.g. how long the counter
 was staffed). A bucket sent again replaces the stored one. Read with `GET /v1/counts`.
+
+**Till and cash drawer** (`services/pos.py`). Sales are stored by receipt (`pos_sales`, kept
+as long as events) and each branch keeps `pos_synced_until`, what its till is complete up to.
+Every minute the worker (`worker pos` once) matches each unchecked `drawer_open` event that is
+at least 2 minutes before that time to a sale from 1 minute before to 2 after (cash first,
+nearest; one sale per opening) and sets `pos_match` (`sale` with `pos_receipt_id`, or
+`no_sale`, raised to warning). These are columns, not `attributes`, so the edge's updates to
+the event don't overwrite them.
 
 **Heatmaps** (`POST /v1/edge/heatmaps`): one bucket per camera and hour, person-seconds per
 cell of a grid over the picture as `[cell index, seconds]` pairs (`heatmap_buckets`, kept

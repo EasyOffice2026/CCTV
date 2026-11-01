@@ -18,7 +18,7 @@ type Topic = Schemas["WebhookTopic"];
 type Severity = Schemas["Severity"];
 type Algorithm = Schemas["SsoAlgorithm"];
 
-const SCOPES = ["kpis:read", "events:read"] as const;
+const SCOPES = ["kpis:read", "events:read", "attendance:read", "pos:write"] as const;
 const TOPICS: Topic[] = ["event.new", "event.closed", "report.ready"];
 const ALGORITHMS: Algorithm[] = ["HS256", "RS256", "ES256"];
 

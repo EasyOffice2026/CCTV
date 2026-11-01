@@ -22,6 +22,8 @@ class Permission(str, Enum):
     STAFF_MANAGE = "staff_manage"  # staff, shifts, consent and face enrolment
     REPORTS_VIEW = "reports_view"  # branch reports (they include attendance per person)
     KPIS_VIEW = "kpis_view"  # branch totals only (owner overview, ops-system KPIs; plan 8)
+    PAYROLL_EXPORT = "payroll_export"  # attendance per person for payroll (HRM)
+    POS_WRITE = "pos_write"  # the till sends its sales (API keys only in practice)
 
 
 _ALL = frozenset(Permission)
@@ -59,6 +61,9 @@ API_KEY_SCOPES: dict[str, frozenset[Permission]] = {
     "events:read": frozenset({Permission.EVENTS_VIEW}),
     # Branch totals for the operational system's own screens (plan 8.4); no per-person data.
     "kpis:read": frozenset({Permission.KPIS_VIEW}),
+    # Later phase: the payroll system (HRM) reads attendance; the till (POS) sends sales.
+    "attendance:read": frozenset({Permission.PAYROLL_EXPORT}),
+    "pos:write": frozenset({Permission.POS_WRITE}),
 }
 
 

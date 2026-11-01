@@ -49,6 +49,14 @@ function useVisible<T extends Element>(): [React.RefObject<T | null>, boolean] {
   return [ref, visible];
 }
 
+/** A cash drawer opening checked against the till's sales (POS integration). */
+function PosBadge({ event }: { event: EventOut }) {
+  const { t } = useI18n();
+  if (event.pos_match === "no_sale") return <Badge tone="red">{t("events.posNoSale")}</Badge>;
+  if (event.pos_match === "sale") return <Badge tone="green">{t("events.posSale", { receipt: event.pos_receipt_id ?? "" })}</Badge>;
+  return null;
+}
+
 export function Snapshot({ event, className = "" }: { event: EventOut; className?: string }) {
   const { t } = useI18n();
   const { me } = useAuth();
@@ -104,8 +112,9 @@ export function EventCard({
           <span dir="ltr">{formatTime(event.started_at, tz, intlLocale(locale))}</span>
           <span>{duration}</span>
         </div>
-        <div>
+        <div className="flex flex-wrap gap-1">
           <Badge tone={REVIEW_TONE[event.review_status]}>{t(key.review(event.review_status))}</Badge>
+          <PosBadge event={event} />
         </div>
       </div>
     </button>
@@ -207,6 +216,7 @@ export function EventPanel({
             <Badge>{t(key.feature(current.feature))}</Badge>
             <Badge tone={current.status === "open" ? "amber" : "slate"}>{t(key.eventStatus(current.status))}</Badge>
             <Badge tone={REVIEW_TONE[current.review_status]}>{t(key.review(current.review_status))}</Badge>
+            <PosBadge event={current} />
           </div>
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
             <dt className="text-slate-500">{t("common.branch")}</dt>

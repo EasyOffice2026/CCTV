@@ -9,6 +9,7 @@ from sqlalchemy import (
     Identity,
     Index,
     LargeBinary,
+    Numeric,
     PrimaryKeyConstraint,
     SmallInteger,
     String,
@@ -21,7 +22,7 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
 from cctv_cloud.db.base import Base, CreatedAt, TenantScoped, UUIDPk, check_in, tenant_fk
-from cctv_cloud.db.enums import DeliveryStatus, SsoAlgorithm, WebhookTopic
+from cctv_cloud.db.enums import DeliveryStatus, PosPayment, SsoAlgorithm, WebhookTopic
 from cctv_contracts.enums import Severity
 
 _TOPIC_VALUES = ", ".join(f"'{t.value}'" for t in WebhookTopic)
@@ -134,4 +135,28 @@ class WebhookDelivery(TenantScoped, Base):
             postgresql_where=text("status = 'queued'"),
         ),
         Index("ix_webhook_deliveries_webhook", "webhook_id", text("id DESC")),
+    )
+
+
+class PosSale(UUIDPk, TenantScoped, Base):
+    """A sale from the branch's till (later phase: drawer vs sales), sent by the POS with
+    an API key. Only what matching needs: when, how paid, the total and the receipt."""
+
+    __tablename__ = "pos_sales"
+
+    branch_id: Mapped[uuid.UUID]
+    receipt_id: Mapped[str] = mapped_column(String(100))
+    sold_at: Mapped[datetime]
+    total: Mapped[float] = mapped_column(Numeric(12, 3))
+    payment: Mapped[str] = mapped_column(String(10))
+    till: Mapped[str | None] = mapped_column(String(50))
+    # The drawer opening this sale explains, once matched.
+    matched_event_id: Mapped[uuid.UUID | None]
+    received_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    __table_args__ = (
+        tenant_fk("branch_id", "branches", ondelete="CASCADE"),
+        UniqueConstraint("branch_id", "receipt_id"),
+        check_in("payment", PosPayment),
+        Index("ix_pos_sales_branch_sold", "branch_id", "sold_at"),
     )

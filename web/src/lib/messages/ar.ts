@@ -838,4 +838,13 @@ export const ar: Record<MessageKey, string> = {
   "heatmap.place.bottom.left": "أسفل اليسار",
   "heatmap.place.bottom.centre": "أسفل المنتصف",
   "heatmap.place.bottom.right": "أسفل اليمين",
+  "integrations.scope.attendance:read": "الحضور للرواتب (الموارد البشرية)",
+  "integrations.scope.pos:write": "إرسال مبيعات الكاشير (نقاط البيع)",
+  "events.posNoSale": "لا بيع على الكاشير",
+  "events.posSale": "بيع {receipt}",
+  "search.till": "مطابقة الكاشير",
+  "search.tillSale": "مع عملية بيع",
+  "attendance.payrollMonth": "الشهر",
+  "attendance.payrollExport": "تنزيل للرواتب (CSV)",
+  "auditAction.export_attendance": "تصدير الحضور",
 };

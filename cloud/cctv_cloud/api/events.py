@@ -15,7 +15,7 @@ from sqlalchemy import ColumnElement, and_, or_, select
 
 from cctv_cloud.api.deps import Context, context, forbidden, not_found
 from cctv_cloud.config import get_settings
-from cctv_cloud.db.enums import ReviewStatus
+from cctv_cloud.db.enums import PosMatch, ReviewStatus
 from cctv_cloud.db.models import Branch, Camera, Event, Zone
 from cctv_cloud.rbac import Permission
 from cctv_cloud.services.audit import AuditAction, record
@@ -58,6 +58,9 @@ class EventOut(BaseModel):
     reviewed_at: datetime | None
     review_note: str | None
     received_at: datetime
+    # Cash drawer openings checked against the till (later phase): sale or no_sale.
+    pos_match: PosMatch | None = None
+    pos_receipt_id: str | None = None
 
 
 class EventPage(BaseModel):
@@ -98,6 +101,8 @@ def event_out(event: Event) -> EventOut:
         reviewed_at=event.reviewed_at,
         review_note=event.review_note,
         received_at=event.received_at,
+        pos_match=PosMatch(event.pos_match) if event.pos_match else None,
+        pos_receipt_id=event.pos_receipt_id,
     )
 
 
@@ -136,6 +141,7 @@ class EventFilters:
     status: EventStatus | None = None
     review_status: ReviewStatus | None = None
     staff_id: uuid.UUID | None = None
+    pos_match: PosMatch | None = None
 
     def conditions(self, ctx: Context) -> list[ColumnElement[bool]]:
         """Matching events in branches the caller can access."""
@@ -149,6 +155,7 @@ class EventFilters:
             (Event.status, self.status.value if self.status else None),
             (Event.review_status, self.review_status.value if self.review_status else None),
             (Event.staff_id, self.staff_id),
+            (Event.pos_match, self.pos_match.value if self.pos_match else None),
         ):
             if value is not None:
                 conditions.append(column == value)
