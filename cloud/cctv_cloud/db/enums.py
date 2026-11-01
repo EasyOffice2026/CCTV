@@ -109,3 +109,13 @@ class PilotNoteKind(str, Enum):
     CHANGE = "change"  # a tuning or set-up change, and why
     ISSUE = "issue"  # something wrong on site (camera moved, internet down, ...)
     DECISION = "decision"  # e.g. a feature passes, or its pilot is extended
+
+
+class IncidentKind(str, Enum):
+    """System problems the health check watches for (plan 11.4)."""
+
+    DEVICE_OFFLINE = "device_offline"
+    STREAM_DOWN = "stream_down"
+    DISK_LOW = "disk_low"
+    TEMPERATURE_HIGH = "temperature_high"
+    SYNC_BACKLOG = "sync_backlog"

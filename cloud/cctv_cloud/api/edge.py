@@ -186,6 +186,12 @@ def heartbeat(body: Heartbeat, ctx: Device) -> HeartbeatResponse:
     device.last_seen_at = now
     device.software_version = body.software_version
     device.config_version_applied = body.config_version_applied
+    device.uptime_seconds = body.uptime_seconds
+    device.cpu_percent = body.system.cpu_percent
+    device.gpu_percent = body.system.gpu_percent
+    device.temperature_c = body.system.temperature_c
+    device.disk_free_bytes = body.system.disk_free_bytes
+    device.outbox_pending = body.system.outbox_pending
     # Only this device's branch: a device can't report on other cameras.
     pilot.record_health(ctx.db, device.tenant_id, device.branch_id, body.cameras, now)
     version = ctx.db.scalar(select(Branch.config_version).where(Branch.id == device.branch_id))

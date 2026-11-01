@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { Incidents } from "@/components/Incidents";
 import { RequirePermission } from "@/components/RequirePermission";
 import { StreamTest } from "@/components/StreamTest";
 import { Badge, Button, Card, ErrorText, Field, Input, Modal, Notice, PageHeader, Select, Spinner, Table } from "@/components/ui";
@@ -70,6 +71,7 @@ function Devices() {
                 <th>{t("devices.version")}</th>
                 <th>{t("devices.config")}</th>
                 <th>{t("devices.lastSeen")}</th>
+                <th>{t("devices.stats")}</th>
                 <th />
               </tr>
             </thead>
@@ -102,8 +104,13 @@ function Devices() {
                     <td dir="ltr" className="text-start text-xs">
                       {d.last_seen_at ? formatDateTime(d.last_seen_at, timezoneOf(d.branch_id), intlLocale(locale)) : t("common.never")}
                     </td>
+                    <td className="text-xs whitespace-nowrap" dir="ltr">
+                      {d.disk_free_bytes != null ? `${Math.round(d.disk_free_bytes / 1024 ** 3)} GB · ` : ""}
+                      {d.temperature_c != null ? `${Math.round(d.temperature_c)} °C · ` : ""}
+                      {d.outbox_pending != null ? t("devices.pending", { count: d.outbox_pending }) : "—"}
+                    </td>
                     <td className="text-end whitespace-nowrap">
-                      {d.status !== "retired" && !d.paired && (
+                      {d.status !== "retired" && (
                         <Button size="sm" variant="ghost" onClick={() => renew.mutate(d.id)}>
                           {t("devices.renewCode")}
                         </Button>
@@ -175,6 +182,9 @@ function Devices() {
           </div>
         )}
       </Modal>
+      <div className="mt-4">
+        <Incidents branchId={branchId} timeZone={timezoneOf(branchId)} />
+      </div>
       <div className="mt-4">
         {branchId ? (
           <StreamTest key={branchId} branchId={branchId} timeZone={timezoneOf(branchId)} />

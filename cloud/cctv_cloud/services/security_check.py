@@ -98,6 +98,21 @@ def check_settings(s: Settings) -> list[Finding]:
             "WhatsApp delivery reports are verified",
             "CCTV_WHATSAPP_APP_SECRET is empty: delivery reports can't be verified",
         )
+    # Plan 11.4: someone must hear about offline boxes and dropped streams.
+    add(
+        bool(s.oncall_emails or s.oncall_webhook_url.get_secret_value()),
+        "on-call",
+        "on-call is told about system incidents",
+        "set CCTV_ONCALL_EMAILS or CCTV_ONCALL_WEBHOOK_URL: nobody hears about offline boxes",
+        "warning",
+    )
+    metrics = s.metrics_token.get_secret_value()
+    add(
+        not metrics or len(metrics) >= 24,
+        "metrics",
+        "/metrics is off or has a long token",
+        "CCTV_METRICS_TOKEN is short; use 24+ random characters",
+    )
     return out
 
 

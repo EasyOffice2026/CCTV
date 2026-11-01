@@ -1,0 +1,57 @@
+name: Release
+
+# A tag like v1.2.0 builds the three images and pushes them to GitHub Container Registry
+# as ghcr.io/<owner>/cctv-api, cctv-web and cctv-edge (amd64 + arm64 for the Jetson),
+# tagged with the version and "latest". Deploying is a separate step
+# (docs/runbooks/deploy-cloud.md). Run CI on the commit before tagging.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  images:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image names
+        id: names
+        run: |
+          owner="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          echo "prefix=ghcr.io/${owner}" >> "$GITHUB_OUTPUT"
+          echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: cloud/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.names.outputs.prefix }}/cctv-api:${{ steps.names.outputs.version }}
+            ${{ steps.names.outputs.prefix }}/cctv-api:latest
+      - uses: docker/build-push-action@v6
+        with:
+          context: web
+          push: true
+          tags: |
+            ${{ steps.names.outputs.prefix }}/cctv-web:${{ steps.names.outputs.version }}
+            ${{ steps.names.outputs.prefix }}/cctv-web:latest
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: edge/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ steps.names.outputs.prefix }}/cctv-edge:${{ steps.names.outputs.version }}
+            ${{ steps.names.outputs.prefix }}/cctv-edge:latest

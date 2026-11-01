@@ -17,6 +17,7 @@ from cctv_cloud.db.enums import PilotNoteKind
 from cctv_cloud.db.models import Branch, PilotNote, User
 from cctv_cloud.rbac import Permission
 from cctv_cloud.services.audit import AuditAction, record
+from cctv_cloud.services.onboarding import Step, onboarding
 from cctv_cloud.services.pilot import (
     MAX_TEST_HOURS,
     ReviewSummary,
@@ -58,8 +59,16 @@ def get_stream_test(
     return stream_test(ctx.db, branch, start, start + timedelta(hours=hours), now)
 
 
+@router.get("/branches/{branch_id}/onboarding", response_model=list[Step])
+def get_onboarding(branch_id: uuid.UUID, ctx: Installer) -> list[Step]:
+    """Where the branch stands in onboarding (plan 11.1), in order: working hours, cameras,
+    edge box online, all cameras streaming, setup test passed, zones and features on every
+    camera, staff enrolled (with attendance), alert rules, shadow mode, pilot started."""
+    return onboarding(ctx.db, accessible_branch(ctx, branch_id))
+
+
 class ShadowIn(BaseModel):
-    until: datetime | None = Field(description="End of shadow mode; null ends it now")
+    until: datetime | None = Field(description="End of shadow mode; null: ends it now")
 
 
 @router.put("/branches/{branch_id}/shadow", response_model=BranchOut)
@@ -71,7 +80,8 @@ def set_shadow_mode(
     branch = accessible_branch(ctx, branch_id)
     if body.until is not None and body.until.tzinfo is None:
         raise HTTPException(422, "until needs a time zone")
-    branch.shadow_until = body.until
+    # Ending it now keeps the date, so onboarding can still see shadow mode was run.
+    branch.shadow_until = body.until or datetime.now(timezone.utc)
     record(
         ctx.db,
         ctx.principal,
@@ -79,7 +89,7 @@ def set_shadow_mode(
         "branch",
         branch.id,
         request,
-        {"shadow_until": body.until.isoformat() if body.until else None},
+        {"shadow_until": branch.shadow_until.isoformat(), "ended": body.until is None},
     )
     ctx.db.flush()
     ctx.db.refresh(branch)

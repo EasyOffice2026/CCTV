@@ -97,6 +97,9 @@ Without those variables the database tests are skipped. What the cloud tests che
   frame / face enrolment through a simulated edge box (only the addressed box can answer),
   the relay on Redis (fakeredis) and in-process, staff consent rules, CSV export, the
   refresh cookie
+- monitoring and onboarding (plan 11): incidents opened and resolved from heartbeats,
+  on-call paged only for incidents that last, `/metrics` behind its token without tenant
+  data, the onboarding checklist; `docs/api-reference.md` is up to date
 - the pilot (plan 10): queue and staff figures in the overview and reports, the pilot
   figures against the success criteria (precision, false alarms, alert p95, uptime, day
   count), who may read and write the pilot log
@@ -125,7 +128,7 @@ The `test_every_tenant_table_has_row_level_security` test fails until they have 
 After API changes, regenerate the OpenAPI file and the web app's types (CI checks both):
 
 ```bash
-cd cloud && python -m cctv_cloud.openapi && cd ../web && npm run api:types
+cd cloud && python -m cctv_cloud.openapi && cd ../web && npm run api:types   # also docs/api-reference.md
 ```
 
 ## 6. Contract changes

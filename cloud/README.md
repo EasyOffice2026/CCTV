@@ -78,6 +78,8 @@ in other branches returns 404. Super-admins (our team) can do everything, in any
 | Reports | `/v1/reports` (list, make), `/v1/reports/{id}`, `/v1/reports/{id}/file?format=pdf\|xlsx&lang=en\|ar` |
 | Realtime | WebSocket `/v1/ws` (live event feed, in-app alerts) |
 | Webhooks | `/v1/webhooks/whatsapp` (delivery reports from Meta; signed) |
+| Monitoring (plan 11.4) | `/v1/incidents` (devices managers), `/v1/platform/incidents` (super-admin), `/metrics` (Prometheus, `CCTV_METRICS_TOKEN`) |
+| Onboarding (plan 11.1) | `/v1/branches/{id}/onboarding` |
 | Pilot (plan 10) | `/v1/pilot/kpis` (figures against the success criteria), `/v1/pilot/log` (+ `/{id}`), `/v1/branches/{id}/pilot` (day 1, super-admin) |
 | Install, shadow mode (plan 9) | `/v1/branches/{id}/stream-test` (48-hour setup test), `/v1/branches/{id}/shadow` (super-admin), `/v1/review-summary` (review results for tuning) |
 | Overview, KPIs | `/v1/overview` (per branch, today so far or a past day; follows the feature switches) |
@@ -208,7 +210,9 @@ python -m cctv_cloud.cli security-check --online  # settings, TLS, keys, bucket 
 python -m cctv_cloud.cli sso-token --issuer <iss> --email <user>  # test sign-in link (HS256)
 python -m cctv_cloud.cli export-reviewed --tenant <slug> --since 2026-11-15 --out DIR
                                          # reviewed events + media for retraining (audited)
-python -m cctv_cloud.worker run          # alert and webhook retries every 5 s; offline devices,
+python -m cctv_cloud.worker health       # once: offline boxes, incidents, on-call
+python -m cctv_cloud.worker run          # alert and webhook retries every 5 s; offline boxes and
+                                         # the health check every minute; offline devices,
                                          # absences and reports every 5 min; retention hourly
 ```
 
@@ -237,6 +241,8 @@ encryption context `purpose=cctv-face-template`) or `local:<id>` with the key in
 `rotate_token`, the box calls `POST /v1/edge/token`, saves the new token and uses it. The
 old one keeps working for `CCTV_DEVICE_TOKEN_GRACE_MINUTES` (10). Pairing again or retiring
 the box ends all its tokens.
+
+**Monitoring** (plan 11.4). Heartbeats store the box's disk, temperature, CPU/GPU and upload backlog. Every minute the worker marks silent boxes offline and the health check (`services/monitoring.py`) opens or resolves `health_incidents`: box offline, a camera without frames for `CCTV_MONITOR_STREAM_DOWN_MINUTES` (5, only while its box is online), disk under `CCTV_MONITOR_DISK_FREE_GB` (20), temperature at `CCTV_MONITOR_TEMPERATURE_C` (85), backlog at `CCTV_MONITOR_SYNC_BACKLOG` (1,000). On-call (`CCTV_ONCALL_EMAILS`, `CCTV_ONCALL_WEBHOOK_URL` taking `{"text": ...}`) is told once an incident has lasted `CCTV_MONITOR_NOTIFY_AFTER_MINUTES` (5) and when it is resolved; shorter ones are closed silently. `GET /metrics` gives counts across tenants (boxes, cameras, open incidents, queued deliveries) through the `platform_monitoring()` database function. The API reference is generated: `python -m cctv_cloud.openapi` writes `openapi.json` and `docs/api-reference.md`.
 
 **The pilot** (plan 10). `GET /v1/pilot/kpis` works out, per branch from `pilot_started_on`, events and review results per day and feature (precision once 20 events of a feature are reviewed), false alarms per day, alert p95 (`alert_deliveries.latency_ms`), and camera and box uptime from `camera_health_minutes`, with each success criterion met, not met or not decidable yet. Count buckets also carry staff crossings left out and queue waits (count, total, longest); reports and the overview show queue figures when the queue feature is on.
 

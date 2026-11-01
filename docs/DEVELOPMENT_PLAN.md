@@ -323,16 +323,18 @@ If a feature misses its target, extend the pilot for that feature only. Don't ho
 
 ### Phase 11 — Productisation & handover (Week 18–20)
 
-- [ ] 11.1 **Onboarding checklist** (survey → camera check → connect → zones → go live) as a document and as an admin-panel wizard.
-- [ ] 11.2 **Hardware kits:**
+- [x] 11.1 **Onboarding checklist** (survey → camera check → connect → zones → go live) as a document and as an admin-panel wizard. *`docs/runbooks/onboarding.md`, and Administration › Onboarding: 11 steps per branch worked out from what is set up (hours, cameras, box online, streaming, setup test, zones, features, staff with consent, alert rules, shadow mode, pilot day 1), the next one highlighted, each linked to its page.*
+- [x] 11.2 **Hardware kits:** *`docs/hardware.md`. To confirm with the pilot box's measured load: video decoding is still on the CPU (hardware decoding on the Jetson is planned), so the camera counts per kit are design targets.*
   - Small (≤ 8 cams): Orin Nano Super / Orin NX 8GB, 512GB NVMe, UPS
   - Medium (9–16 cams): Orin NX 16GB, 1TB NVMe, UPS
   - Large (> 16 cams): 2 × medium, or AGX Orin
   - Plus a face camera/terminal per staff entrance
-- [ ] 11.3 Minimum camera spec sheet (1080p @ 15 fps, H.264/H.265, RTSP/ONVIF) + compatibility list (Hikvision, Dahua, ...).
-- [ ] 11.4 Monitoring & on-call: alerts when an edge device goes offline, a stream drops, a disk fills or the GPU overheats.
-- [ ] 11.5 Docs: architecture, API reference, deployment runbook, edge recovery runbook, model retraining guide.
-- [ ] 11.6 Source code handover + a recorded walkthrough.
+- [x] 11.3 Minimum camera spec sheet (1080p @ 15 fps, H.264/H.265, RTSP/ONVIF) + compatibility list (Hikvision, Dahua, ...). *`docs/hardware.md`; the box's site check tests each camera against it. Hikvision is built for (RTSP and ISAPI); Dahua, Uniview, Axis and other ONVIF cameras should work for analysis and live view over RTSP but haven't been tested; NVR playback is Hikvision only.*
+- [x] 11.4 Monitoring & on-call: alerts when an edge device goes offline, a stream drops, a disk fills or the GPU overheats. *Heartbeats carry disk, temperature, CPU/GPU and upload backlog; the worker's health check (every minute) opens and resolves incidents (box offline, stream down 5 min, disk under 20 GB, 85 °C, 1,000 waiting); on-call by email and/or a Slack/Teams webhook once an incident lasts 5 minutes, and when resolved; System health page (all clients) and incidents on the Edge devices page; `GET /metrics` for Prometheus (token). Not yet connected to a real on-call channel.*
+- [x] 11.5 Docs: architecture, API reference, deployment runbook, edge recovery runbook, model retraining guide. *`docs/architecture.md`, `docs/api-reference.md` (generated from the API with `python -m cctv_cloud.openapi`; a test fails when stale), `docs/runbooks/deploy-cloud.md` (with a tag-triggered release workflow, not run yet), `docs/runbooks/edge-recovery.md` (one section per incident kind, linked from on-call messages), `docs/runbooks/retraining.md`.*
+- [ ] 11.6 Source code handover + a recorded walkthrough. *Checklist, accounts and secrets to transfer, walkthrough agenda and open items: `docs/handover.md`. Waiting on: the receiver and the session.*
+
+*Status: monitoring, the onboarding wizard and the generated API reference are built and tested (incidents, paging, short-incident suppression, /metrics, the checklist; in a browser: the wizard and the incidents panel). Documents written for hardware, architecture, deployment, recovery, retraining and handover.*
 
 ### Later phase (after pilot)
 

@@ -332,6 +332,13 @@ class EdgeDeviceOut(ORMModel):
     config_version_applied: int | None
     last_seen_at: datetime | None
     paired: bool
+    # From the last heartbeat (plan 11.4).
+    uptime_seconds: int | None = None
+    cpu_percent: float | None = None
+    gpu_percent: float | None = None
+    temperature_c: float | None = None
+    disk_free_bytes: int | None = None
+    outbox_pending: int | None = None
 
 
 class PairingCode(BaseModel):
@@ -351,6 +358,12 @@ def _device_out(device: EdgeDevice) -> EdgeDeviceOut:
         config_version_applied=device.config_version_applied,
         last_seen_at=device.last_seen_at,
         paired=device.token_hash is not None,
+        uptime_seconds=device.uptime_seconds,
+        cpu_percent=device.cpu_percent,
+        gpu_percent=device.gpu_percent,
+        temperature_c=device.temperature_c,
+        disk_free_bytes=device.disk_free_bytes,
+        outbox_pending=device.outbox_pending,
     )
 
 

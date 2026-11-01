@@ -80,6 +80,22 @@ class Settings(BaseSettings):
     # Webhooks may only go to public addresses; dev and test may allow private ones.
     webhook_allow_private: bool = False
 
+    # Monitoring and on-call (plan 11.4). The worker's health check opens an incident when a
+    # box stops sending heartbeats (device_offline_seconds), a camera has had no frames for
+    # monitor_stream_down_minutes, a box has less than monitor_disk_free_gb free, runs at
+    # monitor_temperature_c or more, or has monitor_sync_backlog items waiting to upload.
+    # On-call is told (email and/or a Slack/Teams-style webhook taking {"text": ...}) once an
+    # incident has lasted monitor_notify_after_minutes, and when it is resolved.
+    monitor_stream_down_minutes: int = 5
+    monitor_disk_free_gb: float = 20
+    monitor_temperature_c: float = 85
+    monitor_sync_backlog: int = 1000
+    monitor_notify_after_minutes: int = 5
+    oncall_emails: list[str] = []
+    oncall_webhook_url: SecretStr = SecretStr("")
+    # Bearer token for GET /metrics (Prometheus); empty: /metrics is off.
+    metrics_token: SecretStr = SecretStr("")
+
     # Audit entries are kept this long (plan §6: 1 year or more; the database refuses to
     # delete entries younger than 365 days).
     audit_retention_days: int = 730

@@ -2,7 +2,9 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    BigInteger,
     CheckConstraint,
+    Index,
     PrimaryKeyConstraint,
     SmallInteger,
     String,
@@ -13,7 +15,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from cctv_cloud.db.base import Base, CreatedAt, TenantScoped, UUIDPk, check_in, tenant_fk
-from cctv_cloud.db.enums import DeviceStatus
+from cctv_cloud.db.enums import DeviceStatus, IncidentKind
 from cctv_contracts.enums import CameraHealth, CameraRole, ZoneType
 
 
@@ -36,6 +38,13 @@ class EdgeDevice(UUIDPk, CreatedAt, TenantScoped, Base):
     # One-time pairing code shown in the admin panel and typed in on the box.
     pairing_code_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
     pairing_expires_at: Mapped[datetime | None]
+    # From the last heartbeat (plan 11.4: monitoring).
+    uptime_seconds: Mapped[int | None]
+    cpu_percent: Mapped[float | None]
+    gpu_percent: Mapped[float | None]
+    temperature_c: Mapped[float | None]
+    disk_free_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    outbox_pending: Mapped[int | None]
 
     __table_args__ = (
         tenant_fk("branch_id", "branches"),
@@ -132,4 +141,41 @@ class CameraHealthMinute(TenantScoped, Base):
     __table_args__ = (
         PrimaryKeyConstraint("camera_id", "minute"),
         tenant_fk("camera_id", "cameras", ondelete="CASCADE"),
+    )
+
+
+class HealthIncident(UUIDPk, TenantScoped, Base):
+    """Something wrong with a branch's system (plan 11.4): a box offline, a camera stream
+    down, a disk filling, a box too hot, uploads backing up. Opened and resolved by the
+    worker's health check; on-call is told once it has lasted a few minutes."""
+
+    __tablename__ = "health_incidents"
+
+    branch_id: Mapped[uuid.UUID]
+    device_id: Mapped[uuid.UUID | None]
+    camera_id: Mapped[uuid.UUID | None]
+    kind: Mapped[str] = mapped_column(String(20))
+    detail: Mapped[str] = mapped_column(String(500))
+    value: Mapped[float | None]  # e.g. GB free, degrees C
+    opened_at: Mapped[datetime]
+    resolved_at: Mapped[datetime | None]
+    notified_at: Mapped[datetime | None]  # on-call told it opened
+    resolved_notified_at: Mapped[datetime | None]
+
+    __table_args__ = (
+        tenant_fk("branch_id", "branches", ondelete="CASCADE"),
+        tenant_fk("device_id", "edge_devices", ondelete="CASCADE"),
+        tenant_fk("camera_id", "cameras", ondelete="CASCADE"),
+        check_in("kind", IncidentKind),
+        # At most one open incident per kind and box or camera.
+        Index(
+            "uq_health_incidents_open",
+            "kind",
+            "device_id",
+            "camera_id",
+            unique=True,
+            postgresql_where=text("resolved_at IS NULL"),
+            postgresql_nulls_not_distinct=True,
+        ),
+        Index("ix_health_incidents_tenant_opened", "tenant_id", text("opened_at DESC")),
     )

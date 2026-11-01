@@ -17,6 +17,7 @@ data exists, consent, retention, signage) is in [privacy/](privacy/README.md).
 | API → database, Redis | Private network. Add `?sslmode=verify-full` to `CCTV_DATABASE_URL` and use `rediss://` when they are not on the same host (`security-check` warns) | `cloud/cctv_cloud/services/security_check.py` |
 | Support access to boxes | Tailscale (WireGuard) tailnet; no inbound ports on the branch router | `infra/edge/provision.sh` |
 | Operational system → dashboard (sign-in) | A JWT signed by the ops system's server (shared secret or its public key), valid at most 5 minutes, used once (`jti`), carried in the URL fragment (never sent to servers or in `Referer`). Owners need 2FA on the ops side (`amr`). Roles and branches stay ours | `cloud/cctv_cloud/services/sso.py`, `web/src/lib/handoff.ts` |
+| API → on-call, Prometheus | On-call webhook: https to a public address only (same check as webhooks), no redirects; messages name the client, branch and problem, no personal data. `GET /metrics`: bearer token (`CCTV_METRICS_TOKEN`, compared in constant time; off when unset), counts only, through a database function that returns no tenant data | `cloud/cctv_cloud/services/monitoring.py`, `api/monitoring.py` |
 | API → integrations (webhooks) | `https` to public addresses only (checked on save and again on each send, after DNS), no redirects, HMAC-SHA256 signature with a timestamp; no images or names in the body | `cloud/cctv_cloud/services/webhooks.py` |
 
 mTLS between box and cloud is not used: device tokens give the same per-device identity and

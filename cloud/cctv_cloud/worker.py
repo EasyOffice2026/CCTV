@@ -7,6 +7,7 @@ absences (plan 5.4), alerts and reports (plan 6), webhooks (plan 8.4).
     python -m cctv_cloud.worker alerts      # once: send queued alerts (retries)
     python -m cctv_cloud.worker reports     # once: make due reports, send their links
     python -m cctv_cloud.worker webhooks    # once: send queued webhook messages (retries)
+    python -m cctv_cloud.worker health      # once: offline boxes, incidents, on-call (plan 11.4)
     python -m cctv_cloud.worker run         # all until stopped: alerts and webhooks every
                                             # few seconds,
                                             # the rest every few minutes
@@ -37,7 +38,7 @@ from cctv_cloud.db.models import (
     Tenant,
 )
 from cctv_cloud.db.session import tenant_session
-from cctv_cloud.services import webhooks
+from cctv_cloud.services import monitoring, webhooks
 from cctv_cloud.services.alerts import Senders, default_senders, dispatch_all
 from cctv_cloud.services.attendance import mark_absences
 from cctv_cloud.services.pilot import KEEP_HEALTH
@@ -47,6 +48,8 @@ from cctv_cloud.services.storage import ObjectStorage, get_storage
 log = logging.getLogger("cctv_cloud.worker")
 
 BATCH = 500
+# Offline boxes and the health check (on-call) run every minute in `run`.
+HEALTH_INTERVAL = 60
 
 
 @dataclass
@@ -185,7 +188,16 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="cctv_cloud.worker")
     parser.add_argument(
         "job",
-        choices=["retention", "devices", "attendance", "alerts", "reports", "webhooks", "run"],
+        choices=[
+            "retention",
+            "devices",
+            "attendance",
+            "alerts",
+            "reports",
+            "webhooks",
+            "health",
+            "run",
+        ],
     )
     parser.add_argument("--interval", type=int, default=300, help="seconds between runs (run)")
     parser.add_argument(
@@ -204,12 +216,16 @@ def main(argv: list[str] | None = None) -> int:
         log.info("alerts sent: %d", dispatch_all(default_senders()))
     elif args.job == "reports":
         log.info("reports made: %d", make_reports(default_senders()))
+    elif args.job == "health":
+        mark_offline_devices()
+        log.info("on-call pages: %d", monitoring.check_all(tenant_ids(), monitoring.get_pager()))
     elif args.job == "webhooks":
         log.info("webhook messages sent: %d", webhooks.dispatch_all(webhooks.get_webhook_poster()))
     else:
         senders = default_senders()
         poster = webhooks.get_webhook_poster()
-        last_jobs = last_retention = float("-inf")
+        pager = monitoring.get_pager()
+        last_jobs = last_retention = last_health = float("-inf")
         while True:
             # The API sends alerts right away; this retries failures and catches up.
             try:
@@ -220,8 +236,11 @@ def main(argv: list[str] | None = None) -> int:
                 webhooks.dispatch_all(poster)
             except Exception:
                 log.exception("sending webhooks failed")
-            if time.monotonic() - last_jobs >= args.interval:
+            if time.monotonic() - last_health >= HEALTH_INTERVAL:
                 mark_offline_devices()
+                monitoring.check_all(tenant_ids(), pager)
+                last_health = time.monotonic()
+            if time.monotonic() - last_jobs >= args.interval:
                 mark_absent_staff()
                 make_reports(senders)
                 last_jobs = time.monotonic()

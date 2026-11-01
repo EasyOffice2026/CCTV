@@ -399,6 +399,28 @@ export interface paths {
         patch: operations["update_branch_v1_branches__branch_id__patch"];
         trace?: never;
     };
+    "/v1/branches/{branch_id}/onboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Onboarding
+         * @description Where the branch stands in onboarding (plan 11.1), in order: working hours, cameras,
+         *     edge box online, all cameras streaming, setup test passed, zones and features on every
+         *     camera, staff enrolled (with attendance), alert rules, shadow mode, pilot started.
+         */
+        get: operations["get_onboarding_v1_branches__branch_id__onboarding_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/branches/{branch_id}/pilot": {
         parameters: {
             query?: never;
@@ -1102,6 +1124,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/incidents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Incidents
+         * @description System problems of the tenant's branches (open first, then newest): boxes offline,
+         *     camera streams down, disks filling, boxes too hot, uploads backing up.
+         */
+        get: operations["list_incidents_v1_incidents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/live/ice-servers": {
         parameters: {
             query?: never;
@@ -1350,6 +1393,26 @@ export interface paths {
          *     client is in that client's own audit log.
          */
         get: operations["list_platform_audit_logs_v1_platform_audit_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/incidents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Platform Incidents
+         * @description Every client's open incidents, for our on-call team.
+         */
+        get: operations["list_platform_incidents_v1_platform_incidents_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2717,6 +2780,12 @@ export interface components {
             branch_id: string;
             /** Config Version Applied */
             config_version_applied: number | null;
+            /** Cpu Percent */
+            cpu_percent?: number | null;
+            /** Disk Free Bytes */
+            disk_free_bytes?: number | null;
+            /** Gpu Percent */
+            gpu_percent?: number | null;
             /**
              * Id
              * Format: uuid
@@ -2726,6 +2795,8 @@ export interface components {
             last_seen_at: string | null;
             /** Name */
             name: string;
+            /** Outbox Pending */
+            outbox_pending?: number | null;
             /** Paired */
             paired: boolean;
             /** Serial */
@@ -2733,6 +2804,10 @@ export interface components {
             /** Software Version */
             software_version: string | null;
             status: components["schemas"]["DeviceStatus"];
+            /** Temperature C */
+            temperature_c?: number | null;
+            /** Uptime Seconds */
+            uptime_seconds?: number | null;
         };
         /** EventBatch */
         EventBatch: {
@@ -3139,6 +3214,51 @@ export interface components {
             ice_servers: {
                 [key: string]: unknown;
             }[];
+        };
+        /**
+         * IncidentKind
+         * @description System problems the health check watches for (plan 11.4).
+         * @enum {string}
+         */
+        IncidentKind: "device_offline" | "stream_down" | "disk_low" | "temperature_high" | "sync_backlog";
+        /** IncidentOut */
+        IncidentOut: {
+            /** Branch */
+            branch: string;
+            /**
+             * Branch Id
+             * Format: uuid
+             */
+            branch_id: string;
+            /** Camera */
+            camera: string | null;
+            /** Camera Id */
+            camera_id: string | null;
+            /** Detail */
+            detail: string;
+            /** Device */
+            device: string | null;
+            /** Device Id */
+            device_id: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["IncidentKind"];
+            /** Notified At */
+            notified_at: string | null;
+            /**
+             * Opened At
+             * Format: date-time
+             */
+            opened_at: string;
+            /** Resolved At */
+            resolved_at: string | null;
+            /** Tenant */
+            tenant?: string | null;
+            /** Value */
+            value: number | null;
         };
         JsonValue: unknown;
         /** LiveIn */
@@ -3865,7 +3985,7 @@ export interface components {
         ShadowIn: {
             /**
              * Until
-             * @description End of shadow mode; null ends it now
+             * @description End of shadow mode; null: ends it now
              */
             until: string | null;
         };
@@ -4160,6 +4280,17 @@ export interface components {
             shift_id?: string | null;
             /** @description 'left' deletes the person's face data */
             status?: components["schemas"]["StaffStatus"] | null;
+        };
+        /** Step */
+        Step: {
+            /** Done */
+            done: boolean | null;
+            /** Done Count */
+            done_count?: number | null;
+            /** Key */
+            key: string;
+            /** Total */
+            total?: number | null;
         };
         /** StreamTest */
         StreamTest: {
@@ -5621,6 +5752,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BranchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_onboarding_v1_branches__branch_id__onboarding_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path: {
+                branch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Step"][];
                 };
             };
             /** @description Validation Error */
@@ -7154,6 +7319,42 @@ export interface operations {
             };
         };
     };
+    list_incidents_v1_incidents_get: {
+        parameters: {
+            query?: {
+                branch_id?: string | null;
+                open_only?: boolean;
+                limit?: number;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     ice_servers_v1_live_ice_servers_get: {
         parameters: {
             query?: never;
@@ -7797,6 +7998,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditLogOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_platform_incidents_v1_platform_incidents_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentOut"][];
                 };
             };
             /** @description Validation Error */
