@@ -6,9 +6,13 @@ POST /mfa/enable       setup_token + code -> tokens
 POST /mfa/verify       mfa_token + code -> tokens
 POST /refresh          refresh_token -> new tokens (rotated; reuse ends the session)
 POST /logout           ends the current session
+POST /sso              sign-in token from the client's operational system -> tokens (plan 8.1)
 
 Browsers also get the refresh token as an HttpOnly cookie (path /v1/auth, SameSite=Strict),
 so the web app never has to store it; /refresh accepts the cookie instead of a body.
+Pages embedded in the operational system (another site) get no cookie: browsers don't send
+SameSite=Strict cookies to a frame of another site, so they keep the refresh token in
+memory and send it in the body.
 GET  /me               the caller
 POST /password/forgot  email -> reset link by email (always 202)
 POST /password/reset   token + new password
@@ -27,7 +31,7 @@ from sqlalchemy.orm import Session
 from cctv_cloud.api.deps import get_principal, unauthorized
 from cctv_cloud.config import get_settings
 from cctv_cloud.db.enums import UserRole
-from cctv_cloud.db.models import User, UserSession
+from cctv_cloud.db.models import SsoIntegration, User, UserSession
 from cctv_cloud.db.session import tenant_session
 from cctv_cloud.rbac import MFA_REQUIRED_ROLES, Principal
 from cctv_cloud.security import (
@@ -43,6 +47,7 @@ from cctv_cloud.security import (
     verify_password,
     verify_totp,
 )
+from cctv_cloud.services import sso
 from cctv_cloud.services.audit import AuditAction, client_ip, record
 from cctv_cloud.services.mailer import Mailer, get_mailer
 
@@ -83,6 +88,15 @@ class MfaCode(BaseModel):
 
 class TokenRequest(BaseModel):
     token: str
+
+
+class SsoRequest(BaseModel):
+    token: str = Field(max_length=8000)
+    embedded: bool = Field(
+        default=False,
+        description="Inside the operational system's page: no refresh cookie is set; send "
+        "the refresh token in the body of /refresh instead",
+    )
 
 
 class Me(BaseModel):
@@ -336,6 +350,48 @@ def mfa_verify(body: MfaCode, request: Request, response: Response) -> TokenPair
     if result is None:  # raised after the block so the failure count is committed
         raise unauthorized("wrong or already used code")
     return _set_refresh_cookie(response, result)
+
+
+@router.post("/sso", response_model=TokenPair)
+def sso_sign_in(body: SsoRequest, request: Request, response: Response) -> TokenPair:
+    """Swap a sign-in token from the client's operational system for a session of the
+    user with the same email (services/sso.py). No 2FA step here: the operational system
+    signed the user in (owners need its 2FA, see `require_mfa`). Each token works once."""
+    try:
+        found = sso.find_integration(body.token)
+    except sso.SsoError as exc:
+        raise unauthorized("invalid sign-in token") from exc
+    user_id: uuid.UUID | None = None
+    with tenant_session(found.tenant_id) as db:
+        integration = db.get_one(SsoIntegration, found.id)
+        details = {"via": "sso", "integration": integration.name}
+        if body.embedded:
+            details["embedded"] = "yes"
+        try:
+            claims = sso.verify(db, integration, body.token)
+            details["subject"] = str(claims.get("sub", ""))[:100]
+            user_id = sso.find_user(db, integration, claims).id
+        except sso.SsoError as exc:
+            record(
+                db,
+                None,
+                AuditAction.LOGIN_FAILED,
+                "sso_integration",
+                integration.id,
+                request,
+                {**details, "reason": str(exc)[:200]},
+                tenant_id=found.tenant_id,
+            )
+        else:
+            integration.last_used_at = _now()
+    if user_id is None:  # raised after the block so the audit entry is committed
+        raise unauthorized("invalid sign-in token")
+    # Sessions are only visible to their own user (row-level security).
+    with tenant_session(found.tenant_id, user_id) as db:
+        user = db.get_one(User, user_id)
+        _audit_login(db, AuditAction.LOGIN, found.tenant_id, user_id, request, details)
+        result = _issue_tokens(db, user, request)
+    return result if body.embedded else _set_refresh_cookie(response, result)
 
 
 @router.post("/refresh", response_model=TokenPair)

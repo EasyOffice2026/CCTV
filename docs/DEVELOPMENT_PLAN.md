@@ -277,10 +277,12 @@ For **each** feature follow the same loop: **label → train/configure → offli
 
 ### Phase 8 — Mudawara operational system integration (Week 11–13)
 
-- [ ] 8.1 Agree on the method: **SSO (OIDC / signed JWT handoff)** + embed the dashboard pages (iframe with CSP `frame-ancestors`, or a micro-frontend).
-- [ ] 8.2 "Owner overview" page built for embedding: attendance, compliance, customer count, peak hours, alerts, reports, clips.
-- [ ] 8.3 The same feature toggles apply (it is the same backend).
-- [ ] 8.4 Optional: REST endpoints/webhooks so the ops system can pull KPIs into its own screens.
+- [ ] 8.1 Agree on the method: **SSO (OIDC / signed JWT handoff)** + embed the dashboard pages (iframe with CSP `frame-ancestors`, or a micro-frontend). *Software ready for the signed-JWT handoff (it works with any stack, and an OIDC provider can issue the same tokens): the ops system's server signs a 2-minute, single-use token per user (HS256 secret we generate, or its RS256/ES256 public key); `/sso/#token=…` opens the dashboard, `/embed/overview/#token=…` in an iframe, limited by `frame-ancestors` to the origins in `EMBED_ANCESTORS`. Users are matched by email and must be invited; owners need 2FA on the ops side (`amr`). Guide for their developers: `docs/integration/ops-system.md`. Waiting on: their technical contact to confirm the method, issuer, key, page origins, and whether they have 2FA for owners (§1 #9).*
+- [x] 8.2 "Owner overview" page built for embedding: attendance, compliance, customer count, peak hours, alerts, reports, clips. *Overview page (also the owner's and manager's home page) and `/embed/overview/` for the iframe: per branch, today so far: events, issues, attendance, customers by hour and peak, cameras and edge boxes, alert times, latest events with snapshot and clip, latest reports; English and Arabic; refreshes every minute; tells the parent page its height and when it needs a new token.*
+- [x] 8.3 The same feature toggles apply (it is the same backend). *A feature off on every camera of a branch has no section and its events aren't listed, in the page and in the API.*
+- [x] 8.4 Optional: REST endpoints/webhooks so the ops system can pull KPIs into its own screens. *`GET /v1/overview` with an API key scoped `kpis:read` (totals only, nothing else opens); signed webhooks for new and finished events and new reports (HMAC-SHA256, retried for a day, public https only, no images or names); Integrations page for API keys, webhooks (test, recent sends) and the sign-in setup.*
+
+*Status: 13 new cloud tests (sign-in tokens: replay, expiry, audience, wrong key, unknown and cross-tenant users, owner 2FA, algorithm pinning, RS256/ES256; overview toggles and permissions; API key scope; webhook signing, retries, private addresses, reports) and the route sweeps over the new endpoints pass. In a browser: the sign-in link, the overview embedded in a page on another origin (Arabic, postMessage token, event clip), API key and webhook to a local receiver with the signature checked. Not yet done with the real ops system (8.1).*
 
 ### Phase 9 — On-site install & shadow mode (Week 12–14)
 

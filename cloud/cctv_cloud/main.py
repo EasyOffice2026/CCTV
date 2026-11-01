@@ -17,6 +17,7 @@ from cctv_cloud.api import (
     features,
     health,
     integrations,
+    overview,
     platform,
     realtime,
     remote,
@@ -31,7 +32,11 @@ Multi-tenant API for the AI CCTV system.
 * **Users** sign in at `/v1/auth/login` and send `Authorization: Bearer <access token>`.
   Owners and super-admins must use two-factor authentication.
 * **Super-admins** pick the tenant to act on with the `X-Tenant-Id` header.
-* **Integrations** (POS, HRM) send `X-API-Key: <key>` (created under `/v1/api-keys`).
+* **Integrations** (POS, HRM, the operational system) send `X-API-Key: <key>` (created
+  under `/v1/api-keys`), e.g. for `/v1/overview` (scope `kpis:read`), and can receive
+  signed webhooks (`/v1/webhooks`).
+* **The operational system** signs users in with a short-lived token at `/v1/auth/sso`
+  (docs/integration/ops-system.md).
 * **Edge devices** use `/v1/edge/*` with their device token (see contracts/README.md).
 * **Live events**: WebSocket `/v1/ws`; send `{"type": "auth", "token": ...}` first.
 """
@@ -107,6 +112,7 @@ def create_app() -> FastAPI:
         attendance,
         alerts,
         reports,
+        overview,
         integrations,
         realtime,
         edge,

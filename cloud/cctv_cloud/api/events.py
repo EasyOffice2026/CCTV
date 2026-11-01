@@ -75,7 +75,7 @@ class MediaLink(BaseModel):
     expires_at: datetime
 
 
-def _out(event: Event) -> EventOut:
+def event_out(event: Event) -> EventOut:
     return EventOut(
         id=event.id,
         branch_id=event.branch_id,
@@ -201,7 +201,7 @@ def search_events(
     ).all()
     page = rows[:limit]
     next_cursor = _encode_cursor(page[-1]) if len(rows) > limit else None
-    return EventPage(items=[_out(e) for e in page], next_cursor=next_cursor)
+    return EventPage(items=[event_out(e) for e in page], next_cursor=next_cursor)
 
 
 EXPORT_COLUMNS = [
@@ -294,7 +294,7 @@ def export_events(ctx: Exporter, filters: Filters, request: Request) -> Response
 
 @router.get("/{event_id}", response_model=EventOut)
 def get_event(event_id: uuid.UUID, ctx: Viewer) -> EventOut:
-    return _out(_visible_event(ctx, event_id))
+    return event_out(_visible_event(ctx, event_id))
 
 
 @router.patch("/{event_id}/review", response_model=EventOut)
@@ -313,7 +313,7 @@ def review_event(event_id: uuid.UUID, body: ReviewIn, ctx: Reviewer, request: Re
         request,
         {"review_status": body.review_status.value},
     )
-    return _out(event)
+    return event_out(event)
 
 
 @router.get("/{event_id}/media/{kind}", response_model=MediaLink)

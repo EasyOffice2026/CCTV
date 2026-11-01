@@ -9,6 +9,7 @@ import {
   onTokenChange,
   refreshAccessToken,
   setAccessToken,
+  setEmbeddedRefreshToken,
   setTenantId,
   unwrap,
   type Schemas,
@@ -24,7 +25,8 @@ type Auth = {
   /** The tenant acted on: the user's own, or the one a super-admin picked. */
   tenantId: string | null;
   setTenant: (tenantId: string | null) => void;
-  signedIn: (tokens: Schemas["TokenPair"]) => Promise<void>;
+  /** `embedded`: inside the operational system's page, where there is no refresh cookie. */
+  signedIn: (tokens: Schemas["TokenPair"], embedded?: boolean) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -90,7 +92,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signedIn = useCallback(
-    async (tokens: Schemas["TokenPair"]) => {
+    async (tokens: Schemas["TokenPair"], embedded = false) => {
+      setEmbeddedRefreshToken(embedded ? tokens.refresh_token : null);
       setAccessToken(tokens.access_token, tokens.expires_in);
       queryClient.clear();
       await loadMe();
@@ -102,6 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await api.POST("/v1/auth/logout");
     } finally {
+      setEmbeddedRefreshToken(null);
       setAccessToken(null);
       queryClient.clear();
     }

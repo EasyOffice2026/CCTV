@@ -396,6 +396,7 @@ PUBLIC = {
     ("POST", "/v1/auth/mfa/verify"),
     ("POST", "/v1/auth/password/forgot"),
     ("POST", "/v1/auth/password/reset"),
+    ("POST", "/v1/auth/sso"),
     ("POST", "/v1/edge/pair"),
 }
 
@@ -505,6 +506,20 @@ def _victim_rows(client, org, headers, branch: str, serial: str) -> dict[str, ob
             ),
             "api_key",
         ),
+        "webhook_id": made(
+            client.post(
+                "/v1/webhooks",
+                json={
+                    "name": serial,
+                    "url": "https://ops.example.com/hook",
+                    "topics": ["event.new"],
+                },
+                headers=headers,
+            ),
+            "webhook",
+        ),
+        # Set up by our team only; owners are refused before any lookup.
+        "integration_id": uuid.uuid4(),
         "work_date": date.today(),
         "kind": "snapshot",
         "request_id": uuid.uuid4(),
@@ -532,6 +547,8 @@ BODIES = {
     },
     ("PATCH", "/v1/events/{event_id}/review"): {"review_status": "false_alarm"},
     ("PUT", "/v1/me/alert-rules/{rule_id}"): {"channels": ["web"]},
+    ("PATCH", "/v1/sso-integrations/{integration_id}"): {"name": "Taken"},
+    ("PATCH", "/v1/webhooks/{webhook_id}"): {"name": "Taken"},
     ("PATCH", "/v1/shifts/{shift_id}"): {"name": "Taken"},
     ("PATCH", "/v1/staff/{staff_id}"): {"full_name": "Taken"},
     ("PUT", "/v1/staff/{staff_id}/consent"): {"signed_at": "2026-10-01T09:00:00Z"},

@@ -27,6 +27,7 @@ and talks to the API through its own proxy.
 
 | Page | Who (permission) | What |
 |---|---|---|
+| Overview | `kpis_view` | Each branch today: events, issues, attendance, customers, cameras and boxes, alert times, latest events, reports; sections follow the feature switches; refreshes every minute. Home page of owners and managers |
 | Live events | `events_view` | Event cards that update live over the WebSocket; clip player; Valid / False alarm / Reviewed |
 | Search | `events_view` | Every filter of the search API; CSV export (`media_export`) |
 | Live view | `live_view` | Camera grid per branch, WebRTC from the edge box on demand; stops after 5 min without activity or when the tab is hidden |
@@ -39,7 +40,10 @@ and talks to the API through its own proxy.
 | Reports | `reports_view` | Daily, weekly and monthly branch reports; make or update one; PDF and Excel in the current language. `?report=<id>` opens one (links in report messages) |
 | Alerts | `events_view` | The user's alert rules, WhatsApp number and consent, message language, report links, browser notifications, test messages |
 | Audit log | `tenant_admin` | Who signed in, viewed or exported footage, reports and event lists, and changed settings, users, devices, staff or consent; filters, CSV export. Super-admins also see the platform log (their team's sign-ins) |
+| Integrations | `tenant_admin` | API keys, webhooks (test, recent sends), the operational system's sign-in (super-admins set it up; owners see it) |
 | Clients, Branches, Cameras & NVRs, Edge devices, Users | `platform_admin`, `tenant_admin`, `devices_manage` | Administration |
+| `/sso/` | — | Opened from the operational system with `#token=…&next=…`: signs in without a password |
+| `/embed/overview/` | `kpis_view` | The overview for the operational system's iframe (`#token=…&lang=…&branch=…`, or a token by `postMessage`); no navigation. Only this path may be framed, by the origins in `EMBED_ANCESTORS` |
 
 The UI hides what a role can't use; the API enforces it.
 
@@ -49,6 +53,10 @@ The UI hides what a role can't use; the API enforces it.
   SameSite=Strict cookie set by the API (path `/v1/auth`), so scripts never see it. The app
   refreshes on load, on a 401, and shortly before expiry while the user is active (so the
   server's 8-hour idle timeout still applies).
+- **Sign-in from the operational system.** `/sso/` and `/embed/` read a one-time token from
+  the URL fragment (`src/lib/handoff.ts`), remove it from the address bar and swap it at
+  `/v1/auth/sso`. In another site's frame there is no cookie, so the embedded page keeps
+  its refresh token in memory; a reload needs a new token from the parent page.
 - **Live events.** `/v1/ws`; the token is sent as the first message, again after each refresh.
   One socket per tab is shared by the event feed and the alert toasts (`src/lib/live-events.ts`).
 - **Alerts.** Alerts routed to the user arrive on the same socket as toasts (critical ones

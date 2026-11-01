@@ -16,6 +16,8 @@ data exists, consent, retention, signage) is in [privacy/](privacy/README.md).
 | Edge box ↔ cameras, NVR | RTSP/HTTP on the branch LAN (the cameras don't do TLS). Read-only NVR user; passwords on the box only (§4) | — |
 | API → database, Redis | Private network. Add `?sslmode=verify-full` to `CCTV_DATABASE_URL` and use `rediss://` when they are not on the same host (`security-check` warns) | `cloud/cctv_cloud/services/security_check.py` |
 | Support access to boxes | Tailscale (WireGuard) tailnet; no inbound ports on the branch router | `infra/edge/provision.sh` |
+| Operational system → dashboard (sign-in) | A JWT signed by the ops system's server (shared secret or its public key), valid at most 5 minutes, used once (`jti`), carried in the URL fragment (never sent to servers or in `Referer`). Owners need 2FA on the ops side (`amr`). Roles and branches stay ours | `cloud/cctv_cloud/services/sso.py`, `web/src/lib/handoff.ts` |
+| API → integrations (webhooks) | `https` to public addresses only (checked on save and again on each send, after DNS), no redirects, HMAC-SHA256 signature with a timestamp; no images or names in the body | `cloud/cctv_cloud/services/webhooks.py` |
 
 mTLS between box and cloud is not used: device tokens give the same per-device identity and
 revocation with less to go wrong at a branch (no certificate expiry on an unattended box).
@@ -24,7 +26,9 @@ Every API response carries `X-Content-Type-Options: nosniff`, `Referrer-Policy:
 no-referrer`, `Cache-Control: no-store`, `X-Frame-Options: DENY` and a `Content-Security-
 Policy` of `default-src 'none'`. The dashboard's nginx sets a CSP that only allows media
 from the storage origin, `Referrer-Policy: no-referrer` (pre-signed links never leak) and
-`frame-ancestors 'self'` (to be widened to the Mudawara ops system in Phase 8).
+`frame-ancestors 'self'`, except the `/embed/` pages, which the origins in
+`EMBED_ANCESTORS` (the ops system, plan 8) may frame. Embedded pages keep their session in
+memory (no cookie in another site's frame).
 
 ## 2. Encryption at rest (7.2)
 
@@ -34,6 +38,7 @@ from the storage origin, `Referrer-Policy: no-referrer` (pre-signed links never 
 | Clips, snapshots | Bucket default encryption, SSE-S3 or SSE-KMS. `security-check --online` fails when the bucket has none. MinIO in the dev stack doesn't encrypt | `cloud/cctv_cloud/services/storage.py` (`default_encryption`) |
 | Face templates (biometric) | Application-level: AES-256-GCM per template, bound to the tenant and staff member (a template copied to another row doesn't decrypt). Key from `CCTV_FACE_KEY`: `aws-kms:<key>` (envelope encryption: a KMS data key per template, only its wrapped form stored, decrypts logged in CloudTrail) or `local:<id>` (`python -m cctv_cloud.cli face-key`; keep it in the secrets manager). Production refuses to start without one. Rotation: `rotate-face-keys` | `cloud/cctv_cloud/services/face_keys.py` |
 | TOTP secrets | Fernet with a key derived from `CCTV_SECRET_KEY` | `cloud/cctv_cloud/security.py` |
+| SSO shared secrets, webhook secrets | Fernet with keys derived from `CCTV_SECRET_KEY` (one per purpose); shown once when made | `cloud/cctv_cloud/services/sso.py`, `webhooks.py` |
 | Passwords, tokens, API keys, pairing codes | Argon2id (passwords) or SHA-256 (high-entropy secrets); never stored in clear | `cloud/cctv_cloud/security.py` |
 | Edge NVMe (ring buffer, clips waiting for upload, outbox) | `ENCRYPT_NVME=yes` in `provision.sh`: LUKS2 with a key file on the internal eMMC, unlocked at boot. Protects a drive that is removed, swapped or discarded. A stolen *whole* box can still boot: Jetson disk encryption at flash time (JetPack's `disk_encryption` with a fused key) covers that and is a Phase 9 install decision | `infra/edge/provision.sh` |
 | Reports (contain attendance per person) | Stored as JSON in the database (covered by database encryption); files are rendered on download, never stored | `cloud/cctv_cloud/api/reports.py` |
@@ -98,10 +103,10 @@ Automated, run by CI on every change (`cloud/tests/test_security.py`,
 | A03 Injection | SQLAlchemy parameters everywhere; CSV cells that would run as spreadsheet formulas are escaped; RTSP URLs with credentials rejected |
 | A04 Insecure design | One event per `event_id`; alerts link to the event behind sign-in; WhatsApp webhooks verified by signature |
 | A05 Security misconfiguration | `security-check` (settings, TLS, keys, bucket); security headers on every response; Swagger only without CSP |
-| A07 Identification and authentication | Lockout after 5 wrong passwords **or 2FA codes**; TOTP replay rejected; refresh-token reuse ends the session; deactivated users locked out at once; password reset links single-use; device tokens rotated, grace period, re-pairing and retirement end old tokens |
+| A07 Identification and authentication | Lockout after 5 wrong passwords **or 2FA codes**; TOTP replay rejected; refresh-token reuse ends the session; deactivated users locked out at once; password reset links single-use; device tokens rotated, grace period, re-pairing and retirement end old tokens; sign-in tokens from the ops system refused when replayed, expired, too long-lived, for another audience, signed with another key or algorithm, for an unknown, inactive, other-tenant or super-admin user, or for an owner without 2FA |
 | A08 Software and data integrity | Model weights verified by sha256 from their manifest before loading; pinned dependencies and base images; gitleaks in CI |
 | A09 Logging and monitoring | Audit log in the same transaction, append-only, retained ≥ 1 year, super-admin sign-ins in the platform log |
-| A10 SSRF | Web Push endpoints restricted to the browser vendors' push services; the edge talks only to its configured cloud URL and the pre-signed storage URL |
+| A10 SSRF | Web Push endpoints restricted to the browser vendors' push services; the edge talks only to its configured cloud URL and the pre-signed storage URL; webhook URLs must be https to public addresses (literal private IPs, `localhost` and names resolving to private addresses refused), redirects not followed |
 
 Manual, before the pilot goes live and after each major change (a half day, by someone who
 didn't write the code; record the result in the pilot log):
@@ -119,6 +124,10 @@ didn't write the code; record the result in the pilot log):
 7. Sign in as a super-admin, act in a client tenant, confirm the actions show in that
    client's audit log with the super-admin's name.
 8. Dependency audit: `pip-audit` (cloud, edge) and `npm audit` (web); fix criticals.
+9. Embedding: load a dashboard page other than `/embed/` in an iframe from the ops system's
+   origin and from another site (both refused), and `/embed/overview/` from a site not in
+   `EMBED_ANCESTORS` (refused). Replay a sign-in link (refused) and check the audit log
+   shows the attempt.
 
 ## 7. Operating it
 
@@ -130,7 +139,8 @@ python -m cctv_cloud.cli rotate-face-keys           # after changing CCTV_FACE_K
 
 Rotation schedule: device tokens automatic (30 days); `CCTV_SECRET_KEY` yearly or at once
 if leaked (signs everyone out and needs 2FA re-enrolment; the TOTP secrets are encrypted
-with it, so re-encrypt first - a `rotate-secret-key` command is to do); face key yearly
+with it, so re-encrypt first - a `rotate-secret-key` command is to do; SSO and webhook
+secrets are too, so they must be re-issued); face key yearly
 (KMS rotates the master key itself; local keys with `rotate-face-keys`); S3 and database
 credentials through the secrets manager with the API restarted; the WhatsApp system-user
 token when Meta expires it.

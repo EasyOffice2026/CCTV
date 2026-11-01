@@ -9,6 +9,12 @@ from cctv_cloud.db.models.alerts import (
 from cctv_cloud.db.models.devices import Camera, EdgeDevice, Nvr, Zone
 from cctv_cloud.db.models.events import AttendanceRecord, CountBucket, Event
 from cctv_cloud.db.models.features import Feature, FeatureSetting
+from cctv_cloud.db.models.integrations import (
+    SsoIntegration,
+    SsoTokenUse,
+    Webhook,
+    WebhookDelivery,
+)
 from cctv_cloud.db.models.people import (
     ApiKey,
     FaceTemplate,
@@ -38,11 +44,15 @@ __all__ = [
     "PushSubscription",
     "Report",
     "Shift",
+    "SsoIntegration",
+    "SsoTokenUse",
     "Staff",
     "Tenant",
     "User",
     "UserBranchAccess",
     "UserSession",
+    "Webhook",
+    "WebhookDelivery",
     "WorkingHours",
     "Zone",
 ]

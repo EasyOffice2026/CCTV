@@ -18,6 +18,7 @@ const NAV: { group: MessageKey; items: NavItem[] }[] = [
   {
     group: "nav.monitoring",
     items: [
+      { href: "/overview/", label: "nav.overview", anyOf: ["kpis_view"] },
       { href: "/events/", label: "nav.events", anyOf: ["events_view"] },
       { href: "/search/", label: "nav.search", anyOf: ["events_view"] },
       { href: "/live/", label: "nav.live", anyOf: ["live_view"] },
@@ -49,6 +50,7 @@ const NAV: { group: MessageKey; items: NavItem[] }[] = [
       { href: "/admin/cameras/", label: "nav.cameras", anyOf: ["devices_manage"] },
       { href: "/admin/devices/", label: "nav.devices", anyOf: ["devices_manage"] },
       { href: "/admin/users/", label: "nav.users", anyOf: ["tenant_admin"] },
+      { href: "/admin/integrations/", label: "nav.integrations", anyOf: ["tenant_admin"] },
       { href: "/audit/", label: "nav.audit", anyOf: ["tenant_admin"] },
     ],
   },

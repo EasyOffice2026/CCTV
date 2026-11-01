@@ -340,6 +340,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/sso": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sso Sign In
+         * @description Swap a sign-in token from the client's operational system for a session of the
+         *     user with the same email (services/sso.py). No 2FA step here: the operational system
+         *     signed the user in (owners need its 2FA, see `require_mfa`). Each token works once.
+         */
+        post: operations["sso_sign_in_v1_auth_sso_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/branches": {
         parameters: {
             query?: never;
@@ -699,7 +721,7 @@ export interface paths {
         /**
          * Ingest Events
          * @description Idempotent by event_id; each event is accepted or rejected on its own. New events
-         *     are routed to alert rules; the alerts are sent once the batch is committed.
+         *     are routed to alert rules and webhooks; both are sent once the batch is committed.
          */
         post: operations["ingest_events_v1_edge_events_post"];
         delete?: never;
@@ -1165,6 +1187,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Overview
+         * @description One entry per branch the caller can see (or just `branch_id`). Today's figures
+         *     are "so far"; they are worked out on each call, so poll at most once a minute.
+         */
+        get: operations["get_overview_v1_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/platform/audit-logs": {
         parameters: {
             query?: never;
@@ -1299,6 +1342,45 @@ export interface paths {
         head?: never;
         /** Update Shift */
         patch: operations["update_shift_v1_shifts__shift_id__patch"];
+        trace?: never;
+    };
+    "/v1/sso-integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Sso Integrations
+         * @description Owners can see how their operational system signs users in; our team sets it up.
+         */
+        get: operations["list_sso_integrations_v1_sso_integrations_get"];
+        put?: never;
+        /** Create Sso Integration */
+        post: operations["create_sso_integration_v1_sso_integrations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sso-integrations/{integration_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Sso Integration */
+        delete: operations["delete_sso_integration_v1_sso_integrations__integration_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Sso Integration */
+        patch: operations["update_sso_integration_v1_sso_integrations__integration_id__patch"];
         trace?: never;
     };
     "/v1/staff": {
@@ -1452,6 +1534,82 @@ export interface paths {
          * @description For a lost phone: the user sets up 2FA again at their next login.
          */
         post: operations["reset_user_mfa_v1_users__user_id__reset_mfa_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Webhooks */
+        get: operations["list_webhooks_v1_webhooks_get"];
+        put?: never;
+        /** Create Webhook */
+        post: operations["create_webhook_v1_webhooks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/webhooks/{webhook_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Webhook */
+        delete: operations["delete_webhook_v1_webhooks__webhook_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Webhook */
+        patch: operations["update_webhook_v1_webhooks__webhook_id__patch"];
+        trace?: never;
+    };
+    "/v1/webhooks/{webhook_id}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Webhook Deliveries
+         * @description Newest first (kept 30 days).
+         */
+        get: operations["list_webhook_deliveries_v1_webhooks__webhook_id__deliveries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/webhooks/{webhook_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Webhook
+         * @description Send a signed `ping` now and report what the receiver answered.
+         */
+        post: operations["test_webhook_v1_webhooks__webhook_id__test_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1681,6 +1839,21 @@ export interface components {
             note?: string | null;
             status: components["schemas"]["AttendanceStatus"];
         };
+        /** AttendanceKpis */
+        AttendanceKpis: {
+            /** Absent */
+            absent: number;
+            /** Attendance Pct */
+            attendance_pct: number | null;
+            /** Day Off */
+            day_off: number;
+            /** Late */
+            late: number;
+            /** On Time */
+            on_time: number;
+            /** Punctuality Pct */
+            punctuality_pct: number | null;
+        };
         /** AttendanceOut */
         AttendanceOut: {
             /**
@@ -1744,7 +1917,7 @@ export interface components {
          * AuditAction
          * @enum {string}
          */
-        AuditAction: "login" | "login_failed" | "view_snapshot" | "view_clip" | "export_snapshot" | "export_clip" | "review_event" | "settings_change" | "user_change" | "device_change" | "api_key_change" | "view_live" | "view_playback" | "view_frame" | "export_events" | "staff_change" | "consent_change" | "face_enrol" | "face_delete" | "attendance_change" | "export_report" | "export_audit";
+        AuditAction: "login" | "login_failed" | "view_snapshot" | "view_clip" | "export_snapshot" | "export_clip" | "review_event" | "settings_change" | "user_change" | "device_change" | "api_key_change" | "view_live" | "view_playback" | "view_frame" | "export_events" | "staff_change" | "consent_change" | "face_enrol" | "face_delete" | "attendance_change" | "export_report" | "export_audit" | "sso_change" | "webhook_change";
         /** AuditLogOut */
         AuditLogOut: {
             /** Action */
@@ -1824,6 +1997,48 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            /** Timezone */
+            timezone: string;
+        };
+        /** BranchOverview */
+        BranchOverview: {
+            alerts: components["schemas"]["AlertSummary"];
+            attendance: components["schemas"]["AttendanceKpis"] | null;
+            /**
+             * Branch Id
+             * Format: uuid
+             */
+            branch_id: string;
+            /** Branch Name */
+            branch_name: string;
+            cashier: components["schemas"]["CashierKpis"] | null;
+            customers: components["schemas"]["CustomerKpis"] | null;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            events: components["schemas"]["EventKpis"];
+            /** Features */
+            features: {
+                [key: string]: boolean;
+            };
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Kitchen Compliance */
+            kitchen_compliance: number | null;
+            /** Partial */
+            partial: boolean;
+            /** Recent Events */
+            recent_events: components["schemas"]["EventOut"][] | null;
+            /** Reports */
+            reports: components["schemas"]["ReportLink"][] | null;
+            /** Security */
+            security: number | null;
+            system: components["schemas"]["SystemKpis"];
             /** Timezone */
             timezone: string;
         };
@@ -1969,6 +2184,13 @@ export interface components {
             /** Rtsp Sub */
             rtsp_sub?: string | null;
         };
+        /** CashierKpis */
+        CashierKpis: {
+            /** Counter Staffed Pct */
+            counter_staffed_pct: number | null;
+            /** Issues */
+            issues: number;
+        };
         /** ChangePasswordRequest */
         ChangePasswordRequest: {
             /** Current Password */
@@ -2061,6 +2283,17 @@ export interface components {
             out_count: number;
             /** Zone Id */
             zone_id: string | null;
+        };
+        /** CustomerKpis */
+        CustomerKpis: {
+            /** Customers In */
+            customers_in: number | null;
+            /** Hours */
+            hours: number[] | null;
+            /** Peak Hour */
+            peak_hour: number | null;
+            /** Peak Occupancy */
+            peak_occupancy: number | null;
         };
         /** DayRow */
         DayRow: {
@@ -2278,6 +2511,17 @@ export interface components {
             track_id?: string | null;
             /** Zone Id */
             zone_id?: string | null;
+        };
+        /** EventKpis */
+        EventKpis: {
+            /** Critical */
+            critical: number;
+            /** False Alarms */
+            false_alarms: number;
+            /** Total */
+            total: number;
+            /** Unreviewed */
+            unreviewed: number;
         };
         /** EventOut */
         EventOut: {
@@ -2987,6 +3231,25 @@ export interface components {
              */
             version: number;
         };
+        /** ReportLink */
+        ReportLink: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            period: components["schemas"]["ReportPeriod"];
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+        };
         /** ReportOut */
         ReportOut: {
             /**
@@ -3208,6 +3471,98 @@ export interface components {
             /** Sightings */
             sightings: components["schemas"]["StaffSighting"][];
         };
+        /**
+         * SsoAlgorithm
+         * @description How the operational system signs its sign-in tokens (plan 8.1).
+         * @enum {string}
+         */
+        SsoAlgorithm: "HS256" | "RS256" | "ES256";
+        /** SsoIntegrationIn */
+        SsoIntegrationIn: {
+            algorithm: components["schemas"]["SsoAlgorithm"];
+            /** Issuer */
+            issuer: string;
+            /** Name */
+            name: string;
+            /** Public Key */
+            public_key?: string | null;
+            /**
+             * Require Mfa
+             * @default true
+             */
+            require_mfa: boolean;
+        };
+        /** SsoIntegrationOut */
+        SsoIntegrationOut: {
+            algorithm: components["schemas"]["SsoAlgorithm"];
+            /**
+             * Audience
+             * @description The `aud` its tokens must carry
+             * @default
+             */
+            audience: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Issuer */
+            issuer: string;
+            /** Last Used At */
+            last_used_at: string | null;
+            /** Name */
+            name: string;
+            /** Public Key */
+            public_key: string | null;
+            /** Require Mfa */
+            require_mfa: boolean;
+            /** Updated At */
+            updated_at: string | null;
+        };
+        /** SsoIntegrationSaved */
+        SsoIntegrationSaved: {
+            integration: components["schemas"]["SsoIntegrationOut"];
+            /**
+             * Secret
+             * @description HS256 only, shown once: give it to the operational system
+             */
+            secret?: string | null;
+        };
+        /** SsoIntegrationUpdate */
+        SsoIntegrationUpdate: {
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Name */
+            name?: string | null;
+            /**
+             * New Secret
+             * @description HS256: replace the shared secret
+             * @default false
+             */
+            new_secret: boolean;
+            /** Public Key */
+            public_key?: string | null;
+            /** Require Mfa */
+            require_mfa?: boolean | null;
+        };
+        /** SsoRequest */
+        SsoRequest: {
+            /**
+             * Embedded
+             * @description Inside the operational system's page: no refresh cookie is set; send the refresh token in the body of /refresh instead
+             * @default false
+             */
+            embedded: boolean;
+            /** Token */
+            token: string;
+        };
         /** StaffIn */
         StaffIn: {
             /**
@@ -3334,6 +3689,17 @@ export interface components {
             shift_id?: string | null;
             /** @description 'left' deletes the person's face data */
             status?: components["schemas"]["StaffStatus"] | null;
+        };
+        /** SystemKpis */
+        SystemKpis: {
+            /** Cameras */
+            cameras: number;
+            /** Cameras Online */
+            cameras_online: number;
+            /** Devices Offline */
+            devices_offline: number;
+            /** Devices Online */
+            devices_online: number;
         };
         /** SystemStats */
         SystemStats: {
@@ -3636,6 +4002,127 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** WebhookDeliveryOut */
+        WebhookDeliveryOut: {
+            /** Attempts */
+            attempts: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Dedup Key */
+            dedup_key: string;
+            /** Error */
+            error: string | null;
+            /** Id */
+            id: number;
+            /**
+             * Next Attempt At
+             * Format: date-time
+             */
+            next_attempt_at: string;
+            /** Response Status */
+            response_status: number | null;
+            /** Sent At */
+            sent_at: string | null;
+            status: components["schemas"]["DeliveryStatus"];
+            /** Topic */
+            topic: string;
+        };
+        /** WebhookIn */
+        WebhookIn: {
+            /** Branch Id */
+            branch_id?: string | null;
+            /** @default info */
+            min_severity: components["schemas"]["Severity"];
+            /** Name */
+            name: string;
+            /** Topics */
+            topics: components["schemas"]["WebhookTopic"][];
+            /** Url */
+            url: string;
+        };
+        /** WebhookOut */
+        WebhookOut: {
+            /** Branch Id */
+            branch_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Error */
+            last_error: string | null;
+            /** Last Failure At */
+            last_failure_at: string | null;
+            /** Last Success At */
+            last_success_at: string | null;
+            min_severity: components["schemas"]["Severity"];
+            /** Name */
+            name: string;
+            /** Topics */
+            topics: components["schemas"]["WebhookTopic"][];
+            /** Updated At */
+            updated_at: string | null;
+            /** Url */
+            url: string;
+        };
+        /** WebhookSaved */
+        WebhookSaved: {
+            /**
+             * Secret
+             * @description Shown once: verify X-CCTV-Signature with it
+             */
+            secret?: string | null;
+            webhook: components["schemas"]["WebhookOut"];
+        };
+        /** WebhookTestResult */
+        WebhookTestResult: {
+            /** Error */
+            error: string | null;
+            /** Ok */
+            ok: boolean;
+            /** Status */
+            status: number | null;
+        };
+        /**
+         * WebhookTopic
+         * @enum {string}
+         */
+        WebhookTopic: "event.new" | "event.closed" | "report.ready";
+        /** WebhookUpdate */
+        WebhookUpdate: {
+            /**
+             * All Branches
+             * @description Clear branch_id
+             * @default false
+             */
+            all_branches: boolean;
+            /** Branch Id */
+            branch_id?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            min_severity?: components["schemas"]["Severity"] | null;
+            /** Name */
+            name?: string | null;
+            /**
+             * New Secret
+             * @default false
+             */
+            new_secret: boolean;
+            /** Topics */
+            topics?: components["schemas"]["WebhookTopic"][] | null;
+            /** Url */
+            url?: string | null;
         };
         /** WorkingHours */
         WorkingHours: {
@@ -4402,6 +4889,39 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": components["schemas"]["TokenRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenPair"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sso_sign_in_v1_auth_sso_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SsoRequest"];
             };
         };
         responses: {
@@ -6441,6 +6961,44 @@ export interface operations {
             };
         };
     };
+    get_overview_v1_overview_get: {
+        parameters: {
+            query?: {
+                branch_id?: string | null;
+                /** @description Branch-local day; default today */
+                day?: string | null;
+                /** @description Recent events to list */
+                recent?: number;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BranchOverview"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_platform_audit_logs_v1_platform_audit_logs_get: {
         parameters: {
             query?: {
@@ -6821,6 +7379,144 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ShiftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_sso_integrations_v1_sso_integrations_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoIntegrationOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_sso_integration_v1_sso_integrations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SsoIntegrationIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoIntegrationSaved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_sso_integration_v1_sso_integrations__integration_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path: {
+                integration_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_sso_integration_v1_sso_integrations__integration_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path: {
+                integration_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SsoIntegrationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoIntegrationSaved"];
                 };
             };
             /** @description Validation Error */
@@ -7315,6 +8011,214 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_webhooks_v1_webhooks_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_webhook_v1_webhooks_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSaved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_webhook_v1_webhooks__webhook_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path: {
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_webhook_v1_webhooks__webhook_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path: {
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSaved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_webhook_deliveries_v1_webhooks__webhook_id__deliveries_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path: {
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDeliveryOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_webhook_v1_webhooks__webhook_id__test_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-Tenant-Id"?: string | null;
+            };
+            path: {
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookTestResult"];
+                };
             };
             /** @description Validation Error */
             422: {

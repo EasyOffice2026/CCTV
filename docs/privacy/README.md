@@ -48,6 +48,11 @@ sightings (staff id, camera, time), count buckets (numbers), camera health. Cont
 footage never leaves the NVR; live view and playback stream on demand from the box to the
 viewer's browser and are logged.
 
+The client's operational system, when connected (plan 8, `docs/integration/ops-system.md`),
+receives branch totals (numbers only) and, by webhook, event records without images or
+names (what, where, when, and a link that needs a sign-in); it sends us the email of the
+user signing in. It is the client's own system, not our processor.
+
 Processors: the cloud provider (hosting, region to be decided in plan §1 #11), Meta
 (WhatsApp messages: the recipient's number and the alert text), the browser vendors' push
 services (encrypted notification payloads), the email provider (to be chosen), Tailscale

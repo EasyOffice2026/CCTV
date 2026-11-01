@@ -21,6 +21,7 @@ class Permission(str, Enum):
     LIVE_VIEW = "live_view"  # live view and NVR playback (through the edge box)
     STAFF_MANAGE = "staff_manage"  # staff, shifts, consent and face enrolment
     REPORTS_VIEW = "reports_view"  # branch reports (they include attendance per person)
+    KPIS_VIEW = "kpis_view"  # branch totals only (owner overview, ops-system KPIs; plan 8)
 
 
 _ALL = frozenset(Permission)
@@ -39,6 +40,7 @@ ROLE_PERMISSIONS: dict[UserRole, frozenset[Permission]] = {
             Permission.LIVE_VIEW,
             Permission.STAFF_MANAGE,
             Permission.REPORTS_VIEW,
+            Permission.KPIS_VIEW,
         }
     ),
     UserRole.REVIEWER: frozenset(
@@ -55,6 +57,8 @@ MFA_REQUIRED_ROLES = frozenset({UserRole.SUPER_ADMIN, UserRole.OWNER})
 # Scopes an integration API key can have.
 API_KEY_SCOPES: dict[str, frozenset[Permission]] = {
     "events:read": frozenset({Permission.EVENTS_VIEW}),
+    # Branch totals for the operational system's own screens (plan 8.4); no per-person data.
+    "kpis:read": frozenset({Permission.KPIS_VIEW}),
 }
 
 

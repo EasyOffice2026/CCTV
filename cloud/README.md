@@ -26,7 +26,8 @@ checklist) are described in [docs/security.md](../docs/security.md) and
 | Users | `POST /v1/auth/login` → access token (15 min) + refresh token. Send `Authorization: Bearer <access>`. Browsers also get the refresh token as an HttpOnly, SameSite=Strict cookie (path `/v1/auth`); `/refresh` accepts it instead of a body |
 | Owners, super-admins | Must use 2FA (TOTP): login returns an `mfa_token`, then `/mfa/verify` (or `/mfa/setup` + `/mfa/enable` the first time) |
 | Super-admins | Pick the tenant to act on with the `X-Tenant-Id` header |
-| Integrations | `X-API-Key: cctv_…`, created under `/v1/api-keys` with scopes (`events:read`) |
+| Integrations | `X-API-Key: cctv_…`, created under `/v1/api-keys` with scopes (`events:read`, `kpis:read`) |
+| The client's operational system | `POST /v1/auth/sso` with a short-lived JWT its server signed for the user (plan 8; `docs/integration/ops-system.md`). Gives a normal session of the invited user with that email; `embedded: true` (in an iframe) sets no cookie, the refresh token goes in the body |
 | Edge devices | `/v1/edge/*` with the device token from pairing (see `contracts/README.md`) |
 
 Sessions end after 8 hours without use and after 7 days in any case. Each refresh replaces
@@ -53,6 +54,8 @@ sign-ins are in the audit log; a super-admin's go to the platform audit log.
 | Current camera frame (for drawing zones) | ✓ | ✓ | | ✓ |
 | Staff, shifts, consent, face enrolment, attendance (view and correct) | ✓ | ✓ | | |
 | Branch reports (view, make, download) | ✓ | ✓ | | |
+| Overview: branch totals (`kpis_view`) | ✓ | ✓ | | |
+| Integrations: API keys, webhooks (sign-in integrations: our team) | ✓ | | | |
 | Own alert rules (events of their branches) | ✓ | ✓ | ✓ | |
 
 Owners see every branch. Other roles see only the branches assigned to them; anything
@@ -75,7 +78,8 @@ in other branches returns 404. Super-admins (our team) can do everything, in any
 | Reports | `/v1/reports` (list, make), `/v1/reports/{id}`, `/v1/reports/{id}/file?format=pdf\|xlsx&lang=en\|ar` |
 | Realtime | WebSocket `/v1/ws` (live event feed, in-app alerts) |
 | Webhooks | `/v1/webhooks/whatsapp` (delivery reports from Meta; signed) |
-| Integrations | `/v1/api-keys` |
+| Overview, KPIs | `/v1/overview` (per branch, today so far or a past day; follows the feature switches) |
+| Integrations | `/v1/api-keys`, `/v1/webhooks` (+ `/{id}/test`, `/{id}/deliveries`), `/v1/sso-integrations` (super-admin creates; owners see) |
 | Audit log | `/v1/audit-logs` (filters: action, user, target, since/until), `/v1/audit-logs/export` (CSV, itself audited) |
 | Edge | `/v1/edge/pair`, `/token` (rotation), `/config`, `/heartbeat`, `/media/upload-urls`, `/events`, `/remote` (long poll), `/remote/{id}/reply`, `/face-templates`, `/attendance`, `/counts` |
 
@@ -199,7 +203,8 @@ python -m cctv_cloud.cli vapid-keys      # key for browser notifications
 python -m cctv_cloud.cli face-key        # a local key for face templates (when not using KMS)
 python -m cctv_cloud.cli rotate-face-keys  # re-encrypt templates after changing CCTV_FACE_KEY
 python -m cctv_cloud.cli security-check --online  # settings, TLS, keys, bucket encryption
-python -m cctv_cloud.worker run          # alert retries every 5 s; offline devices,
+python -m cctv_cloud.cli sso-token --issuer <iss> --email <user>  # test sign-in link (HS256)
+python -m cctv_cloud.worker run          # alert and webhook retries every 5 s; offline devices,
                                          # absences and reports every 5 min; retention hourly
 ```
 
@@ -228,5 +233,18 @@ encryption context `purpose=cctv-face-template`) or `local:<id>` with the key in
 `rotate_token`, the box calls `POST /v1/edge/token`, saves the new token and uses it. The
 old one keeps working for `CCTV_DEVICE_TOKEN_GRACE_MINUTES` (10). Pairing again or retiring
 the box ends all its tokens.
+
+**The operational system** (plan 8). Our team adds a sign-in integration for the client
+(`POST /v1/sso-integrations` as super-admin with `X-Tenant-Id`): an issuer, unique across
+clients, and either HS256 (a secret is made and shown once) or the ops system's RS256/ES256
+public key. Tokens must name the issuer, `aud` = `CCTV_SSO_AUDIENCE` (default
+`CCTV_WEB_URL`), an invited user's `email`, a `jti`, and live at most
+`CCTV_SSO_MAX_TOKEN_SECONDS` (300); each works once (`sso_token_uses`). Owners also need
+a second factor in `amr` unless the integration's `require_mfa` is off. Sign-ins and
+refusals (with the reason) are audited. Webhooks are queued in the transaction that
+stores the event or report, sent after the commit, and retried by the worker
+(`CCTV_WEBHOOK_MAX_ATTEMPTS`, 30 s doubling to 1 h, dropped after a day); deliveries are
+kept 30 days. `CCTV_WEBHOOK_ALLOW_PRIVATE=true` lets them reach private addresses in dev
+(refused in staging and production).
 
 **Email** (password reset, invitations) is written to the log until a provider is chosen.

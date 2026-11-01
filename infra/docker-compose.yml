@@ -72,6 +72,8 @@ services:
       # Pre-signed URLs are opened by browsers and edge devices on the host, so they must
       # name the host's address for MinIO (signing doesn't contact MinIO).
       CCTV_S3_ENDPOINT_URL: http://localhost:9000
+      # Webhooks may go to a receiver on this machine or LAN while developing (plan 8.4).
+      CCTV_WEBHOOK_ALLOW_PRIVATE: "true"
     # Behind the web container's proxy: take the client IP from X-Forwarded-For (dev only;
     # in production list the proxy's address instead of *).
     command: ["sh", "-c", "alembic upgrade head && uvicorn cctv_cloud.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"]
@@ -80,7 +82,7 @@ services:
       postgres:
         condition: service_healthy
 
-  # Alert retries, reports, absences, retention and offline-device jobs.
+  # Alert and webhook retries, reports, absences, retention and offline-device jobs.
   worker:
     build:
       context: ..
@@ -100,6 +102,8 @@ services:
     environment:
       API_UPSTREAM: http://api:8000
       MEDIA_ORIGIN: http://localhost:9000
+      # Sites allowed to frame /embed/ pages (plan 8), e.g. the ops system's origin.
+      EMBED_ANCESTORS: ""
     ports: ["3000:8080"]
     depends_on:
       api:

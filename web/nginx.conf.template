@@ -1,5 +1,8 @@
 # ${API_UPSTREAM}: the API (http://api:8000). ${MEDIA_ORIGIN}: where pre-signed snapshot and
 # clip URLs point (object storage), allowed by the Content-Security-Policy below.
+# ${EMBED_ANCESTORS}: the sites that may show /embed/ pages in a frame (the client's
+# operational system, plan 8), space-separated origins; empty: none. The rest of the
+# dashboard can never be framed by another site.
 
 map $http_upgrade $connection_upgrade {
     default upgrade;
@@ -34,6 +37,17 @@ server {
         # Edge long polls hold up to 55 s; the event WebSocket pings every 25 s.
         proxy_read_timeout 75s;
         proxy_buffering off;
+    }
+
+    # Pages built for the operational system's screens. nginx doesn't inherit the server's
+    # headers into a location that sets its own, so all of them are repeated here.
+    location /embed/ {
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: ${MEDIA_ORIGIN}; media-src 'self' blob: ${MEDIA_ORIGIN}; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self' ${EMBED_ANCESTORS}" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+        try_files $uri $uri/ $uri.html /404.html;
     }
 
     location /_next/static/ {

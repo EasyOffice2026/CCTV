@@ -33,6 +33,7 @@ from cctv_cloud.db.enums import DeviceStatus, StaffStatus
 from cctv_cloud.db.models import Branch, Camera, EdgeDevice, Event, FaceTemplate, Staff, Zone
 from cctv_cloud.db.session import tenant_session
 from cctv_cloud.security import new_secret, normalise_pairing_code, sha256_hex
+from cctv_cloud.services import webhooks
 from cctv_cloud.services.alerts import Change, Senders, dispatch, get_senders, route_event
 from cctv_cloud.services.attendance import apply_sightings
 from cctv_cloud.services.counts import apply_counts
@@ -315,12 +316,14 @@ def ingest_events(
     background: BackgroundTasks,
     publisher: PublisherDep,
     senders: Annotated[Senders, Depends(get_senders)],
+    poster: Annotated[webhooks.WebhookPoster, Depends(webhooks.get_webhook_poster)],
 ) -> EventBatchResponse:
     """Idempotent by event_id; each event is accepted or rejected on its own. New events
-    are routed to alert rules; the alerts are sent once the batch is committed."""
+    are routed to alert rules and webhooks; both are sent once the batch is committed."""
     now = datetime.now(timezone.utc)
     results = []
     deliveries: list[int] = []
+    hook_messages: list[int] = []
     for event in body.events:
         try:
             with ctx.db.begin_nested():  # one bad event doesn't undo the others
@@ -342,6 +345,11 @@ def ingest_events(
                     deliveries += route_event(ctx.db, *changed, now)
             except Exception:
                 log.exception("alert routing failed for event %s", event.event_id)
+            try:
+                with ctx.db.begin_nested():
+                    hook_messages += webhooks.queue_event(ctx.db, *changed)
+            except Exception:
+                log.exception("webhook queueing failed for event %s", event.event_id)
             background.add_task(
                 publisher.publish,
                 f"events:{ctx.device.tenant_id}",
@@ -358,6 +366,8 @@ def ingest_events(
     ctx.device.last_seen_at = now
     if deliveries:
         background.add_task(dispatch, ctx.device.tenant_id, senders, deliveries)
+    if hook_messages:
+        background.add_task(webhooks.dispatch, ctx.device.tenant_id, poster, hook_messages)
     return EventBatchResponse(results=results)
 
 

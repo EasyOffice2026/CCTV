@@ -66,6 +66,20 @@ class Settings(BaseSettings):
     face_keys: dict[str, SecretStr] = {}
     kms_region: str | None = None
 
+    # Sign-in from the client's operational system (plan 8.1): it signs a short-lived JWT
+    # per user (`iss` = an SSO integration's issuer, `aud` = sso_audience or, when empty,
+    # web_url). Tokens may live at most sso_max_token_seconds and are used once.
+    sso_audience: str = ""
+    sso_max_token_seconds: int = 300
+    sso_clock_skew_seconds: int = 30
+
+    # Webhooks to integrations (plan 8.4): retried with backoff (30 s doubling to 1 h), so
+    # 30 attempts cover about a day; messages older than a day are dropped.
+    webhook_timeout_seconds: float = 10
+    webhook_max_attempts: int = 30
+    # Webhooks may only go to public addresses; dev and test may allow private ones.
+    webhook_allow_private: bool = False
+
     # Audit entries are kept this long (plan §6: 1 year or more; the database refuses to
     # delete entries younger than 365 days).
     audit_retention_days: int = 730
@@ -118,6 +132,10 @@ class Settings(BaseSettings):
     def secure_cookies(self) -> bool:
         return self.environment in ("staging", "production")
 
+    @property
+    def sso_expected_audience(self) -> str:
+        return self.sso_audience or self.web_url.rstrip("/")
+
     @model_validator(mode="after")
     def _check_secrets(self) -> "Settings":
         if self.environment in ("staging", "production"):
@@ -129,6 +147,8 @@ class Settings(BaseSettings):
                 url = getattr(self, name)
                 if url and urlsplit(url).scheme != "https":
                     raise ValueError(f"CCTV_{name.upper()} must be an https:// URL")
+            if self.webhook_allow_private:
+                raise ValueError("CCTV_WEBHOOK_ALLOW_PRIVATE is for dev and test only")
         if self.environment == "production" and not self.face_key:
             raise ValueError("set CCTV_FACE_KEY (a KMS key, or a local key in CCTV_FACE_KEYS)")
         if self.face_key.startswith("local:") and self.face_key[6:] not in self.face_keys:

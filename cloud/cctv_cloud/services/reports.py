@@ -6,8 +6,8 @@ files are rendered from them on download (services/report_files.py), in the read
 language. The worker makes yesterday's report each morning (after `report_hour`, branch
 time, so events the edge buffered overnight are in it), the weekly one after the last day
 of the week and the monthly one after the month, then sends a link to the users who asked
-for it. Managers can also (re)generate any period from the dashboard, including the
-current one ("so far").
+for it and queues a `report.ready` webhook message. Managers can also (re)generate any
+period from the dashboard, including the current one ("so far").
 """
 
 import calendar
@@ -47,7 +47,7 @@ from cctv_cloud.db.models import (
 )
 from cctv_cloud.db.session import tenant_session
 from cctv_cloud.rbac import ALL_BRANCH_ROLES, ROLE_PERMISSIONS, Permission
-from cctv_cloud.services import texts
+from cctv_cloud.services import texts, webhooks
 from cctv_cloud.services.alerts import Senders, latency_stats
 from cctv_contracts.enums import FeatureKey, Severity, ZoneType
 
@@ -548,4 +548,5 @@ def generate_due(tenant_id: uuid.UUID, senders: Senders, now: datetime | None = 
                 report = save_report(db, branch, period, start, now)
                 made += 1
                 notify_report(db, report, branch, senders)
+                webhooks.queue_report(db, report, branch, report_url(report.id))
     return made

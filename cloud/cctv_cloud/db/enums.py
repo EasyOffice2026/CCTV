@@ -85,3 +85,17 @@ class ReportPeriod(str, Enum):
     DAY = "day"
     WEEK = "week"
     MONTH = "month"
+
+
+class SsoAlgorithm(str, Enum):
+    """How the operational system signs its sign-in tokens (plan 8.1)."""
+
+    HS256 = "HS256"  # shared secret
+    RS256 = "RS256"  # RSA key pair; we hold the public key
+    ES256 = "ES256"  # EC P-256 key pair; we hold the public key
+
+
+class WebhookTopic(str, Enum):
+    EVENT_NEW = "event.new"
+    EVENT_CLOSED = "event.closed"
+    REPORT_READY = "report.ready"

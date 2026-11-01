@@ -4,6 +4,9 @@
  * The access token lives in memory only. The refresh token is an HttpOnly cookie that
  * the API sets at login, so page scripts never see it; on load and whenever a call
  * returns 401 we ask /v1/auth/refresh for a new access token.
+ *
+ * Pages embedded in the operational system (another site's frame) get no cookie, so
+ * there the refresh token is kept in memory too and sent in the body (plan 8).
  */
 import createClient from "openapi-fetch";
 
@@ -15,6 +18,7 @@ export type Schemas = components["schemas"];
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
 
 let accessToken: string | null = null;
+let embeddedRefreshToken: string | null = null;
 let tenantId: string | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 let lastActivity = Date.now();
@@ -59,21 +63,33 @@ export function setTenantId(id: string | null): void {
   tenantId = id;
 }
 
+/** Embedded pages only: the session's refresh token (null: use the cookie). */
+export function setEmbeddedRefreshToken(token: string | null): void {
+  embeddedRefreshToken = token;
+}
+
 let refreshing: Promise<boolean> | null = null;
 
-/** Swap the refresh cookie for a new access token. Concurrent callers share one call. */
+/** Swap the refresh cookie (or the embedded page's refresh token) for a new access token.
+ * Concurrent callers share one call. */
 export function refreshAccessToken(): Promise<boolean> {
   refreshing ??= (async () => {
     try {
+      const embedded = embeddedRefreshToken;
       const response = await fetch(`${API_URL}/v1/auth/refresh`, {
         method: "POST",
         credentials: "include",
+        ...(embedded && {
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: embedded }),
+        }),
       });
       if (!response.ok) {
         setAccessToken(null);
         return false;
       }
       const body = (await response.json()) as Schemas["TokenPair"];
+      if (embedded) embeddedRefreshToken = body.refresh_token;
       setAccessToken(body.access_token, body.expires_in);
       return true;
     } catch {

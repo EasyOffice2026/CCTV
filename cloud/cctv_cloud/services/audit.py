@@ -47,6 +47,8 @@ class AuditAction(str, Enum):
     ATTENDANCE_CHANGE = "attendance_change"
     EXPORT_REPORT = "export_report"
     EXPORT_AUDIT = "export_audit"
+    SSO_CHANGE = "sso_change"
+    WEBHOOK_CHANGE = "webhook_change"
 
 
 def record(

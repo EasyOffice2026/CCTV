@@ -97,6 +97,9 @@ Without those variables the database tests are skipped. What the cloud tests che
   frame / face enrolment through a simulated edge box (only the addressed box can answer),
   the relay on Redis (fakeredis) and in-process, staff consent rules, CSV export, the
   refresh cookie
+- the operational system (plan 8): sign-in tokens (replay, expiry, audience, keys,
+  algorithms, users, owner 2FA), the overview and its feature switches, the `kpis:read`
+  API key, webhooks (signature, retries, private addresses, reports)
 - attendance from face sightings (work day, late/on time, overnight shifts, absences,
   corrections that survive sightings), face templates for the box (only consenting active
   staff of its branch), count buckets (upsert, branch scoping)
