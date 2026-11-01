@@ -14,6 +14,7 @@ Pilot site: Mudawara. Built as a multi-tenant product for later client rollout.
 - Connecting the till (POS) and payroll (HRM): [docs/integration/pos-and-payroll.md](docs/integration/pos-and-payroll.md)
 - Architecture: [docs/architecture.md](docs/architecture.md); API reference: [docs/api-reference.md](docs/api-reference.md)
 - Hardware kits and camera requirements: [docs/hardware.md](docs/hardware.md)
+- AI models, their licences and the recommendation: [docs/ai-models.md](docs/ai-models.md)
 - Operations: [deploying the cloud](docs/runbooks/deploy-cloud.md), [onboarding a branch](docs/runbooks/onboarding.md), [edge recovery](docs/runbooks/edge-recovery.md), [retraining a model](docs/runbooks/retraining.md); handover: [docs/handover.md](docs/handover.md)
 - Running the 30-day pilot and its sign-off form (EN/AR): [docs/pilot/](docs/pilot/README.md)
 - Install day and shadow mode (runbooks): [docs/runbooks/](docs/runbooks/install.md); owner and manager guide (EN/AR): [docs/training/](docs/training/owner-and-managers.md)

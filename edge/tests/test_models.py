@@ -324,3 +324,67 @@ def test_real_onnx_detector(tmp_path):
     detector = registry.detector_factories()[PERSON]()
     [d] = detector.detect(np.zeros((64, 64, 3), np.uint8))
     assert d.label == PERSON and d.confidence == pytest.approx(0.72)
+
+
+# --- make_manifest (docs/ai-models.md) ---------------------------------------------------
+
+
+def test_manifests_for_the_recommended_detectors(tmp_path):
+    from cctv_edge.models.make_manifest import main
+    from cctv_edge.models.manifest import load_manifest
+
+    expected = {"yolox": (0, "bgr", True), "dfine": (1, "rgb", False), "rfdetr": (1, "rgb", False)}
+    for preset, (person, channels, letterbox) in expected.items():
+        folder = tmp_path / f"person-{preset}"
+        folder.mkdir()
+        (folder / "model.onnx").write_bytes(b"onnx bytes " + preset.encode())
+        assert (
+            main([str(folder), "--preset", preset, "--name", folder.name, "--version", "2026-11"])
+            == 0
+        )
+        manifest, _ = load_manifest(folder)
+        assert manifest.licence == "Apache-2.0"
+        assert manifest.classes[person] == "person" and manifest.label_map["person"] == "person"
+        assert (manifest.input.channel_order, manifest.input.letterbox) == (channels, letterbox)
+    # D-FINE and RF-DETR number classes by COCO category id: 77 is the phone, 12 unused.
+    dfine, _ = load_manifest(tmp_path / "person-dfine")
+    assert (
+        len(dfine.classes) == 91
+        and dfine.classes[77] == "cell phone"
+        and dfine.classes[12] == "N/A"
+    )
+    rfdetr, _ = load_manifest(tmp_path / "person-rfdetr")
+    assert rfdetr.input.mean == (0.485, 0.456, 0.406) and rfdetr.input.width == 512
+
+
+def test_checkpoints_not_cleared_for_commercial_use_are_refused(tmp_path, capsys):
+    from cctv_edge.models.make_manifest import main
+
+    folder = tmp_path / "dfine-s-obj2coco"
+    folder.mkdir()
+    (folder / "model.onnx").write_bytes(b"x")
+    assert main([str(folder), "--preset", "dfine", "--name", "person-dfine", "--version", "1"]) == 1
+    assert "not cleared for commercial use" in capsys.readouterr().out
+    assert not (folder / "model.json").exists()
+
+
+def test_dfine_manifest_maps_coco_category_ids_to_labels(tmp_path):
+    """The helper's D-FINE manifest, with D-FINE's outputs (labels are COCO category ids)."""
+    from cctv_edge.models.make_manifest import main
+    from cctv_edge.models.manifest import load_manifest
+
+    folder = tmp_path / "person-dfine-s"
+    folder.mkdir()
+    (folder / "model.onnx").write_bytes(b"weights")
+    main(
+        [str(folder), "--preset", "dfine", "--name", folder.name, "--version", "1", "--size", "64"]
+    )
+    loaded, _ = load_manifest(folder)
+    labels = np.array([[1, 77, 62]])  # person, cell phone, chair
+    boxes = np.array([[[10, 10, 30, 40], [40, 40, 50, 50], [0, 0, 20, 20]]], np.float32)
+    scores = np.array([[0.9, 0.8, 0.95]], np.float32)
+    detector = OnnxDetector(
+        loaded, FakeSession([labels, boxes, scores], ("images", "orig_target_sizes"))
+    )
+    found = sorted(d.label for d in detector.detect(np.zeros((64, 64, 3), np.uint8)))
+    assert found == ["person", "phone"]  # the chair isn't used by any rule

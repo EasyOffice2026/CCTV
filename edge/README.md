@@ -83,9 +83,12 @@ Each model is a folder with its weights and a `model.json`:
 - Each model is loaded once and shared by all cameras; applying a new config does not
   reload it.
 
-Licence-safe candidates (to confirm with the client): YOLOX, RT-DETR and D-FINE
-(Apache-2.0) for people; YuNet (MIT) and SFace (Apache-2.0) from the OpenCV model zoo for
-faces. The drawer and PPE classifiers are trained on Mudawara footage (see `ml/`).
+Which models (licences, accuracy, the recommendation): [docs/ai-models.md](../docs/ai-models.md).
+For a person detector exported to ONNX, `python -m cctv_edge.models.make_manifest <folder>
+--preset dfine|rfdetr|yolox --name ... --version ...` writes its `model.json` (input, class
+numbering, sha256, licence), checks it the way the box loads it, and refuses checkpoints
+known not to be cleared for commercial use. The drawer and PPE classifiers are trained on
+Mudawara footage (see `ml/`).
 
 ## Features and their rules
 

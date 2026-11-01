@@ -85,7 +85,7 @@ Taken from [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md); update before the session
 - Hardware video decoding on the Jetson (DeepStream/GStreamer) not built: decoding is on
   the CPU ([hardware.md](hardware.md)).
 - Email provider not chosen; WhatsApp waits on Meta's approval (plan 6.3).
-- Model training depends on the licence decision; no training code in the repository.
+- Model training depends on the licence decision ([ai-models.md](ai-models.md) recommends one); no training code in the repository.
 - Staff left out of customer counts only when seen in staff zones; no uniform classifier.
 - NVR playback and checks are Hikvision only.
 - The operational-system integration method still to be confirmed by their technical
