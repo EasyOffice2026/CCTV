@@ -292,7 +292,8 @@
         "staff_area",
         "restricted",
         "ignore",
-        "entrance_line"
+        "entrance_line",
+        "watch_area"
       ],
       "title": "ZoneType",
       "type": "string"

@@ -163,6 +163,7 @@ export const ar: Record<MessageKey, string> = {
   "zoneType.staff_area": "منطقة الموظفين",
   "zoneType.restricted": "محظورة",
   "zoneType.ignore": "تجاهل (شاشات، انعكاسات، الشارع)",
+  "zoneType.watch_area": "منطقة مراقبة (أجسام متروكة أو مأخوذة)",
   "zoneType.entrance_line": "خط عدّ الدخول",
 
   "role.super_admin": "مشرف عام",

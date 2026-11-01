@@ -78,6 +78,7 @@ export const ZONE_TYPES: Schemas["ZoneType"][] = [
   "restricted",
   "ignore",
   "entrance_line",
+  "watch_area",
 ];
 export const CAMERA_ROLES: Schemas["CameraRole"][] = [
   "entrance",

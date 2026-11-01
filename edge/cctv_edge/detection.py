@@ -20,6 +20,9 @@ DRAWER_OPEN = "drawer_open"
 NO_MASK = "no_mask"
 NO_GLOVES = "no_gloves"
 NO_HAIR_CAP = "no_hair_cap"
+# From the static-change detector on watched areas (objects.py).
+OBJECT_LEFT = "object_left"
+OBJECT_REMOVED = "object_removed"
 
 
 @dataclass(frozen=True)

@@ -327,3 +327,32 @@ def test_retired_device_is_locked_out(client, org, owner):
     assert client.get("/v1/edge/config").status_code == 401
     bogus = {"Authorization": "Bearer cctv_dev_nope"}
     assert client.get("/v1/edge/config", headers=bogus).status_code == 401
+
+
+def test_watched_areas_and_object_feature_reach_the_edge(client, org, owner):
+    """Later phase: objects left or removed are watched in `watch_area` zones."""
+    device = pair_device(client, org, owner)
+    camera = org.ids["cam_a1"]
+    zone = client.post(
+        f"/v1/cameras/{camera}/zones",
+        json={"name": "Safe", "type": "watch_area", "points": [[0.1, 0.5], [0.4, 0.5], [0.4, 0.9]]},
+        headers=owner,
+    )
+    assert zone.status_code == 201, zone.text
+    r = client.put(
+        "/v1/feature-settings",
+        json={
+            "scope": "camera",
+            "camera_id": str(camera),
+            "feature_key": "object_left_removed",
+            "enabled": True,
+            "params": {"min_static_s": 300},
+        },
+        headers=owner,
+    )
+    assert r.status_code == 200, r.text
+    [cam] = client.get("/v1/edge/config", headers=device["headers"]).json()["cameras"][:1]
+    assert [z["type"] for z in cam["zones"]] == ["watch_area"]
+    assert cam["features"] == [{"key": "object_left_removed", "params": {"min_static_s": 300}}]
+    features = {f["key"]: f for f in client.get("/v1/features", headers=owner).json()}
+    assert features["object_left_removed"]["availability"] == "pilot"

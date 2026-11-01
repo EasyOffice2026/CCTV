@@ -97,6 +97,9 @@ Without those variables the database tests are skipped. What the cloud tests che
   frame / face enrolment through a simulated edge box (only the addressed box can answer),
   the relay on Redis (fakeredis) and in-process, staff consent rules, CSV export, the
   refresh cookie
+- objects left or removed: a bag put down or taken away in a watched area, someone walking
+  past, lights switched on, a person standing still, long holds becoming normal; the
+  event ends when the bag is taken away, without a false "removed"
 - heatmaps: time per cell without staff and stream gaps, hourly buckets, merged after a
   restart in the outbox, stored and added up in the cloud per camera with branch access,
   through the real edge client

@@ -27,6 +27,15 @@ export const FEATURE_PARAM_DEFAULTS: Record<string, Record<string, unknown>> = {
     missing_gloves: { enabled: true, min_duration_s: 5, max_gap_s: 3, cooldown_s: 900 },
     missing_hair_cap: { enabled: true, min_duration_s: 5, max_gap_s: 3, cooldown_s: 900 },
   },
+  object_left_removed: {
+    min_static_s: 120,
+    max_hold_s: 7200,
+    absorb_s: 600,
+    difference: 30,
+    min_area: 0.003,
+    object_left: { enabled: true, min_duration_s: 5, max_gap_s: 10, cooldown_s: 600, severity: "warning" },
+    object_removed: { enabled: true, min_duration_s: 5, max_gap_s: 10, cooldown_s: 600, severity: "critical" },
+  },
   attendance: {
     match_threshold: 0.4,
     min_face_px: 60,

@@ -191,6 +191,29 @@ track splits a wait, so waits are on the low side.
 
 Events of rules with `min_count` carry `people` (how many were in the zone when it opened).
 
+### Objects left or removed
+
+In **watched areas** (`watch_area` zones), changes that stand still (`cctv_edge/objects.py`),
+without a model: a slow background (what the area normally looks like) and a fast one (what
+it looks like now) on a small grey picture, updated once a second. A spot that differs from
+the slow one and has stopped changing for `min_static_s` is an object left (it adds edges,
+like a bag) or removed (it takes them away, like a missing box); `object_left` (warning)
+and `object_removed` (critical) events last until it is put back or taken away.
+
+| Setting | Default | |
+|---|---|---|
+| `min_static_s` | 120 | How long a change must stand still |
+| `max_hold_s` | 7200 | After this long, the change is the new normal |
+| `absorb_s` | 600 | How fast the slow background follows gradual change (daylight) |
+| `difference` | 30 | Grey levels (0-255) that count as a change |
+| `min_area` | 0.003 | Smallest change, as a share of the picture |
+
+Someone walking past doesn't count or end an event. A change over 40% of the picture at
+once (lights switched, camera moved) restarts the backgrounds. People tracked by a person
+model are left out; without one, someone sitting still for two minutes looks like an
+object, so draw watched areas where people don't stay (a safe, a stock shelf, an emergency
+exit corridor), not over tables.
+
 ### Heatmap
 
 Where people stand (`cctv_edge/heatmap.py`), for cameras with the Heatmap feature: every

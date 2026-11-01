@@ -113,6 +113,7 @@ class ZoneType(str, Enum):
     RESTRICTED = "restricted"
     IGNORE = "ignore"  # detections inside are dropped (TV screens, reflections, street)
     ENTRANCE_LINE = "entrance_line"  # 2-point line for in/out counting
+    WATCH_AREA = "watch_area"  # objects left or removed (a safe, a shelf, a corridor)
 
 
 LINE_ZONE_TYPES = frozenset({ZoneType.ENTRANCE_LINE})

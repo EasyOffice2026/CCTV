@@ -5236,7 +5236,7 @@ export interface components {
          * ZoneType
          * @enum {string}
          */
-        ZoneType: "kitchen" | "counter" | "cash_drawer" | "queue" | "dining" | "staff_area" | "restricted" | "ignore" | "entrance_line";
+        ZoneType: "kitchen" | "counter" | "cash_drawer" | "queue" | "dining" | "staff_area" | "restricted" | "ignore" | "entrance_line" | "watch_area";
     };
     responses: never;
     parameters: never;

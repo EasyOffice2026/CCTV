@@ -162,6 +162,7 @@ export const en = {
   "zoneType.restricted": "Restricted",
   "zoneType.ignore": "Ignore (screens, reflections, street)",
   "zoneType.entrance_line": "Entrance count line",
+  "zoneType.watch_area": "Watched area (objects left or removed)",
 
   "role.super_admin": "Super-admin",
   "role.owner": "Owner",

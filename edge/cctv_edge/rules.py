@@ -31,6 +31,8 @@ from cctv_edge.detection import (
     NO_GLOVES,
     NO_HAIR_CAP,
     NO_MASK,
+    OBJECT_LEFT,
+    OBJECT_REMOVED,
     PERSON,
 )
 from cctv_edge.geometry import Box
@@ -157,6 +159,29 @@ DEFAULT_RULES: dict[FeatureKey, tuple[RuleSpec, ...]] = {
             cooldown_s=600,
         ),
     ),
+    # Later phase. How long something must stand still is the detector's min_static_s;
+    # the rule only needs it for a few seconds more.
+    FeatureKey.OBJECT_LEFT_REMOVED: (
+        RuleSpec(
+            EventType.OBJECT_LEFT,
+            frozenset({OBJECT_LEFT}),
+            zone_types=frozenset({ZoneType.WATCH_AREA}),
+            group_by=GroupBy.ZONE,
+            min_duration_s=5,
+            max_gap_s=10,
+            cooldown_s=600,
+        ),
+        RuleSpec(
+            EventType.OBJECT_REMOVED,
+            frozenset({OBJECT_REMOVED}),
+            zone_types=frozenset({ZoneType.WATCH_AREA}),
+            group_by=GroupBy.ZONE,
+            min_duration_s=5,
+            max_gap_s=10,
+            cooldown_s=600,
+            severity=Severity.CRITICAL,
+        ),
+    ),
     FeatureKey.CUSTOMER_COUNT: (
         RuleSpec(
             EventType.OCCUPANCY_HIGH,
@@ -185,6 +210,13 @@ FEATURE_DEFAULTS: dict[FeatureKey, dict[str, float]] = {
         "worn_threshold": 0.6,
         "missing_threshold": 0.3,
         "classify_interval_s": 1.0,
+    },
+    FeatureKey.OBJECT_LEFT_REMOVED: {
+        "min_static_s": 120,
+        "max_hold_s": 7200,
+        "absorb_s": 600,
+        "difference": 30,
+        "min_area": 0.003,
     },
     FeatureKey.ATTENDANCE: {
         "match_threshold": 0.40,

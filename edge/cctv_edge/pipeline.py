@@ -2,8 +2,9 @@
 
     frame ─► detectors ─► ignore zones ─► tracker ─► zone tests ─┬─► rules ─► events
                                              │                    ├─► PPE (kitchen zones)
-                                             ├─► counts           └─► drawer (cash_drawer zones)
-                                             └─► heatmap
+                                             ├─► counts           ├─► drawer (cash_drawer zones)
+                                             └─► heatmap          └─► objects left/removed
+                                                                      (watch areas)
     frame ─► faces ─► match staff ─► sightings              (attendance cameras only)
 
 Only the stages the enabled features need are built, and only their models run.
@@ -25,13 +26,20 @@ from cctv_contracts.v1 import (
 )
 from cctv_edge.attendance import AttendanceSettings, AttendanceWatcher
 from cctv_edge.counts import CountAggregator
-from cctv_edge.detection import DRAWER_OPEN, PERSON, DetectorFactory
+from cctv_edge.detection import (
+    DRAWER_OPEN,
+    OBJECT_LEFT,
+    OBJECT_REMOVED,
+    PERSON,
+    DetectorFactory,
+)
 from cctv_edge.face import FaceAnalyzer, FaceGallery
 from cctv_edge.geometry import Box, point_in_polygon
 from cctv_edge.heatmap import HeatmapAggregator
 from cctv_edge.imaging import crop
 from cctv_edge.models.classifier import Classifier, ClassifierFactory
 from cctv_edge.models.manifest import ModelTask
+from cctv_edge.objects import ObjectSettings, StaticChangeDetector
 from cctv_edge.ppe import ITEM_LABELS, PpeChecker, PpeSettings, Verdict
 from cctv_edge.rules import (
     Observation,
@@ -150,6 +158,19 @@ class CameraPipeline:
                 self._drawer_threshold = feature_settings(features[FeatureKey.CASHIER])[
                     "drawer_open_threshold"
                 ]
+        # Objects left or removed: picture changes that stand still in watch areas.
+        self.objects: StaticChangeDetector | None = None
+        object_labels = needed & {OBJECT_LEFT, OBJECT_REMOVED}
+        if object_labels:
+            needed -= object_labels
+            watched = {z.id: z.points for z in camera.zones if z.type is ZoneType.WATCH_AREA}
+            if watched:
+                self.objects = StaticChangeDetector(
+                    watched,
+                    ObjectSettings.from_params(
+                        feature_settings(features[FeatureKey.OBJECT_LEFT_REMOVED])
+                    ),
+                )
         # PPE: a classifier on people standing in kitchen zones.
         self.ppe: PpeChecker | None = None
         self._kitchens = [z.id for z in camera.zones if z.type is ZoneType.KITCHEN]
@@ -208,7 +229,7 @@ class CameraPipeline:
 
     @property
     def active(self) -> bool:
-        return bool(self.detectors or self.drawer or self.attendance)
+        return bool(self.detectors or self.drawer or self.attendance or self.objects)
 
     def process(self, frame: np.ndarray, ts: float) -> FrameResult:
         detections = [
@@ -230,6 +251,12 @@ class CameraPipeline:
             observations += self._check_ppe(frame, tracks, observations, ts)
         if self.drawer is not None:
             observations += self._check_drawers(frame)
+        if self.objects is not None:
+            people = [t.box for t in tracks if t.label == PERSON]
+            observations += [
+                Observation(c.label, c.box, c.confidence, None, frozenset({c.zone_id}))
+                for c in self.objects.update(frame, ts, people)
+            ]
         sightings = self.attendance.process(frame, ts) if self.attendance else []
         return FrameResult(
             self.engine.update(ts, observations), observations, counts, sightings, heatmaps

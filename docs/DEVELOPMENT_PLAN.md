@@ -339,7 +339,7 @@ If a feature misses its target, extend the pilot for that feature only. Don't ho
 ### Later phase (after pilot)
 
 - [x] Heatmaps (track positions are already available → aggregate into a floor-plan grid) *Built per camera, over the camera's own picture (32 x 18 cells), not yet on a floor plan: the box adds up the seconds people (not staff) stood in each cell and sends one bucket per hour (numbers only); Monitoring › Heatmap shows a camera over today, yesterday or the last 7, 30 or 90 days, on a current camera picture if the user may see one, with the busiest areas of the picture as a list. Turned on per camera with the Heatmap feature. A combined floor plan per branch (mapping each camera onto a drawing) and heatmaps in the reports are still to do.*
-- Object left / removed
+- [x] Object left / removed *Without a model: in **watched areas** (new zone type, drawn around a safe, a shelf or a corridor), the box keeps a slow and a fast background of the picture; a change that stays still for `min_static_s` (2 min by default) is an object left (it adds edges) or removed (it takes them away). Someone walking past doesn't count or end an event; a sudden change over much of the picture (lights) restarts the backgrounds; after `max_hold_s` (2 h) a change is the new normal. People standing still are left out once a person model runs; until then, watched areas must be where people don't stay. Tested on synthetic pictures and a recorded H.264 test video through the replay tool; not yet on footage from the branches.*
 - POS integration (drawer vs sales), HRM integration (attendance → payroll)
 - Model retraining pipeline that uses reviewed "false alarm" labels automatically
 - Mobile app
