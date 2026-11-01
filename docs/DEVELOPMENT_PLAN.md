@@ -164,7 +164,7 @@ Assumes about **2 developers** (1 backend/frontend, 1 CV/edge). One developer al
 - [x] 1.1 Monorepo, CI (lint, tests, Docker build), pre-commit. *Branching rules still to agree; type-checking (mypy) not added yet.*
 - [x] 1.2 Dev environment: `docker-compose` with Postgres, Redis, MinIO (local S3), MQTT, API. *The web dashboard joined the stack in Phase 4.*
 - [x] 1.3 **Simulated cameras:** loop the collected footage as RTSP streams (MediaMTX + ffmpeg) so all development works without being on site.
-- [ ] 1.4 Cloud infrastructure (staging) with Terraform: Postgres, object storage, container hosting, secrets manager, TLS. *Blocked on the cloud provider/region decision (§1 #11).*
+- [x] 1.4 Cloud infrastructure (staging) with Terraform: Postgres, object storage, container hosting, secrets manager, TLS. *AWS, region me-central-1 (UAE) by default (`infra/terraform`): VPC over two zones, RDS PostgreSQL 16 (encrypted, TLS only), ElastiCache Redis (TLS), the media bucket (private, encrypted), the KMS key for face templates, Secrets Manager, ECS Fargate (api, worker, web, migrate) and a load balancer with TLS 1.2+ and an ACM certificate; staging and production from the same scripts (production: standby database and Redis, a NAT gateway per zone, deletion protection). `deploy.sh` runs the migrations with the new image before the containers change. Checked with `terraform validate` and `terraform test` (plans with mocked AWS, also in CI); not yet applied to a real account.*
 - [x] 1.5 DB schema v1 (§3) + migrations + **RLS policies** + a test that proves tenant A cannot read tenant B.
 - [x] 1.6 Edge↔cloud contract: event JSON schema, clip upload flow (pre-signed URLs), heartbeat, config pull. Version it (`/v1`).
 

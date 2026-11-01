@@ -64,8 +64,9 @@ class S3Storage:
             "s3",
             endpoint_url=endpoint_url,
             region_name=region,
-            aws_access_key_id=access_key,
-            aws_secret_access_key=secret_key,
+            # No keys: the AWS credential chain (the ECS task role in the cloud).
+            aws_access_key_id=access_key or None,
+            aws_secret_access_key=secret_key or None,
             # Path-style works with MinIO; SigV4 is required by both.
             config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
         )

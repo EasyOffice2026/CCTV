@@ -1,0 +1,19 @@
+# Copy to staging.tfvars (git-ignored) and fill in.
+environment     = "staging"
+region          = "me-central-1" # UAE; me-south-1 for Bahrain
+domain_name     = "cctv-staging.example.com"
+route53_zone_id = "Z0123456789ABCDEFGHIJ" # or certificate_arn = "arn:aws:acm:..." and your own DNS
+image_tag       = "v1.0.0"
+
+# Private GHCR packages: a secret {"username": "...", "password": "<token, read:packages>"}.
+# registry_credentials_secret_arn = "arn:aws:secretsmanager:me-central-1:123456789012:secret:cctv/ghcr-AbCdEf"
+
+oncall_emails = ["oncall@example.com"]
+
+# Secrets created by hand in Secrets Manager (values never in the Terraform state):
+# secret_environment = {
+#   CCTV_VAPID_PRIVATE_KEY     = "arn:aws:secretsmanager:...:secret:cctv/staging/CCTV_VAPID_PRIVATE_KEY-xxxx"
+#   CCTV_WHATSAPP_ACCESS_TOKEN = "arn:aws:secretsmanager:...:secret:cctv/staging/CCTV_WHATSAPP_ACCESS_TOKEN-xxxx"
+#   CCTV_ONCALL_WEBHOOK_URL    = "arn:aws:secretsmanager:...:secret:cctv/staging/CCTV_ONCALL_WEBHOOK_URL-xxxx"
+# }
+# extra_environment = { CCTV_WHATSAPP_PHONE_NUMBER_ID = "..." }

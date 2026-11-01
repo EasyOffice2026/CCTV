@@ -58,6 +58,7 @@ snapshots/
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
+infra/terraform/backend-*.hcl
 
 # OS / editor
 .DS_Store

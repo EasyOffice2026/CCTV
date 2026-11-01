@@ -28,7 +28,7 @@ Pilot site: Mudawara. Built as a multi-tenant product for later client rollout.
 | `cloud/` | Cloud platform: FastAPI API (`cctv_cloud`), database models, Alembic migrations, worker ([README](cloud/README.md)) |
 | `web/` | Web dashboard and admin panel (Next.js, English/Arabic) ([README](web/README.md)) |
 | `ml/` | Dataset tools, labelling exports, training and evaluation scripts |
-| `infra/` | docker-compose dev stack, simulated cameras, Postgres init, Jetson provisioning (`infra/edge/`), (later) Terraform |
+| `infra/` | docker-compose dev stack, simulated cameras, Postgres init, Jetson provisioning (`infra/edge/`), AWS cloud (`infra/terraform/`) |
 | `docs/` | Plan, setup guide, onboarding checklist, runbooks |
 
 ## Data rules

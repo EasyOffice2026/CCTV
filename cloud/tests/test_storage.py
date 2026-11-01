@@ -25,3 +25,15 @@ def test_s3_presigned_urls():
     assert "X-Amz-Signature=" in put and "X-Amz-Expires=900" in put
     get = storage.presign_get("t/b/e/clip-1.mp4", 300, download_name="clip.mp4")
     assert "response-content-disposition=attachment" in get
+
+
+def test_no_keys_means_the_aws_credential_chain(monkeypatch):
+    """On AWS the bucket is reached with the task role: no keys are set (infra/terraform)."""
+    from cctv_cloud.services import storage
+
+    seen = {}
+    monkeypatch.setattr(storage.boto3, "client", lambda *a, **kw: seen.update(kw))
+    storage.S3Storage("bucket", "https://s3.me-central-1.amazonaws.com", "me-central-1", "", "")
+    assert (seen["aws_access_key_id"], seen["aws_secret_access_key"]) == (None, None)
+    storage.S3Storage("bucket", "http://localhost:9000", "us-east-1", "cctv", "dev-secret")
+    assert seen["aws_access_key_id"] == "cctv"

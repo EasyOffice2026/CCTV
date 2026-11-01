@@ -97,6 +97,9 @@ Without those variables the database tests are skipped. What the cloud tests che
   frame / face enrolment through a simulated edge box (only the addressed box can answer),
   the relay on Redis (fakeredis) and in-process, staff consent rules, CSV export, the
   refresh cookie
+- cloud infrastructure: `cd infra/terraform && terraform init -backend=false && terraform validate && terraform test`
+  (plans staging and production with mocked AWS); `bootstrap-db` creating and updating the
+  API's database role
 - reports and keys: drawer openings without a sale alerted once and counted in reports with
   each camera's busiest areas (PDF and Excel); `rotate-secret-key` moving 2FA, sign-in
   integration and webhook secrets and face templates to a new key, harmless twice, nothing

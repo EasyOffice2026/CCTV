@@ -72,6 +72,8 @@ services:
       # Pre-signed URLs are opened by browsers and edge devices on the host, so they must
       # name the host's address for MinIO (signing doesn't contact MinIO).
       CCTV_S3_ENDPOINT_URL: http://localhost:9000
+      CCTV_S3_ACCESS_KEY: cctv  # MinIO's (on AWS: none, the task role)
+      CCTV_S3_SECRET_KEY: cctv-dev-secret
       # Webhooks may go to a receiver on this machine or LAN while developing (plan 8.4).
       CCTV_WEBHOOK_ALLOW_PRIVATE: "true"
     # Behind the web container's proxy: take the client IP from X-Forwarded-For (dev only;

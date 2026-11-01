@@ -36,7 +36,7 @@ memory (no cookie in another site's frame).
 
 | Data | How | Where / what to set |
 |---|---|---|
-| Database | The managed PostgreSQL service's disk encryption (AWS RDS: enable "storage encryption" with a KMS key at creation; it can't be turned on later) | Terraform (plan 1.4) |
+| Database | The managed PostgreSQL service's disk encryption (AWS RDS: enable "storage encryption" with a KMS key at creation; it can't be turned on later) | `infra/terraform/data.tf` (`storage_encrypted`, `rds.force_ssl`) |
 | Clips, snapshots | Bucket default encryption, SSE-S3 or SSE-KMS. `security-check --online` fails when the bucket has none. MinIO in the dev stack doesn't encrypt | `cloud/cctv_cloud/services/storage.py` (`default_encryption`) |
 | Face templates (biometric) | Application-level: AES-256-GCM per template, bound to the tenant and staff member (a template copied to another row doesn't decrypt). Key from `CCTV_FACE_KEY`: `aws-kms:<key>` (envelope encryption: a KMS data key per template, only its wrapped form stored, decrypts logged in CloudTrail) or `local:<id>` (`python -m cctv_cloud.cli face-key`; keep it in the secrets manager). Production refuses to start without one. Rotation: `rotate-face-keys` | `cloud/cctv_cloud/services/face_keys.py` |
 | TOTP secrets | Fernet with a key derived from `CCTV_SECRET_KEY` | `cloud/cctv_cloud/security.py` |
@@ -159,5 +159,9 @@ secrets of sign-in integrations, webhook secrets and, without `CCTV_FACE_KEY`, f
 
 Between steps 1 and 2 (a minute), 2FA sign-ins, SSO sign-ins and webhook signatures fail.
 
-Still open: Terraform for the cloud (plan 1.4) is where RDS encryption, the KMS key, the
-bucket policy and the secrets mounts get defined; Jetson flash-time disk encryption (Phase 9).
+On AWS, `infra/terraform` defines RDS encryption and TLS, the KMS key, the bucket policy (never
+public, TLS only), the secrets and who may read them (only the containers' execution role).
+The Terraform state holds the generated database and Redis passwords: its bucket is for
+administrators only.
+
+Still open: Jetson flash-time disk encryption (Phase 9).

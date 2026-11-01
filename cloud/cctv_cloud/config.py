@@ -40,8 +40,9 @@ class Settings(BaseSettings):
     s3_endpoint_url: str | None = "http://localhost:9000"
     s3_region: str = "us-east-1"
     s3_bucket: str = "cctv-media"
-    s3_access_key: SecretStr = SecretStr("cctv")
-    s3_secret_key: SecretStr = SecretStr("cctv-dev-secret")
+    # Empty: the AWS credential chain (on AWS, the container's task role; infra/terraform).
+    s3_access_key: SecretStr = SecretStr("")
+    s3_secret_key: SecretStr = SecretStr("")
     upload_url_seconds: int = 900
     media_url_seconds: int = 300
 

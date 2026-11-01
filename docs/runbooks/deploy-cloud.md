@@ -1,8 +1,8 @@
 # Deploying and running the cloud (plan 11.5)
 
-For the engineer who runs production. The infrastructure-as-code (Terraform, plan 1.4)
-isn't written yet; this is what it has to create, and how to deploy and operate the
-system on it. Security requirements are in [../security.md](../security.md).
+For the engineer who runs production. [infra/terraform](../../infra/terraform/README.md)
+creates all of this on AWS (plan 1.4) and deploys releases (`deploy.sh`); this page is what it
+creates and why, and how to operate the system on it. Security requirements are in [../security.md](../security.md).
 
 ## What has to exist
 
@@ -12,9 +12,9 @@ system on it. Security requirements are in [../security.md](../security.md).
 | Object storage | S3 bucket, **default encryption** (SSE-S3 or SSE-KMS), public access blocked, lifecycle rule deleting objects after 400 days as a backstop | CORS: GET from the dashboard origin |
 | Redis | ElastiCache, TLS (`rediss://`) | Live events and the relay between API replicas |
 | Containers | ECS Fargate or EKS: **api** (2+ replicas), **worker** (exactly 1), **web** (2) | Images from the release workflow (below) |
-| Load balancer | ALB with TLS (ACM certificate) for the dashboard and API on one origin; WebSocket allowed; idle timeout ≥ 75 s (edge long polls) | Only nginx (web) is exposed; it proxies `/v1` to the API |
+| Load balancer | ALB with TLS (ACM certificate) for the dashboard and API on one origin; WebSocket allowed; idle timeout ≥ 75 s (edge long polls) | `/v1` and `/metrics` go to the API, the rest to nginx (web); the containers are reachable only from the load balancer |
 | Keys | KMS key for face templates (`CCTV_FACE_KEY=aws-kms:…`), the API role allowed `kms:GenerateDataKey` and `kms:Decrypt` | |
-| Secrets | Secrets Manager, mounted as files in `CCTV_SECRETS_DIR` (one file per setting, e.g. `cctv_secret_key`) | Never in images or task definitions in clear |
+| Secrets | Secrets Manager, given to the containers as `CCTV_*` settings by ECS (or as files in `CCTV_SECRETS_DIR`, one per setting, on Kubernetes) | Never in images or task definitions in clear |
 | Email | An SMTP or API provider (not chosen yet; until then emails go to the log) | |
 | Monitoring | Prometheus (or CloudWatch agent) scraping `GET /metrics` with `CCTV_METRICS_TOKEN`; logs to CloudWatch; on-call email and/or chat webhook | |
 
@@ -45,8 +45,10 @@ CSP) and `EMBED_ANCESTORS` (the operational system's origins, plan 8).
 2. Tag a release: `git tag v1.2.0 && git push origin v1.2.0`. The release workflow
    (`.github/workflows/release.yml`) pushes `cctv-api`, `cctv-web` and the multi-arch
    `cctv-edge` images to GitHub Container Registry with that tag.
+   On AWS, `infra/terraform/deploy.sh staging v1.2.0` then does steps 3 and 4.
 3. **Migrations first**, as the owner role, from the new image:
-   `alembic upgrade head` (in `/srv/cloud`, the image's working directory). Migrations are written to work with
+   `python -m cctv_cloud.cli bootstrap-db && alembic upgrade head` (in `/srv/cloud`, the
+   image's working directory; `bootstrap-db` creates or updates the API's database role). Migrations are written to work with
    the previous API version still running (add columns, never rename in one step).
 4. Roll the API, then the worker, then web, to the new tag. The API's container health
    check is `/healthz`; the load balancer should use `/readyz` (checks the database).
@@ -71,6 +73,7 @@ it is safe (`alembic downgrade <revision>`); otherwise fix forward.
 ## First start of a new environment
 
 ```bash
+python -m cctv_cloud.cli bootstrap-db                             # the API's role (managed databases)
 alembic upgrade head                                             # as the owner role
 python -m cctv_cloud.cli create-superadmin --email you@example.com --name "You"
 python -m cctv_cloud.cli security-check --online

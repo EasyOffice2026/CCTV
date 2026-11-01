@@ -1,6 +1,7 @@
 """Admin commands.
 
     python -m cctv_cloud.cli create-superadmin --email you@example.com --name "Your Name"
+    python -m cctv_cloud.cli bootstrap-db
     python -m cctv_cloud.cli vapid-keys
     python -m cctv_cloud.cli face-key
     python -m cctv_cloud.cli rotate-face-keys
@@ -10,6 +11,9 @@
     python -m cctv_cloud.cli export-reviewed --tenant <slug> --since 2026-11-01 --out DIR
 
 create-superadmin prints a link to set the password; 2FA is set up at the first login.
+bootstrap-db creates (or updates the password of) the API's database role from
+CCTV_DATABASE_URL, connecting with CCTV_MIGRATION_DATABASE_URL: what infra/postgres/init
+does for the local stack, for a managed database (run before `alembic upgrade head`).
 vapid-keys prints a new key for browser notifications (CCTV_VAPID_PRIVATE_KEY).
 face-key prints a new local key for face templates (CCTV_FACE_KEYS, CCTV_FACE_KEY).
 rotate-face-keys re-encrypts face templates that use an older key than CCTV_FACE_KEY.
@@ -64,6 +68,36 @@ def create_superadmin(email: str, name: str) -> uuid.UUID:
         db.flush()
         send_password_link(user, _PrintMailer(), purpose="invite")
     return user_id
+
+
+def bootstrap_db() -> str:
+    """The API's role: LOGIN, not a superuser, can't bypass row-level security."""
+    import psycopg
+    from psycopg import sql
+    from sqlalchemy.engine import make_url
+
+    settings = get_settings()
+    app = make_url(settings.database_url)
+    owner = make_url(settings.migration_database_url)
+    if app.username != settings.app_db_role or not app.password:
+        raise SystemExit("CCTV_DATABASE_URL must use the app role with a password")
+    conninfo = owner.set(drivername="postgresql").render_as_string(hide_password=False)
+    with psycopg.connect(conninfo, autocommit=True) as conn:
+        exists = conn.execute(
+            "SELECT 1 FROM pg_roles WHERE rolname = %s", (app.username,)
+        ).fetchone()
+        verb = "ALTER" if exists else "CREATE"
+        conn.execute(
+            sql.SQL("{} ROLE {} LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD {}").format(
+                sql.SQL(verb), sql.Identifier(app.username), sql.Literal(app.password)
+            )
+        )
+        conn.execute(
+            sql.SQL("GRANT CONNECT ON DATABASE {} TO {}").format(
+                sql.Identifier(owner.database), sql.Identifier(app.username)
+            )
+        )
+    return f"database role {app.username} {'updated' if exists else 'created'}"
 
 
 def _rotate_secret_key(old_key_file: str | None) -> int:
@@ -151,6 +185,7 @@ def main(argv: list[str] | None = None) -> int:
     create = commands.add_parser("create-superadmin")
     create.add_argument("--email", required=True)
     create.add_argument("--name", required=True)
+    commands.add_parser("bootstrap-db")
     commands.add_parser("vapid-keys")
     commands.add_parser("face-key")
     commands.add_parser("rotate-face-keys")
@@ -184,6 +219,9 @@ def main(argv: list[str] | None = None) -> int:
 
         count = rotate_templates(tenant_ids())
         print(f"{count} face templates re-encrypted with {current_key_id()}")
+        return 0
+    if args.command == "bootstrap-db":
+        print(bootstrap_db())
         return 0
     if args.command == "rotate-secret-key":
         return _rotate_secret_key(args.old_key_file)

@@ -81,7 +81,7 @@ About 90 minutes, screen-recorded, kept with the repository's documents (not in 
 
 Taken from [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md); update before the session:
 
-- Infrastructure as code (plan 1.4) not written; [runbooks/deploy-cloud.md](runbooks/deploy-cloud.md) lists what it must create.
+- The AWS scripts ([infra/terraform](../infra/terraform/README.md)) have been checked but not yet applied to a real account.
 - Hardware video decoding on the Jetson (DeepStream/GStreamer) not built: decoding is on
   the CPU ([hardware.md](hardware.md)).
 - Email provider not chosen; WhatsApp waits on Meta's approval (plan 6.3).

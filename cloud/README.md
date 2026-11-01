@@ -219,6 +219,7 @@ work with a single API process.
 
 ```bash
 python -m cctv_cloud.cli create-superadmin --email you@example.com --name "Your Name"
+python -m cctv_cloud.cli bootstrap-db    # the API's database role on a managed database (before migrations)
 python -m cctv_cloud.cli vapid-keys      # key for browser notifications
 python -m cctv_cloud.cli face-key        # a local key for face templates (when not using KMS)
 python -m cctv_cloud.cli rotate-face-keys  # re-encrypt templates after changing CCTV_FACE_KEY

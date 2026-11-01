@@ -1,0 +1,17 @@
+# Copy to production.tfvars (git-ignored). Production: standby database and Redis, a NAT
+# gateway per zone, deletion protection, a final database snapshot.
+environment     = "production"
+region          = "me-central-1"
+domain_name     = "cctv.example.com"
+route53_zone_id = "Z0123456789ABCDEFGHIJ"
+image_tag       = "v1.0.0"
+
+db_instance_class = "db.m7g.large"
+redis_node_type   = "cache.t4g.medium"
+api_count         = 2
+web_count         = 2
+
+oncall_emails   = ["oncall@example.com"]
+embed_ancestors = "https://ops.example.com" # the operational system's pages that show /embed/
+
+# secret_environment = { CCTV_VAPID_PRIVATE_KEY = "arn:...", CCTV_WHATSAPP_ACCESS_TOKEN = "arn:...", CCTV_WHATSAPP_APP_SECRET = "arn:..." }

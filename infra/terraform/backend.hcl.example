@@ -1,0 +1,8 @@
+# Copy to backend-staging.hcl / backend-production.hcl (git-ignored). The state holds the
+# generated database and Redis passwords: keep the bucket private, encrypted and versioned
+# (README.md, "Once per AWS account").
+bucket       = "cctv-terraform-state-123456789012"
+key          = "cctv/staging.tfstate" # cctv/production.tfstate for production
+region       = "me-central-1"
+encrypt      = true
+use_lockfile = true # one apply at a time
